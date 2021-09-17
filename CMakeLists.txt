@@ -774,7 +774,7 @@ if(WIN32)
     PRIVATE 
       ${angle_translator_hlsl_sources}
       "src/common/system_utils_win.cpp"
-      "src/common/system_utils_win32.cpp"
+      "src/common/system_utils_winuwp.cpp"
       "src/libANGLE/renderer/dxgi_format_map.h"
       "src/libANGLE/renderer/dxgi_format_map_autogen.cpp"
       "src/libANGLE/renderer/dxgi_support_table.h"
@@ -955,10 +955,8 @@ if(WIN32)
       "src/libANGLE/renderer/d3d/d3d11/texture_format_table.h"
       "src/libANGLE/renderer/d3d/d3d11/texture_format_table_autogen.cpp"
       "src/libANGLE/renderer/d3d/d3d11/texture_format_table_utils.h"
-      "src/libANGLE/renderer/d3d/d3d11/win32/NativeWindow11Win32.cpp"
-      "src/libANGLE/renderer/d3d/d3d11/win32/NativeWindow11Win32.h"
-      "src/libANGLE/renderer/d3d/d3d11/converged/CompositorNativeWindow11.cpp"
-      "src/libANGLE/renderer/d3d/d3d11/converged/CompositorNativeWindow11.h"
+      "src/libANGLE/renderer/d3d/d3d11/converged/NativeWindow11WinRT.cpp"
+      "src/libANGLE/renderer/d3d/d3d11/converged/NativeWindow11WinRT.h"
     )
   target_compile_definitions(angle 
     PUBLIC
@@ -969,7 +967,7 @@ if(WIN32)
       __STDC__=0
       __WRL_NO_DEFAULT_LIB__
       _ATL_NO_OPENGL
-      $<$<PLATFORM_ID:WindowsStore>:WINAPI_FAMILY=WINAPI_FAMILY_APP>
+      WINAPI_FAMILY=WINAPI_FAMILY_APP
       _WINDOWS _UNICODE UNICODE WIN32_LEAN_AND_MEAN NOMINMAX 
       _ENABLE_ATOMIC_ALIGNMENT_FIX
       _USE_MATH_DEFINES
@@ -990,9 +988,9 @@ if(WIN32)
       ANGLE_UTIL_EXPORT=
       ANGLE_STANDALONE_BUILD
       ANGLE_IS_WIN
+      ANGLE_IS_WINUWP
       ANGLE_ENABLE_HLSL
       ANGLE_ENABLE_D3D11
-      ANGLE_ENABLE_D3D11_COMPOSITOR_NATIVE_WINDOW
     )
   target_link_libraries(angle PRIVATE dxguid.lib)
 endif()

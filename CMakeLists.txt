@@ -251,6 +251,11 @@ set(angle_translator_sources
   "src/compiler/translator/util.h"
 )
 
+set(angle_translator_glsl_base_sources
+  "src/compiler/translator/OutputGLSLBase.cpp"
+  "src/compiler/translator/OutputGLSLBase.h"
+)
+
 set(angle_translator_hlsl_sources
   "src/compiler/translator/ASTMetadataHLSL.cpp"
   "src/compiler/translator/ASTMetadataHLSL.h"
@@ -309,10 +314,74 @@ set(angle_translator_hlsl_sources
   "src/compiler/translator/tree_ops/d3d/WrapSwitchStatementsInBlocks.h"
 )
 
-set(angle_translator_essl_symbol_table_sources
-  "src/compiler/translator/ImmutableString_ESSL_autogen.cpp"
-  "src/compiler/translator/SymbolTable_ESSL_autogen.cpp"
+set(angle_translator_lib_metal_sources
+  #"src/compiler/translator/TranslatorMetal.cpp"
+  "src/compiler/translator/TranslatorMetalDirect.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/AstHelpers.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/AstHelpers.h"
+  "src/compiler/translator/TranslatorMetalDirect/DebugSink.h"
+  "src/compiler/translator/TranslatorMetalDirect/DiscoverDependentFunctions.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/DiscoverDependentFunctions.h"
+  "src/compiler/translator/TranslatorMetalDirect/DiscoverEnclosingFunctionTraverser.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/DiscoverEnclosingFunctionTraverser.h"
+  "src/compiler/translator/TranslatorMetalDirect/EmitMetal.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/EmitMetal.h"
+  "src/compiler/translator/TranslatorMetalDirect/FixTypeConstructors.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/FixTypeConstructors.h"
+  "src/compiler/translator/TranslatorMetalDirect/HoistConstants.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/HoistConstants.h"
+  "src/compiler/translator/TranslatorMetalDirect/IdGen.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/IdGen.h"
+  "src/compiler/translator/TranslatorMetalDirect/IntroduceVertexIndexID.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/IntroduceVertexIndexID.h"
+  "src/compiler/translator/TranslatorMetalDirect/Layout.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/Layout.h"
+  "src/compiler/translator/TranslatorMetalDirect/MapFunctionsToDefinitions.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/MapFunctionsToDefinitions.h"
+  "src/compiler/translator/TranslatorMetalDirect/MapSymbols.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/MapSymbols.h"
+  "src/compiler/translator/TranslatorMetalDirect/ModifyStruct.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/ModifyStruct.h"
+  "src/compiler/translator/TranslatorMetalDirect/Name.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/Name.h"
+  "src/compiler/translator/TranslatorMetalDirect/NameEmbeddedUniformStructsMetal.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/NameEmbeddedUniformStructsMetal.h"
+  "src/compiler/translator/TranslatorMetalDirect/Pipeline.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/Pipeline.h"
+  "src/compiler/translator/TranslatorMetalDirect/ProgramPrelude.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/ProgramPrelude.h"
+  "src/compiler/translator/TranslatorMetalDirect/ReduceInterfaceBlocks.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/ReduceInterfaceBlocks.h"
+  "src/compiler/translator/TranslatorMetalDirect/Reference.h"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteCaseDeclarations.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteCaseDeclarations.h"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.h"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteKeywords.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteKeywords.h"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteOutArgs.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteOutArgs.h"
+  "src/compiler/translator/TranslatorMetalDirect/RewritePipelines.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/RewritePipelines.h"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteUnaddressableReferences.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/RewriteUnaddressableReferences.h"
+  "src/compiler/translator/TranslatorMetalDirect/SeparateCompoundExpressions.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/SeparateCompoundExpressions.h"
+  "src/compiler/translator/TranslatorMetalDirect/SeparateCompoundStructDeclarations.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/SeparateCompoundStructDeclarations.h"
+  "src/compiler/translator/TranslatorMetalDirect/SkippingTraverser.h"
+  "src/compiler/translator/TranslatorMetalDirect/SymbolEnv.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/SymbolEnv.h"
+  "src/compiler/translator/TranslatorMetalDirect/ToposortStructs.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/ToposortStructs.h"
+  "src/compiler/translator/TranslatorMetalDirect/TranslatorMetalUtils.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/TranslatorMetalUtils.h"
+  "src/compiler/translator/TranslatorMetalDirect/TransposeRowMajorMatrices.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/TransposeRowMajorMatrices.h"
+  "src/compiler/translator/TranslatorMetalDirect/WrapMain.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/WrapMain.h"
 )
+
 set(angle_translator_glsl_symbol_table_sources
   "src/compiler/translator/ImmutableString_autogen.cpp"
   "src/compiler/translator/SymbolTable_autogen.cpp"
@@ -769,6 +838,27 @@ target_sources(angle
     ${libegl_sources}
   )
 
+target_compile_definitions(angle 
+  PUBLIC
+    EGLAPI=
+    GL_API=
+    GL_APICALL=
+  PRIVATE 
+    _HAS_EXCEPTIONS=0
+    EGL_EGL_PROTOTYPES=1
+    EGL_EGLEXT_PROTOTYPES
+    GL_GLES_PROTOTYPES=1
+    GL_GLEXT_PROTOTYPES
+    LIBEGL_IMPLEMENTATION
+    LIBGLESV2_IMPLEMENTATION
+    LIBANGLE_IMPLEMENTATION
+    ANGLE_CAPTURE_ENABLED=0
+    ANGLE_STATIC=1
+    ANGLE_EXPORT=
+    ANGLE_UTIL_EXPORT=
+    ANGLE_STANDALONE_BUILD
+  )
+  
 if(WIN32)
   target_sources(angle 
     PRIVATE 
@@ -959,10 +1049,6 @@ if(WIN32)
       "src/libANGLE/renderer/d3d/d3d11/converged/NativeWindow11WinRT.h"
     )
   target_compile_definitions(angle 
-    PUBLIC
-      EGLAPI=
-      GL_API=
-      GL_APICALL=
     PRIVATE 
       __STDC__=0
       __WRL_NO_DEFAULT_LIB__
@@ -974,25 +1060,90 @@ if(WIN32)
       _CRT_SECURE_NO_WARNINGS 
       _CRT_NONSTDC_NO_WARNINGS 
       _CRT_SECURE_NO_DEPRECATE
-      _HAS_EXCEPTIONS=0
-      EGL_EGL_PROTOTYPES=1
-      EGL_EGLEXT_PROTOTYPES
-      GL_GLES_PROTOTYPES=1
-      GL_GLEXT_PROTOTYPES
-      LIBEGL_IMPLEMENTATION
-      LIBGLESV2_IMPLEMENTATION
-      LIBANGLE_IMPLEMENTATION
-      ANGLE_CAPTURE_ENABLED=0
-      ANGLE_STATIC=1
-      ANGLE_EXPORT=
-      ANGLE_UTIL_EXPORT=
-      ANGLE_STANDALONE_BUILD
       ANGLE_IS_WIN
       ANGLE_IS_WINUWP
       ANGLE_ENABLE_HLSL
       ANGLE_ENABLE_D3D11
     )
   target_link_libraries(angle PRIVATE dxguid.lib)
+elseif(APPLE)
+  target_sources(angle 
+    PRIVATE 
+      ${angle_translator_glsl_base_sources}
+      ${angle_translator_lib_metal_sources}
+      "src/common/system_utils_posix.cpp"
+      "src/common/system_utils_apple.cpp"
+      "src/common/system_utils_ios.cpp"
+      "src/gpu_info_util/SystemInfo.cpp"
+      "src/libANGLE/renderer/metal/BufferMtl.h"
+      "src/libANGLE/renderer/metal/BufferMtl.mm"
+      "src/libANGLE/renderer/metal/CompilerMtl.h"
+      "src/libANGLE/renderer/metal/CompilerMtl.mm"
+      "src/libANGLE/renderer/metal/ContextMtl.h"
+      "src/libANGLE/renderer/metal/ContextMtl.mm"
+      "src/libANGLE/renderer/metal/DeviceMtl.h"
+      "src/libANGLE/renderer/metal/DeviceMtl.mm"
+      "src/libANGLE/renderer/metal/DisplayMtl.h"
+      "src/libANGLE/renderer/metal/DisplayMtl.mm"
+      "src/libANGLE/renderer/metal/DisplayMtl_api.h"
+      "src/libANGLE/renderer/metal/FrameBufferMtl.h"
+      "src/libANGLE/renderer/metal/FrameBufferMtl.mm"
+      "src/libANGLE/renderer/metal/IOSurfaceSurfaceMtl.h"
+      "src/libANGLE/renderer/metal/IOSurfaceSurfaceMtl.mm"
+      "src/libANGLE/renderer/metal/ImageMtl.h"
+      "src/libANGLE/renderer/metal/ImageMtl.mm"
+      "src/libANGLE/renderer/metal/ProgramMtl.h"
+      "src/libANGLE/renderer/metal/ProgramMtl.mm"
+      "src/libANGLE/renderer/metal/QueryMtl.h"
+      "src/libANGLE/renderer/metal/QueryMtl.mm"
+      "src/libANGLE/renderer/metal/RenderBufferMtl.h"
+      "src/libANGLE/renderer/metal/RenderBufferMtl.mm"
+      "src/libANGLE/renderer/metal/RenderTargetMtl.h"
+      "src/libANGLE/renderer/metal/RenderTargetMtl.mm"
+      "src/libANGLE/renderer/metal/SamplerMtl.h"
+      "src/libANGLE/renderer/metal/SamplerMtl.mm"
+      "src/libANGLE/renderer/metal/ShaderMtl.h"
+      "src/libANGLE/renderer/metal/ShaderMtl.mm"
+      "src/libANGLE/renderer/metal/SurfaceMtl.h"
+      "src/libANGLE/renderer/metal/SurfaceMtl.mm"
+      "src/libANGLE/renderer/metal/SyncMtl.h"
+      "src/libANGLE/renderer/metal/SyncMtl.mm"
+      "src/libANGLE/renderer/metal/TextureMtl.h"
+      "src/libANGLE/renderer/metal/TextureMtl.mm"
+      "src/libANGLE/renderer/metal/TransformFeedbackMtl.h"
+      "src/libANGLE/renderer/metal/TransformFeedbackMtl.mm"
+      "src/libANGLE/renderer/metal/VertexArrayMtl.h"
+      "src/libANGLE/renderer/metal/VertexArrayMtl.mm"
+      "src/libANGLE/renderer/metal/mtl_buffer_pool.h"
+      "src/libANGLE/renderer/metal/mtl_buffer_pool.mm"
+      "src/libANGLE/renderer/metal/mtl_command_buffer.h"
+      "src/libANGLE/renderer/metal/mtl_command_buffer.mm"
+      "src/libANGLE/renderer/metal/mtl_common.h"
+      "src/libANGLE/renderer/metal/mtl_common.mm"
+      "src/libANGLE/renderer/metal/mtl_format_table_autogen.mm"
+      "src/libANGLE/renderer/metal/mtl_format_utils.h"
+      "src/libANGLE/renderer/metal/mtl_format_utils.mm"
+      "src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.h"
+      "src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm"
+      "src/libANGLE/renderer/metal/mtl_occlusion_query_pool.h"
+      "src/libANGLE/renderer/metal/mtl_occlusion_query_pool.mm"
+      "src/libANGLE/renderer/metal/mtl_render_utils.h"
+      "src/libANGLE/renderer/metal/mtl_render_utils.mm"
+      "src/libANGLE/renderer/metal/mtl_resources.h"
+      "src/libANGLE/renderer/metal/mtl_resources.mm"
+      "src/libANGLE/renderer/metal/mtl_state_cache.h"
+      "src/libANGLE/renderer/metal/mtl_state_cache.mm"
+      "src/libANGLE/renderer/metal/mtl_utils.h"
+      "src/libANGLE/renderer/metal/mtl_utils.mm"
+      "src/libANGLE/renderer/metal/shaders/constants.h"
+      "src/libANGLE/renderer/metal/shaders/format_autogen.h"
+      "src/libANGLE/renderer/metal/shaders/mtl_default_shaders_src_autogen.inc"
+    )
+  target_compile_definitions(angle 
+    PRIVATE 
+      ANGLE_ENABLE_METAL
+    )
+  target_link_libraries(angle PRIVATE "-framework IOSurface")
 endif()
 
 if(MSVC)
@@ -1007,5 +1158,8 @@ else()
       -fno-exceptions
       -fno-rtti
       -fvisibility=hidden
+      -fno-objc-arc
+      -Wno-nullability-completeness
+      -Wno-unguarded-availability      
     )
 endif()

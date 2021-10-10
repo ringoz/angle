@@ -1071,6 +1071,7 @@ static InternalFormatInfoMap BuildInternalFormatInfoMap()
 
     // Special format which is not really supported, so always false for all supports.
     AddRGBAFormat(&map, GL_BGRX8_ANGLEX,      true,  8,  8,  8,  0, 0, GL_BGRA_EXT,     GL_UNSIGNED_BYTE,                  GL_UNSIGNED_NORMALIZED, false, NeverSupported,                                    NeverSupported,  NeverSupported,                                    NeverSupported,                                NeverSupported);
+    AddRGBAFormat(&map, GL_RGBX8_ANGLEX,      true,  8,  8,  8,  0, 0, GL_RGBA,         GL_UNSIGNED_BYTE,                  GL_UNSIGNED_NORMALIZED, false, NeverSupported,                                    NeverSupported,  NeverSupported,                                    NeverSupported,                                NeverSupported);
     AddRGBAFormat(&map, GL_BGR565_ANGLEX,     true,  5,  6,  5,  0, 0, GL_BGRA_EXT,     GL_UNSIGNED_SHORT_5_6_5,           GL_UNSIGNED_NORMALIZED, false, NeverSupported,                                    NeverSupported,  NeverSupported,                                    NeverSupported,                                NeverSupported);
     AddRGBAFormat(&map, GL_BGR10_A2_ANGLEX,   true, 10, 10, 10,  2, 0, GL_BGRA_EXT,     GL_UNSIGNED_INT_2_10_10_10_REV,    GL_UNSIGNED_NORMALIZED, false, NeverSupported,                                    NeverSupported,  NeverSupported,                                    NeverSupported,                                NeverSupported);
 
@@ -1411,6 +1412,64 @@ int GetAndroidHardwareBufferFormatFromChannelSizes(const egl::AttributeMap &attr
     return (glInternalFormat != 0)
                ? angle::android::GLInternalFormatToNativePixelFormat(glInternalFormat)
                : 0;
+}
+
+GLenum GetConfigColorBufferFormat(const egl::Config *config)
+{
+    GLenum componentType = GL_NONE;
+    switch (config->colorComponentType)
+    {
+        case EGL_COLOR_COMPONENT_TYPE_FIXED_EXT:
+            componentType = GL_UNSIGNED_NORMALIZED;
+            break;
+        case EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT:
+            componentType = GL_FLOAT;
+            break;
+        default:
+            UNREACHABLE();
+            return GL_NONE;
+    }
+
+    GLenum colorEncoding = GL_LINEAR;
+
+    for (GLenum sizedInternalFormat : GetAllSizedInternalFormats())
+    {
+        const gl::InternalFormat &internalFormat = GetSizedInternalFormatInfo(sizedInternalFormat);
+
+        if (internalFormat.componentType == componentType &&
+            internalFormat.colorEncoding == colorEncoding &&
+            internalFormat.isChannelSizeCompatible(config->redSize, config->greenSize,
+                                                   config->blueSize, config->alphaSize))
+        {
+            return sizedInternalFormat;
+        }
+    }
+
+    // Only expect to get here if there is no color bits in the config
+    ASSERT(config->redSize == 0 && config->greenSize == 0 && config->blueSize == 0 &&
+           config->alphaSize == 0);
+    return GL_NONE;
+}
+
+GLenum GetConfigDepthStencilBufferFormat(const egl::Config *config)
+{
+    GLenum componentType = GL_UNSIGNED_NORMALIZED;
+
+    for (GLenum sizedInternalFormat : GetAllSizedInternalFormats())
+    {
+        const gl::InternalFormat &internalFormat = GetSizedInternalFormatInfo(sizedInternalFormat);
+
+        if (internalFormat.componentType == componentType &&
+            static_cast<EGLint>(internalFormat.depthBits) == config->depthSize &&
+            static_cast<EGLint>(internalFormat.stencilBits) == config->stencilSize)
+        {
+            return sizedInternalFormat;
+        }
+    }
+
+    // Only expect to get here if there is no depth or stencil bits in the config
+    ASSERT(config->depthSize == 0 && config->stencilSize == 0);
+    return GL_NONE;
 }
 
 static FormatSet BuildAllSizedInternalFormatSet()

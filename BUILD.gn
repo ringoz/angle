@@ -224,7 +224,10 @@ config("extra_warnings") {
   }
 
   if (angle_is_winuwp) {
-    cflags += [ "/wd4447" ]  # 'main' signature found without threading model.
+    cflags += [
+      "/wd4091",  # keyword ignored on left of type when no variable is declared
+      "/wd4447",  # 'main' signature found without threading model.
+    ]
   }
 }
 
@@ -306,13 +309,14 @@ config("angle_disable_pool_alloc") {
 }
 
 config("debug_annotations_config") {
+  defines = []
   if (is_debug) {
-    defines = [ "ANGLE_ENABLE_DEBUG_ANNOTATIONS" ]
+    defines += [ "ANGLE_ENABLE_DEBUG_ANNOTATIONS" ]
   }
   if (angle_enable_annotator_run_time_checks) {
     # When used with angle_enable_trace, enables debug markers for AGI with run-time checks to
     # filter out EVENT() messages when the debug annotator is disabled.
-    defines = [ "ANGLE_ENABLE_ANNOTATOR_RUN_TIME_CHECKS" ]
+    defines += [ "ANGLE_ENABLE_ANNOTATOR_RUN_TIME_CHECKS" ]
   }
 }
 
@@ -1006,12 +1010,12 @@ if (angle_has_rapidjson) {
   }
   angle_source_set("angle_json_serializer") {
     public_deps = [
-      ":libANGLE_base",
+      ":angle_common",
       "$angle_root/third_party/rapidjson",
     ]
     sources = [
-      "src/libANGLE/serializer/JsonSerializer.cpp",
-      "src/libANGLE/serializer/JsonSerializer.h",
+      "src/common/serializer/JsonSerializer.cpp",
+      "src/common/serializer/JsonSerializer.h",
     ]
     public_configs = [ ":angle_rapidjson_config" ]
   }

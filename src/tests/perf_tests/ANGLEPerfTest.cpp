@@ -743,12 +743,20 @@ void ANGLERenderTest::SetUp()
         mConfigParams.swapInterval = 0;
     }
 
-    if (!mGLWindow->initializeGL(mOSWindow, mEntryPointsLib.get(), mTestParams.driver, withMethods,
-                                 mConfigParams))
+    GLWindowResult res = mGLWindow->initializeGLWithResult(
+        mOSWindow, mEntryPointsLib.get(), mTestParams.driver, withMethods, mConfigParams);
+    switch (res)
     {
-        mSkipTest = true;
-        FAIL() << "Failed initializing GL Window";
-        // FAIL returns.
+        case GLWindowResult::NoColorspaceSupport:
+            mSkipTest = true;
+            std::cout << "Test skipped due to missing support for color spaces." << std::endl;
+            return;
+        case GLWindowResult::Error:
+            mSkipTest = true;
+            FAIL() << "Failed initializing GL Window";
+            // FAIL returns.
+        default:
+            break;
     }
 
     // Disable vsync (if not done by the window init).
@@ -762,7 +770,10 @@ void ANGLERenderTest::SetUp()
         }
     }
 
-    mIsTimestampQueryAvailable = IsGLExtensionEnabled("GL_EXT_disjoint_timer_query");
+    if (mTestParams.trackGpuTime)
+    {
+        mIsTimestampQueryAvailable = EnsureGLExtensionEnabled("GL_EXT_disjoint_timer_query");
+    }
 
     if (!areExtensionPrerequisitesFulfilled())
     {
@@ -1049,7 +1060,7 @@ double GetHostTimeSeconds()
 {
     // Move the time origin to the first call to this function, to avoid generating unnecessarily
     // large timestamps.
-    static double origin = GetCurrentTime();
-    return GetCurrentTime() - origin;
+    static double origin = GetCurrentSystemTime();
+    return GetCurrentSystemTime() - origin;
 }
 }  // namespace angle

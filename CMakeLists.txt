@@ -315,8 +315,11 @@ set(angle_translator_hlsl_sources
 )
 
 set(angle_translator_lib_metal_sources
-  #"src/compiler/translator/TranslatorMetal.cpp"
+  "src/compiler/translator/DriverUniformMetal.cpp"
+  "src/compiler/translator/DriverUniformMetal.h"
   "src/compiler/translator/TranslatorMetalDirect.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.cpp"
+  "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.h"
   "src/compiler/translator/TranslatorMetalDirect/AstHelpers.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AstHelpers.h"
   "src/compiler/translator/TranslatorMetalDirect/DebugSink.h"
@@ -355,8 +358,6 @@ set(angle_translator_lib_metal_sources
   "src/compiler/translator/TranslatorMetalDirect/Reference.h"
   "src/compiler/translator/TranslatorMetalDirect/RewriteCaseDeclarations.cpp"
   "src/compiler/translator/TranslatorMetalDirect/RewriteCaseDeclarations.h"
-  "src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.cpp"
-  "src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.h"
   "src/compiler/translator/TranslatorMetalDirect/RewriteKeywords.cpp"
   "src/compiler/translator/TranslatorMetalDirect/RewriteKeywords.h"
   "src/compiler/translator/TranslatorMetalDirect/RewriteOutArgs.cpp"
@@ -1087,6 +1088,8 @@ elseif(APPLE)
       "src/libANGLE/renderer/metal/ImageMtl.mm"
       "src/libANGLE/renderer/metal/ProgramMtl.h"
       "src/libANGLE/renderer/metal/ProgramMtl.mm"
+      "src/libANGLE/renderer/metal/ProvokingVertexHelper.h"
+      "src/libANGLE/renderer/metal/ProvokingVertexHelper.mm"
       "src/libANGLE/renderer/metal/QueryMtl.h"
       "src/libANGLE/renderer/metal/QueryMtl.mm"
       "src/libANGLE/renderer/metal/RenderBufferMtl.h"

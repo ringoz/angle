@@ -18,6 +18,7 @@
 
 #include "common/angle_version.h"
 #include "common/mathutil.h"
+#include "common/serializer/JsonSerializer.h"
 #include "common/string_utils.h"
 #include "common/system_utils.h"
 #include "libANGLE/Config.h"
@@ -42,7 +43,6 @@
 #include "libANGLE/entry_points_utils.h"
 #include "libANGLE/queryconversions.h"
 #include "libANGLE/queryutils.h"
-#include "libANGLE/serializer/JsonSerializer.h"
 #include "third_party/ceval/ceval.h"
 
 #define USE_SYSTEM_ZLIB
@@ -61,12 +61,13 @@ constexpr char kEnabledVarName[]        = "ANGLE_CAPTURE_ENABLED";
 constexpr char kOutDirectoryVarName[]   = "ANGLE_CAPTURE_OUT_DIR";
 constexpr char kFrameStartVarName[]     = "ANGLE_CAPTURE_FRAME_START";
 constexpr char kFrameEndVarName[]       = "ANGLE_CAPTURE_FRAME_END";
-constexpr char kCaptureTriggerVarName[] = "ANGLE_CAPTURE_TRIGGER";
+constexpr char kTriggerVarName[]        = "ANGLE_CAPTURE_TRIGGER";
 constexpr char kCaptureLabelVarName[]   = "ANGLE_CAPTURE_LABEL";
 constexpr char kCompressionVarName[]    = "ANGLE_CAPTURE_COMPRESSION";
 constexpr char kSerializeStateVarName[] = "ANGLE_CAPTURE_SERIALIZE_STATE";
 constexpr char kValidationVarName[]     = "ANGLE_CAPTURE_VALIDATION";
 constexpr char kValidationExprVarName[] = "ANGLE_CAPTURE_VALIDATION_EXPR";
+constexpr char kTrimEnabledVarName[]    = "ANGLE_CAPTURE_TRIM_ENABLED";
 
 constexpr size_t kBinaryAlignment   = 16;
 constexpr size_t kFunctionSizeLimit = 5000;
@@ -75,15 +76,16 @@ constexpr size_t kFunctionSizeLimit = 5000;
 constexpr size_t kStringLengthLimit = 16380;
 
 // Android debug properties that correspond to the above environment variables
-constexpr char kAndroidCaptureEnabled[] = "debug.angle.capture.enabled";
+constexpr char kAndroidEnabled[]        = "debug.angle.capture.enabled";
 constexpr char kAndroidOutDir[]         = "debug.angle.capture.out_dir";
 constexpr char kAndroidFrameStart[]     = "debug.angle.capture.frame_start";
 constexpr char kAndroidFrameEnd[]       = "debug.angle.capture.frame_end";
-constexpr char kAndroidCaptureTrigger[] = "debug.angle.capture.trigger";
+constexpr char kAndroidTrigger[]        = "debug.angle.capture.trigger";
 constexpr char kAndroidCaptureLabel[]   = "debug.angle.capture.label";
 constexpr char kAndroidCompression[]    = "debug.angle.capture.compression";
 constexpr char kAndroidValidation[]     = "debug.angle.capture.validation";
 constexpr char kAndroidValidationExpr[] = "debug.angle.capture.validation_expr";
+constexpr char kAndroidTrimEnabled[]    = "debug.angle.capture.trim_enabled";
 
 struct FramebufferCaptureFuncs
 {
@@ -148,7 +150,7 @@ std::string GetDefaultOutDirectory()
     constexpr char kAndroidOutputSubdir[] = "/angle_capture/";
     path += std::string(applicationId) + kAndroidOutputSubdir;
 
-    // Check for existance of output path
+    // Check for existence of output path
     struct stat dir_stat;
     if (stat(path.c_str(), &dir_stat) == -1)
     {
@@ -164,8 +166,7 @@ std::string GetDefaultOutDirectory()
 
 std::string GetCaptureTrigger()
 {
-    return GetEnvironmentVarOrUnCachedAndroidProperty(kCaptureTriggerVarName,
-                                                      kAndroidCaptureTrigger);
+    return GetEnvironmentVarOrUnCachedAndroidProperty(kTriggerVarName, kAndroidTrigger);
 }
 
 std::ostream &operator<<(std::ostream &os, gl::ContextID contextId)
@@ -192,24 +193,20 @@ std::ostream &operator<<(std::ostream &os, const FmtCapturePrefix &fmt)
 {
     if (fmt.captureLabel.empty())
     {
-        os << "angle";
+        os << "angle_capture";
     }
     else
     {
         os << fmt.captureLabel;
     }
 
-    if (fmt.contextId == kNoContextId)
+    if (fmt.contextId == kSharedContextId)
     {
-        // Do nothing
+        os << "_shared";
     }
-    else if (fmt.contextId == kSharedContextId)
+    else if (fmt.contextId != kNoContextId)
     {
-        os << "_capture_shared";
-    }
-    else
-    {
-        os << "_capture_context" << fmt.contextId;
+        os << "_context" << fmt.contextId;
     }
 
     return os;
@@ -847,42 +844,6 @@ CallCapture CaptureMakeCurrent(EGLDisplay display,
     return CallCapture(angle::EntryPoint::EGLMakeCurrent, std::move(paramBuffer));
 }
 
-struct SaveFileHelper
-{
-  public:
-    // We always use ios::binary to avoid inconsistent line endings when captured on Linux vs Win.
-    SaveFileHelper(const std::string &filePathIn)
-        : mOfs(filePathIn, std::ios::binary | std::ios::out), mFilePath(filePathIn)
-    {
-        if (!mOfs.is_open())
-        {
-            FATAL() << "Could not open " << filePathIn;
-        }
-    }
-
-    ~SaveFileHelper() { printf("Saved '%s'.\n", mFilePath.c_str()); }
-
-    template <typename T>
-    SaveFileHelper &operator<<(const T &value)
-    {
-        mOfs << value;
-        if (mOfs.bad())
-        {
-            FATAL() << "Error writing to " << mFilePath;
-        }
-        return *this;
-    }
-
-    void write(const uint8_t *data, size_t size)
-    {
-        mOfs.write(reinterpret_cast<const char *>(data), size);
-    }
-
-  private:
-    std::ofstream mOfs;
-    std::string mFilePath;
-};
-
 std::string GetBinaryDataFilePath(bool compression, const std::string &captureLabel)
 {
     std::stringstream fnameStream;
@@ -1193,6 +1154,42 @@ void MaybeResetOpaqueTypeObjects(std::stringstream &out,
     MaybeResetFenceSyncObjects(out, dataTracker, header, resourceTracker, binaryData);
 }
 
+bool FindShaderProgramIDInCall(const CallCapture &call, gl::ShaderProgramID *idOut)
+{
+    for (const ParamCapture &param : call.params.getParamCaptures())
+    {
+        // Only checking for programs right now, but could be expanded to all ResourceTypes
+        if (param.type == ParamType::TShaderProgramID)
+        {
+            *idOut = param.value.ShaderProgramIDVal;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void MarkResourceIDActive(ResourceIDType resourceType,
+                          GLuint id,
+                          std::vector<CallCapture> *setupCalls,
+                          const ResourceIDToSetupCallsMap *resourceIDToSetupCallsMap)
+{
+    const std::map<GLuint, gl::Range<size_t>> &resourceSetupCalls =
+        (*resourceIDToSetupCallsMap)[resourceType];
+    const auto iter = resourceSetupCalls.find(id);
+    if (iter == resourceSetupCalls.end())
+    {
+        return;
+    }
+
+    // Mark all of the calls that were used to initialize this resource as ACTIVE
+    const gl::Range<size_t> &calls = iter->second;
+    for (size_t index : calls)
+    {
+        (*setupCalls)[index].isActive = true;
+    }
+}
+
 void WriteCppReplayFunctionWithParts(const gl::ContextID contextID,
                                      ReplayFunc replayFunc,
                                      DataTracker *dataTracker,
@@ -1219,6 +1216,12 @@ void WriteCppReplayFunctionWithParts(const gl::ContextID contextID,
 
     for (const CallCapture &call : calls)
     {
+        if (!call.isActive)
+        {
+            // Don't write setup calls for inactive resources
+            continue;
+        }
+
         callStreamParts << "    ";
         WriteCppReplayForCall(call, dataTracker, callStreamParts, header, binaryData);
         callStreamParts << ";\n";
@@ -1418,7 +1421,8 @@ void CaptureUpdateResourceIDs(const CallCapture &call,
     GLsizei n = call.params.getParamFlexName("n", "count", ParamType::TGLsizei, 0).value.GLsizeiVal;
     ASSERT(param.data.size() == 1);
     ResourceIDType resourceIDType = GetResourceIDTypeFromParamType(param.type);
-    ASSERT(resourceIDType != ResourceIDType::InvalidEnum);
+    ASSERT(resourceIDType != ResourceIDType::InvalidEnum &&
+           resourceIDType != ResourceIDType::ShaderProgram);
     const char *resourceName = GetResourceIDTypeName(resourceIDType);
 
     std::stringstream updateFuncNameStr;
@@ -2113,6 +2117,9 @@ void CaptureVertexArrayState(std::vector<CallCapture> *setupCalls,
             // Establish the relationship between currently bound buffer and the VAO
             if (context->isGLES1())
             {
+                // Track indexes that used ES1 calls
+                vertexPointerBindings.set(attribIndex);
+
                 CaptureVertexPointerES1(setupCalls, replayState, attribIndex, attrib, binding);
             }
             else if (attrib.bindingIndex == attribIndex &&
@@ -2594,10 +2601,7 @@ void CaptureShareGroupMidExecutionSetup(const gl::Context *context,
     const gl::State &apiState              = context->getState();
 
     // Small helper function to make the code more readable.
-    auto cap = [frameCaptureShared, setupCalls](CallCapture &&call) {
-        frameCaptureShared->updateReadBufferSize(call.params.getReadBufferSize());
-        setupCalls->emplace_back(std::move(call));
-    };
+    auto cap = [setupCalls](CallCapture &&call) { setupCalls->emplace_back(std::move(call)); };
 
     // Capture Buffer data.
     const gl::BufferManager &buffers = apiState.getBufferManagerForCapture();
@@ -3018,6 +3022,8 @@ void CaptureShareGroupMidExecutionSetup(const gl::Context *context,
             continue;
         }
 
+        size_t programSetupStart = setupCalls->size();
+
         // Get last linked shader source.
         const ProgramSources &linkedSources =
             context->getShareGroup()->getFrameCaptureShared()->getProgramSources(id);
@@ -3037,6 +3043,13 @@ void CaptureShareGroupMidExecutionSetup(const gl::Context *context,
         resourceTracker->getTrackedResource(ResourceIDType::ShaderProgram)
             .getStartingResources()
             .insert(id.value);
+
+        size_t programSetupEnd = setupCalls->size();
+
+        // Mark the range of calls used to setup this program
+        frameCaptureShared->markResourceSetupCallsInactive(
+            setupCalls, ResourceIDType::ShaderProgram, id.value,
+            gl::Range<size_t>(programSetupStart, programSetupEnd));
     }
 
     // Handle shaders.
@@ -3051,6 +3064,8 @@ void CaptureShareGroupMidExecutionSetup(const gl::Context *context,
         {
             continue;
         }
+
+        size_t shaderSetupStart = setupCalls->size();
 
         cap(CaptureCreateShader(replayState, true, shader->getType(), id.value));
 
@@ -3078,6 +3093,13 @@ void CaptureShareGroupMidExecutionSetup(const gl::Context *context,
         {
             cap(CaptureShaderSource(replayState, true, id, 1, &sourcePointer, nullptr));
         }
+
+        size_t shaderSetupEnd = setupCalls->size();
+
+        // Mark the range of calls used to setup this shader
+        frameCaptureShared->markResourceSetupCallsInactive(
+            setupCalls, ResourceIDType::ShaderProgram, id.value,
+            gl::Range<size_t>(shaderSetupStart, shaderSetupEnd));
     }
 
     // Capture Sampler Objects
@@ -3167,6 +3189,8 @@ void CaptureShareGroupMidExecutionSetup(const gl::Context *context,
 
 void CaptureMidExecutionSetup(const gl::Context *context,
                               std::vector<CallCapture> *setupCalls,
+                              std::vector<CallCapture> *shareGroupSetupCalls,
+                              ResourceIDToSetupCallsMap *resourceIDToSetupCalls,
                               ResourceTracker *resourceTracker,
                               gl::State &replayState,
                               bool validationEnabled)
@@ -3445,6 +3469,12 @@ void CaptureMidExecutionSetup(const gl::Context *context,
             GLbitfield gLbitfield = GetBitfieldFromShaderType(shaderType);
             cap(CaptureUseProgramStages(replayState, true, pipeline->id(), gLbitfield,
                                         program->id()));
+
+            // Set this program as active so it will be generated in Setup
+            // Note: We aren't filtering ProgramPipelines, so this could be setting programs
+            // active that aren't actually used.
+            MarkResourceIDActive(ResourceIDType::ShaderProgram, program->id().value,
+                                 shareGroupSetupCalls, resourceIDToSetupCalls);
         }
 
         gl::Program *program = pipeline->getActiveShaderProgram();
@@ -3466,6 +3496,10 @@ void CaptureMidExecutionSetup(const gl::Context *context,
             cap(CaptureUseProgram(replayState, true, apiState.getProgram()->id()));
             CaptureUpdateCurrentProgram(setupCalls->back(), setupCalls);
             (void)replayState.setProgram(context, apiState.getProgram());
+
+            // Set this program as active so it will be generated in Setup
+            MarkResourceIDActive(ResourceIDType::ShaderProgram, apiState.getProgram()->id().value,
+                                 shareGroupSetupCalls, resourceIDToSetupCalls);
         }
         else if (replayState.getProgram())
         {
@@ -4017,20 +4051,6 @@ bool SkipCall(EntryPoint entryPoint)
     return false;
 }
 
-bool FindShaderProgramIDInCall(const CallCapture &call, gl::ShaderProgramID *idOut)
-{
-    for (const ParamCapture &param : call.params.getParamCaptures())
-    {
-        if (param.type == ParamType::TShaderProgramID && param.name == "programPacked")
-        {
-            *idOut = param.value.ShaderProgramIDVal;
-            return true;
-        }
-    }
-
-    return false;
-}
-
 GLint GetAdjustedTextureCacheLevel(gl::TextureTarget target, GLint level)
 {
     GLint adjustedLevel = level;
@@ -4172,6 +4192,7 @@ CallCapture &CallCapture::operator=(CallCapture &&other)
     std::swap(entryPoint, other.entryPoint);
     std::swap(customFunctionName, other.customFunctionName);
     std::swap(params, other.params);
+    std::swap(isActive, other.isActive);
     return *this;
 }
 
@@ -4218,6 +4239,7 @@ FrameCaptureShared::FrameCaptureShared()
       mClientArraySizes{},
       mReadBufferSize(0),
       mHasResourceType{},
+      mResourceIDToSetupCalls{},
       mMaxAccessedResourceIDs{},
       mCaptureTrigger(0),
       mCaptureActive(false),
@@ -4226,7 +4248,7 @@ FrameCaptureShared::FrameCaptureShared()
     reset();
 
     std::string enabledFromEnv =
-        GetEnvironmentVarOrUnCachedAndroidProperty(kEnabledVarName, kAndroidCaptureEnabled);
+        GetEnvironmentVarOrUnCachedAndroidProperty(kEnabledVarName, kAndroidEnabled);
     if (enabledFromEnv == "0")
     {
         mEnabled = false;
@@ -4269,7 +4291,7 @@ FrameCaptureShared::FrameCaptureShared()
     }
 
     std::string captureTriggerFromEnv =
-        GetEnvironmentVarOrUnCachedAndroidProperty(kCaptureTriggerVarName, kAndroidCaptureTrigger);
+        GetEnvironmentVarOrUnCachedAndroidProperty(kTriggerVarName, kAndroidTrigger);
     if (!captureTriggerFromEnv.empty())
     {
         mCaptureTrigger = atoi(captureTriggerFromEnv.c_str());
@@ -4313,6 +4335,13 @@ FrameCaptureShared::FrameCaptureShared()
     if (!mValidationExpression.empty())
     {
         INFO() << "Validation expression is " << kValidationExprVarName;
+    }
+
+    std::string trimEnabledFromEnv =
+        GetEnvironmentVarOrUnCachedAndroidProperty(kTrimEnabledVarName, kAndroidTrimEnabled);
+    if (trimEnabledFromEnv == "0")
+    {
+        mTrimEnabled = false;
     }
 
     if (mFrameIndex == mCaptureStartFrame)
@@ -4863,7 +4892,11 @@ void FrameCaptureShared::maybeCaptureDrawElementsClientData(const gl::Context *c
     captureClientArraySnapshot(context, indexRange.end + 1, instanceCount);
 }
 
-void FrameCaptureShared::maybeCapturePreCallUpdates(const gl::Context *context, CallCapture &call)
+void FrameCaptureShared::maybeCapturePreCallUpdates(
+    const gl::Context *context,
+    CallCapture &call,
+    std::vector<CallCapture> *shareGroupSetupCalls,
+    ResourceIDToSetupCallsMap *resourceIDToSetupCalls)
 {
     switch (call.entryPoint)
     {
@@ -5266,12 +5299,19 @@ void FrameCaptureShared::maybeCapturePreCallUpdates(const gl::Context *context, 
     if (FindShaderProgramIDInCall(call, &shaderProgramID))
     {
         mResourceTracker.onShaderProgramAccess(shaderProgramID);
+
+        if (isCaptureActive())
+        {
+            // Track that this call referenced a ShaderProgram, setting it active for Setup
+            MarkResourceIDActive(ResourceIDType::ShaderProgram, shaderProgramID.value,
+                                 shareGroupSetupCalls, resourceIDToSetupCalls);
+        }
     }
 
-    updatePreCallResourceCounts(call);
+    updateResourceCounts(call);
 }
 
-void FrameCaptureShared::updatePreCallResourceCounts(const CallCapture &call)
+void FrameCaptureShared::updateResourceCounts(const CallCapture &call)
 {
     for (const ParamCapture &param : call.params.getParamCaptures())
     {
@@ -5344,7 +5384,14 @@ void FrameCaptureShared::captureCall(const gl::Context *context,
         // Need to loop on any new calls we added during override
         for (CallCapture &call : outCalls)
         {
-            maybeCapturePreCallUpdates(context, call);
+            // During capture, consider all frame calls active
+            if (isCaptureActive())
+            {
+                call.isActive = true;
+            }
+
+            maybeCapturePreCallUpdates(context, call, &mShareGroupSetupCalls,
+                                       &mResourceIDToSetupCalls);
             mFrameCalls.emplace_back(std::move(call));
             maybeCapturePostCallUpdates(context);
         }
@@ -5578,6 +5625,17 @@ void FrameCaptureShared::checkForCaptureTrigger()
     }
 }
 
+void FrameCaptureShared::scanSetupCalls(const gl::Context *context,
+                                        std::vector<CallCapture> &setupCalls)
+{
+    // Scan all the instructions in the list for tracking
+    for (CallCapture &call : setupCalls)
+    {
+        updateReadBufferSize(call.params.getReadBufferSize());
+        updateResourceCounts(call);
+    }
+}
+
 void FrameCaptureShared::runMidExecutionCapture(const gl::Context *mainContext)
 {
     // Make sure all pending work for every Context in the share group has completed so all data
@@ -5592,13 +5650,10 @@ void FrameCaptureShared::runMidExecutionCapture(const gl::Context *mainContext)
                                      contextState.hasProtectedContent());
     mainContextReplayState.initializeForCapture(mainContext);
 
-    std::vector<CallCapture> shareGroupSetupCalls;
-    CaptureShareGroupMidExecutionSetup(mainContext, &shareGroupSetupCalls, &mResourceTracker,
+    CaptureShareGroupMidExecutionSetup(mainContext, &mShareGroupSetupCalls, &mResourceTracker,
                                        mainContextReplayState);
 
-    WriteShareGroupCppSetupReplay(mCompression, mOutDirectory, mCaptureLabel, 1, 1,
-                                  shareGroupSetupCalls, &mResourceTracker, &mBinaryData,
-                                  mSerializeStateEnabled, *this);
+    scanSetupCalls(mainContext, mShareGroupSetupCalls);
 
     for (const gl::Context *shareContext : shareGroup->getContexts())
     {
@@ -5608,8 +5663,10 @@ void FrameCaptureShared::runMidExecutionCapture(const gl::Context *mainContext)
         if (shareContext->id() == mainContext->id())
         {
             CaptureMidExecutionSetup(shareContext, &frameCapture->getSetupCalls(),
+                                     &mShareGroupSetupCalls, &mResourceIDToSetupCalls,
                                      &mResourceTracker, mainContextReplayState,
                                      mValidateSerializedState);
+            scanSetupCalls(mainContext, frameCapture->getSetupCalls());
         }
         else
         {
@@ -5620,8 +5677,11 @@ void FrameCaptureShared::runMidExecutionCapture(const gl::Context *mainContext)
             auxContextReplayState.initializeForCapture(shareContext);
 
             CaptureMidExecutionSetup(shareContext, &frameCapture->getSetupCalls(),
+                                     &mShareGroupSetupCalls, &mResourceIDToSetupCalls,
                                      &mResourceTracker, auxContextReplayState,
                                      mValidateSerializedState);
+
+            scanSetupCalls(mainContext, frameCapture->getSetupCalls());
 
             WriteAuxiliaryContextCppSetupReplay(mCompression, mOutDirectory, shareContext,
                                                 mCaptureLabel, 1, frameCapture->getSetupCalls(),
@@ -5699,6 +5759,11 @@ void FrameCaptureShared::onEndFrame(const gl::Context *context)
 
     if (mFrameIndex == mCaptureEndFrame)
     {
+        // Write shared MEC after frame sequence so we can eliminate unused assets like programs
+        WriteShareGroupCppSetupReplay(mCompression, mOutDirectory, mCaptureLabel, 1, 1,
+                                      mShareGroupSetupCalls, &mResourceTracker, &mBinaryData,
+                                      mSerializeStateEnabled, *this);
+
         // Save the index files after the last frame.
         writeCppReplayIndexFiles(context, false);
         SaveBinaryData(mCompression, mOutDirectory, kSharedContextId, mCaptureLabel, mBinaryData);
@@ -5972,14 +6037,14 @@ void FrameCaptureShared::writeCppReplayIndexFiles(const gl::Context *context,
     json.addScalar("CaptureRevision", ANGLE_REVISION);
     json.addScalar("ContextClientMajorVersion", context->getClientMajorVersion());
     json.addScalar("ContextClientMinorVersion", context->getClientMinorVersion());
-    json.addScalar("DisplayPlatformType", displayAttribs.getAsInt(EGL_PLATFORM_ANGLE_TYPE_ANGLE));
-    json.addScalar("DisplayDeviceType",
-                   displayAttribs.getAsInt(EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE));
+    json.addHexValue("DisplayPlatformType", displayAttribs.getAsInt(EGL_PLATFORM_ANGLE_TYPE_ANGLE));
+    json.addHexValue("DisplayDeviceType",
+                     displayAttribs.getAsInt(EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE));
     json.addScalar("FrameStart", 1);
     json.addScalar("FrameEnd", frameCount);
     json.addScalar("DrawSurfaceWidth", surfaceParams.extents.width);
     json.addScalar("DrawSurfaceHeight", surfaceParams.extents.height);
-    json.addScalar("DrawSurfaceColorSpace", ToEGLenum(surfaceParams.colorSpace));
+    json.addHexValue("DrawSurfaceColorSpace", ToEGLenum(surfaceParams.colorSpace));
     if (config)
     {
         json.addScalar("ConfigRedBits", config->redSize);
@@ -6003,6 +6068,7 @@ void FrameCaptureShared::writeCppReplayIndexFiles(const gl::Context *context,
     json.addBool("IsBindGeneratesResourcesEnabled", glState.isBindGeneratesResourceEnabled());
     json.addBool("IsWebGLCompatibilityEnabled", glState.isWebGL());
     json.addBool("IsRobustResourceInitEnabled", glState.isRobustResourceInitEnabled());
+    json.addBool("IsTrimmingEnabled", mTrimEnabled);
     json.endGroup();
 
     {
@@ -6540,6 +6606,27 @@ void FrameCaptureShared::deleteCachedTextureLevelData(gl::TextureID id)
         // Delete all texture levels at once
         mCachedTextureLevelData.erase(foundTextureLevels);
     }
+}
+
+void FrameCaptureShared::markResourceSetupCallsInactive(std::vector<CallCapture> *setupCalls,
+                                                        ResourceIDType type,
+                                                        GLuint id,
+                                                        gl::Range<size_t> range)
+{
+    if (!mTrimEnabled)
+    {
+        return;
+    }
+
+    ASSERT(mResourceIDToSetupCalls[type].find(id) == mResourceIDToSetupCalls[type].end());
+
+    // Mark all of the calls that were used to initialize this resource as INACTIVE
+    for (size_t index : range)
+    {
+        (*setupCalls)[index].isActive = false;
+    }
+
+    mResourceIDToSetupCalls[type][id] = range;
 }
 
 void CaptureMemory(const void *source, size_t size, ParamCapture *paramCapture)

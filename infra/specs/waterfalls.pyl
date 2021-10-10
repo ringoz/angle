@@ -80,6 +80,19 @@
           'isolated_scripts': 'angle_perf_isolated_scripts',
         },
       },
+      'linux-swiftshader': {
+        'os_type': 'linux',
+        'mixins': [
+          'gpu-swarming-pool',
+          'no_gpu',
+          'linux-bionic',
+          'timeout_15m',
+          'x86-64',
+        ],
+        'test_suites': {
+          'gtest_tests': 'swangle_gtests',
+        },
+      },
       'mac-amd': {
         'os_type': 'mac',
         'mixins': [
@@ -89,28 +102,10 @@
           'gtest_tests': 'mac_amd_and_intel_gtests',
         },
       },
-      'mac-amd-exp': {
-        'os_type': 'mac',
-        'mixins': [
-          'mac_retina_amd_gpu_experimental',
-        ],
-        'test_suites': {
-          'gtest_tests': 'mac_amd_and_intel_gtests',
-        },
-      },
       'mac-intel': {
         'os_type': 'mac',
         'mixins': [
           'mac_mini_intel_gpu_stable',
-        ],
-        'test_suites': {
-          'gtest_tests': 'mac_amd_and_intel_gtests',
-        },
-      },
-      'mac-intel-exp': {
-        'os_type': 'mac',
-        'mixins': [
-          'mac_mini_intel_uhd_630_gpu_stable',
         ],
         'test_suites': {
           'gtest_tests': 'mac_amd_and_intel_gtests',
@@ -161,6 +156,16 @@
         ],
         'test_suites': {
           'isolated_scripts': 'angle_perf_isolated_scripts',
+        },
+      },
+      'win10-x86-swiftshader': {
+        'os_type': 'win',
+        'mixins': [
+          'win10_gce_gpu_pool',
+          'timeout_15m',
+        ],
+        'test_suites': {
+          'gtest_tests': 'swangle_gtests',
         },
       },
       'win7-x64-nvidia': {

@@ -394,11 +394,10 @@ TEST_P(ClearTest, RGBA8Framebuffer)
 TEST_P(ClearTest, ChangeFramebufferAttachmentFromRGBAtoRGB)
 {
     // http://anglebug.com/2689
-    ANGLE_SKIP_TEST_IF(IsD3D9() || IsD3D11() || (IsOzone() && IsOpenGLES()));
     ANGLE_SKIP_TEST_IF(IsAndroid() && IsAdreno() && IsOpenGLES());
 
     // http://anglebug.com/5165
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL());
+    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL() && IsIntel());
 
     ANGLE_GL_PROGRAM(program, angle::essl1_shaders::vs::Simple(),
                      angle::essl1_shaders::fs::UniformColor());
@@ -1521,6 +1520,47 @@ TEST_P(ClearTestES3, RepeatedClear)
         }
     }
 
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that clearing RGB8 attachments work when verified through sampling.
+TEST_P(ClearTestES3, ClearRGB8)
+{
+    GLFramebuffer fb;
+    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, 1, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the texture through framebuffer.
+    const GLubyte kClearColor[] = {63, 127, 191, 55};
+    glClearColor(kClearColor[0] / 255.0f, kClearColor[1] / 255.0f, kClearColor[2] / 255.0f,
+                 kClearColor[3] / 255.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    ASSERT_GL_NO_ERROR();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Sample from it and verify clear is done.
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Texture2DLod(), essl3_shaders::fs::Texture2DLod());
+    glUseProgram(program);
+    GLint textureLocation = glGetUniformLocation(program, essl3_shaders::Texture2DUniform());
+    ASSERT_NE(-1, textureLocation);
+    GLint lodLocation = glGetUniformLocation(program, essl3_shaders::LodUniform());
+    ASSERT_NE(-1, lodLocation);
+
+    glUniform1i(textureLocation, 0);
+    glUniform1f(lodLocation, 0);
+
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
+
+    EXPECT_PIXEL_NEAR(0, 0, kClearColor[0], kClearColor[1], kClearColor[2], 255, 1);
     ASSERT_GL_NO_ERROR();
 }
 

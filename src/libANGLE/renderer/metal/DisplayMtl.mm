@@ -15,6 +15,7 @@
 #include "libANGLE/Surface.h"
 #include "libANGLE/renderer/driver_utils.h"
 #include "libANGLE/renderer/glslang_wrapper_utils.h"
+#include "libANGLE/renderer/metal/CompilerMtl.h"
 #include "libANGLE/renderer/metal/ContextMtl.h"
 #include "libANGLE/renderer/metal/DeviceMtl.h"
 #include "libANGLE/renderer/metal/IOSurfaceSurfaceMtl.h"
@@ -136,8 +137,7 @@ angle::Result DisplayMtl::initializeImpl(egl::Display *display)
 {
     ANGLE_MTL_OBJC_SCOPE
     {
-        mMetalDevice =
-            [getMetalDeviceMatchingAttribute(display->getAttributeMap()) ANGLE_MTL_AUTORELEASE];
+        mMetalDevice = getMetalDeviceMatchingAttribute(display->getAttributeMap());
         // If we can't create a device, fail initialization.
         if (!mMetalDevice.get())
         {
@@ -228,14 +228,15 @@ DeviceImpl *DisplayMtl::createDevice()
     return new DeviceMtl();
 }
 
-id<MTLDevice> DisplayMtl::getMetalDeviceMatchingAttribute(const egl::AttributeMap &attribs)
+mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
+    const egl::AttributeMap &attribs)
 {
 #if defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)
     const std::string anglePreferredDevice = angle::GetEnvironmentVar(kANGLEPreferredDeviceEnv);
-    NSArray<id<MTLDevice>> *deviceList     = MTLCopyAllDevices();
+    auto deviceList                        = mtl::adoptObjCObj(MTLCopyAllDevices());
     if (anglePreferredDevice != "")
     {
-        for (id<MTLDevice> device in deviceList)
+        for (id<MTLDevice> device in deviceList.get())
         {
             if ([device.name.lowercaseString
                     containsString:[NSString stringWithUTF8String:anglePreferredDevice.c_str()]
@@ -255,7 +256,7 @@ id<MTLDevice> DisplayMtl::getMetalDeviceMatchingAttribute(const egl::AttributeMa
 #endif
     // If we can't find anything, or are on a platform that doesn't support power options, create a
     // default device.
-    return MTLCreateSystemDefaultDevice();
+    return mtl::adoptObjCObj(MTLCreateSystemDefaultDevice());
 }
 
 egl::Error DisplayMtl::waitClient(const gl::Context *context)
@@ -360,12 +361,13 @@ ExternalImageSiblingImpl *DisplayMtl::createExternalImageSibling(const gl::Conte
 
 gl::Version DisplayMtl::getMaxSupportedESVersion() const
 {
-    // NOTE(hqle): Supports GLES 3.0 on iOS GPU Family 4+ for now.
-#if TARGET_OS_SIMULATOR  // Simulator should be able to support ES3, despite not supporting iOS GPU
-                         // Family 4 in its entirety.
+#if TARGET_OS_SIMULATOR
+    // Simulator should be able to support ES3, despite not supporting iOS GPU
+    // Family 3 in its entirety.
+    // FIXME: None of the feature conditions are checked for simulator support.
     return gl::Version(3, 0);
 #else
-    if (supportsEitherGPUFamily(4, 1))
+    if (supportsEitherGPUFamily(3, 1))
     {
         return mtl::kMaxSupportedGLVersion;
     }
@@ -398,12 +400,12 @@ egl::Error DisplayMtl::makeCurrent(egl::Display *display,
 
 void DisplayMtl::generateExtensions(egl::DisplayExtensions *outExtensions) const
 {
-    outExtensions->flexibleSurfaceCompatibility = true;
-    outExtensions->iosurfaceClientBuffer        = true;
-    outExtensions->surfacelessContext           = true;
-    outExtensions->displayTextureShareGroup     = true;
-    outExtensions->displaySemaphoreShareGroup   = true;
-    outExtensions->mtlTextureClientBuffer       = true;
+    outExtensions->iosurfaceClientBuffer      = true;
+    outExtensions->surfacelessContext         = true;
+    outExtensions->noConfigContext            = true;
+    outExtensions->displayTextureShareGroup   = true;
+    outExtensions->displaySemaphoreShareGroup = true;
+    outExtensions->mtlTextureClientBuffer     = true;
 
     if (mFeatures.hasEvents.enabled)
     {
@@ -430,6 +432,16 @@ void DisplayMtl::populateFeatureList(angle::FeatureList *features)
     mFeatures.populateFeatureList(features);
 }
 
+EGLenum DisplayMtl::EGLDrawingBufferTextureTarget()
+{
+    // TODO(anglebug.com/6395): Apple's implementation conditionalized this on
+    // MacCatalyst and whether it was running on ARM64 or X64, preferring
+    // EGL_TEXTURE_RECTANGLE_ANGLE. Metal can bind IOSurfaces to regular 2D
+    // textures, and rectangular textures don't work in the SPIR-V Metal
+    // backend, so for the time being use EGL_TEXTURE_2D on all platforms.
+    return EGL_TEXTURE_2D;
+}
+
 egl::ConfigSet DisplayMtl::generateConfigs()
 {
     // NOTE(hqle): generate more config permutations
@@ -453,7 +465,7 @@ egl::ConfigSet DisplayMtl::generateConfigs()
     config.transparentType = EGL_NONE;
 
     // Pbuffer
-    config.bindToTextureTarget = EGL_TEXTURE_2D;
+    config.bindToTextureTarget = EGLDrawingBufferTextureTarget();
     config.maxPBufferWidth     = 4096;
     config.maxPBufferHeight    = 4096;
     config.maxPBufferPixels    = 4096 * 4096;
@@ -646,8 +658,16 @@ void DisplayMtl::ensureCapsInitialized() const
     // NOTE(hqle): Metal has some problems drawing big point size even though
     // Metal-Feature-Set-Tables.pdf says that max supported point size is 511. We limit it to 64
     // for now. http://anglebug.com/4816
-    mNativeCaps.maxAliasedPointSize = 64;
 
+    // NOTE(kpiddington): This seems to be fixed in macOS Monterey
+    if (ANGLE_APPLE_AVAILABLE_XCI(12.0, 15.0, 15.0))
+    {
+        mNativeCaps.maxAliasedPointSize = 511;
+    }
+    else
+    {
+        mNativeCaps.maxAliasedPointSize = 64;
+    }
     mNativeCaps.minAliasedLineWidth = 1.0f;
     mNativeCaps.maxAliasedLineWidth = 1.0f;
 
@@ -723,7 +743,17 @@ void DisplayMtl::ensureCapsInitialized() const
     // Fill in additional limits for UBOs and SSBOs.
     mNativeCaps.maxUniformBufferBindings = mNativeCaps.maxCombinedUniformBlocks;
     mNativeCaps.maxUniformBlockSize      = mtl::kMaxUBOSize;  // Default according to GLES 3.0 spec.
-    mNativeCaps.uniformBufferOffsetAlignment = 1;
+    if (supportsAppleGPUFamily(1))
+    {
+        mNativeCaps.uniformBufferOffsetAlignment =
+            16;  // on Apple based GPU's We can ignore data types when setting constant buffer
+                 // alignment at 16.
+    }
+    else
+    {
+        mNativeCaps.uniformBufferOffsetAlignment =
+            256;  // constant buffers on all other GPUs must be aligned to 256.
+    }
 
     mNativeCaps.maxShaderStorageBufferBindings     = 0;
     mNativeCaps.maxShaderStorageBlockSize          = 0;
@@ -802,8 +832,14 @@ void DisplayMtl::initializeExtensions() const
     mNativeExtensions.textureBorderClampOES       = false;  // not implemented yet
     mNativeExtensions.translatedShaderSourceANGLE = true;
     mNativeExtensions.discardFramebufferEXT       = true;
+    // TODO(anglebug.com/6395): Apple's implementation exposed
+    // mNativeExtensions.textureRectangle = true here and
+    // EGL_TEXTURE_RECTANGLE_ANGLE as the eglBindTexImage texture target on
+    // macOS. This no longer seems necessary as IOSurfaces can be bound to
+    // regular 2D textures with Metal, and causes other problems such as
+    // breaking the SPIR-V Metal compiler.
 
-    // TODO(anglebug.com/5505): figure out why WebGL drawing buffer
+    // TODO(anglebug.com/6395): figure out why WebGL drawing buffer
     // creation fails on macOS when the Metal backend advertises the
     // EXT_multisampled_render_to_texture extension.
 #if !defined(ANGLE_PLATFORM_MACOS)
@@ -871,6 +907,9 @@ void DisplayMtl::initializeExtensions() const
 
         // GL_OES_EGL_sync
         mNativeExtensions.EGLSyncOES = true;
+
+        // GL_ARB_sync
+        mNativeExtensions.syncARB = true;
     }
 }
 
@@ -987,12 +1026,15 @@ void DisplayMtl::initializeFeatures()
     ANGLE_FEATURE_CONDITION((&mFeatures), rewriteRowMajorMatrices, true);
     ANGLE_FEATURE_CONDITION((&mFeatures), emulateTransformFeedback, true);
 
+    ANGLE_FEATURE_CONDITION((&mFeatures), intelExplicitBoolCastWorkaround,
+                            isIntel() && GetMacOSVersion() < OSVersion(11, 0, 0));
+    ANGLE_FEATURE_CONDITION((&mFeatures), intelDisableFastMath,
+                            isIntel() && GetMacOSVersion() < OSVersion(12, 0, 0));
+
     ANGLE_FEATURE_CONDITION((&mFeatures), forceNonCSBaseMipmapGeneration, isIntel());
 
     bool defaultDirectToMetal = true;
-#if ANGLE_ENABLE_METAL_SPIRV
-    defaultDirectToMetal = false;
-#endif
+
     ANGLE_FEATURE_CONDITION((&mFeatures), directMetalGeneration, defaultDirectToMetal);
 
     angle::PlatformMethods *platform = ANGLEPlatformCurrent();
@@ -1010,22 +1052,16 @@ angle::Result DisplayMtl::initializeShaderLibrary()
 #ifdef ANGLE_METAL_XCODE_BUILDS_SHADERS
     mDefaultShadersAsyncInfo.reset(new DefaultShaderAsyncInfoMtl);
 
-    NSString *path = [NSBundle bundleWithIdentifier:@"com.apple.WebKit"].bundlePath;
-    NSError *error = nullptr;
-    mDefaultShadersAsyncInfo->defaultShaders =
-        [getMetalDevice() newDefaultLibraryWithBundle:[NSBundle bundleWithPath:path] error:&error];
-
-    if (error && !mDefaultShadersAsyncInfo->defaultShaders)
-    {
-        ANGLE_MTL_OBJC_SCOPE
-        {
-            ERR() << "Internal error: newDefaultLibraryWithBundle failed. "
-                  << error.localizedDescription.UTF8String;
-        }
-        mDefaultShadersAsyncInfo->defaultShadersCompileError = std::move(error);
-        return angle::Result::Stop;
-    }
-    mDefaultShadersAsyncInfo->compiled = true;
+    const uint8_t *compiled_shader_binary;
+    size_t compiled_shader_binary_len;
+    compiled_shader_binary                           = gMetalBinaryShaders;
+    compiled_shader_binary_len                       = gMetalBinaryShaders_len;
+    mtl::AutoObjCPtr<NSError *> err                  = nil;
+    mtl::AutoObjCPtr<id<MTLLibrary>> mDefaultShaders = mtl::CreateShaderLibraryFromBinary(
+        getMetalDevice(), compiled_shader_binary, compiled_shader_binary_len, &err);
+    mDefaultShadersAsyncInfo->defaultShaders             = std::move(mDefaultShaders.get());
+    mDefaultShadersAsyncInfo->defaultShadersCompileError = std::move(err.get());
+    mDefaultShadersAsyncInfo->compiled                   = true;
 
 #else
     mDefaultShadersAsyncInfo.reset(new DefaultShaderAsyncInfoMtl);
@@ -1267,13 +1303,14 @@ mtl::AutoObjCObj<MTLSharedEventListener> DisplayMtl::getOrCreateSharedEventListe
         ANGLE_MTL_OBJC_SCOPE
         {
             mSharedEventListener = [[[MTLSharedEventListener alloc] init] ANGLE_MTL_AUTORELEASE];
+            ASSERT(mSharedEventListener);  // Failure here most probably means a sandbox issue.
         }
     }
     return mSharedEventListener;
 }
 #endif
 
-bool DisplayMtl::useDirectToMetalCompiler()
+bool DisplayMtl::useDirectToMetalCompiler() const
 {
     return mFeatures.directMetalGeneration.enabled;
 }

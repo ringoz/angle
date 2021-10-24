@@ -416,6 +416,10 @@ set(angle_preprocessor_sources
 )
 
 set(libangle_common_sources
+  "src/common/angle_version.h"
+  "src/common/angle_version_info.cpp"
+  "src/common/angle_version_info.h"
+  "src/common/CircularBuffer.h"
   "src/common/Color.h"
   "src/common/Color.inc"
   "src/common/FastVector.h"
@@ -516,10 +520,6 @@ set(libangle_includes
   "include/EGL/eglext.h"
   "include/EGL/eglext_angle.h"
   "include/EGL/eglplatform.h"
-  "include/GLES/gl.h"
-  "include/GLES/glplatform.h"
-  "include/GLES/glext.h"
-  "include/GLES/glext_angle.h"
   "include/GLES2/gl2.h"
   "include/GLES2/gl2ext.h"
   "include/GLES2/gl2ext_angle.h"

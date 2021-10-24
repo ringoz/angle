@@ -800,51 +800,6 @@ using PipelineBarrierArray = angle::PackedEnumMap<PipelineStage, PipelineBarrier
 
 class FramebufferHelper;
 
-class BufferMemory : angle::NonCopyable
-{
-  public:
-    BufferMemory();
-    ~BufferMemory();
-    angle::Result initExternal(GLeglClientBufferEXT clientBuffer);
-    angle::Result init();
-
-    void destroy(RendererVk *renderer);
-
-    angle::Result map(ContextVk *contextVk, VkDeviceSize size, uint8_t **ptrOut)
-    {
-        if (mMappedMemory == nullptr)
-        {
-            ANGLE_TRY(mapImpl(contextVk, size));
-        }
-        *ptrOut = mMappedMemory;
-        return angle::Result::Continue;
-    }
-    void unmap(RendererVk *renderer);
-    void flush(RendererVk *renderer,
-               VkMemoryMapFlags memoryPropertyFlags,
-               VkDeviceSize offset,
-               VkDeviceSize size);
-    void invalidate(RendererVk *renderer,
-                    VkMemoryMapFlags memoryPropertyFlags,
-                    VkDeviceSize offset,
-                    VkDeviceSize size);
-
-    bool isExternalBuffer() const { return mClientBuffer != nullptr; }
-
-    uint8_t *getMappedMemory() const { return mMappedMemory; }
-    DeviceMemory *getExternalMemoryObject() { return &mExternalMemory; }
-    Allocation *getMemoryObject() { return &mAllocation; }
-
-  private:
-    angle::Result mapImpl(ContextVk *contextVk, VkDeviceSize size);
-
-    Allocation mAllocation;        // use mAllocation if isExternalBuffer() is false
-    DeviceMemory mExternalMemory;  // use mExternalMemory if isExternalBuffer() is true
-
-    GLeglClientBufferEXT mClientBuffer;
-    uint8_t *mMappedMemory;
-};
-
 class BufferHelper final : public ReadWriteResource
 {
   public:
@@ -1430,6 +1385,8 @@ enum class ImageLayout
     EnumCount = InvalidEnum,
 };
 
+VkImageCreateFlags GetImageCreateFlags(gl::TextureType textureType);
+
 VkImageLayout ConvertImageLayoutToVkImageLayout(ImageLayout imageLayout);
 
 // How the ImageHelper object is being used by the renderpass
@@ -1457,8 +1414,8 @@ bool FormatHasNecessaryFeature(RendererVk *renderer,
 bool CanCopyWithTransfer(RendererVk *renderer,
                          angle::FormatID srcFormatID,
                          VkImageTiling srcTilingMode,
-                         angle::FormatID destFormatID,
-                         VkImageTiling destTilingMode);
+                         angle::FormatID dstFormatID,
+                         VkImageTiling dstTilingMode);
 
 class ImageHelper final : public Resource, public angle::Subject
 {
@@ -1633,13 +1590,41 @@ class ImageHelper final : public Resource, public angle::Subject
     VkImageType getType() const { return mImageType; }
     const VkExtent3D &getExtents() const { return mExtents; }
     const VkExtent3D getRotatedExtents() const;
-    uint32_t getLayerCount() const { return mLayerCount; }
-    uint32_t getLevelCount() const { return mLevelCount; }
-    angle::FormatID getIntendedFormatID() const { return mIntendedFormatID; }
-    const angle::Format &getIntendedFormat() const { return angle::Format::Get(mIntendedFormatID); }
-    angle::FormatID getActualFormatID() const { return mActualFormatID; }
-    VkFormat getActualVkFormat() const { return GetVkFormatFromFormatID(mActualFormatID); }
-    const angle::Format &getActualFormat() const { return angle::Format::Get(mActualFormatID); }
+    uint32_t getLayerCount() const
+    {
+        ASSERT(valid());
+        return mLayerCount;
+    }
+    uint32_t getLevelCount() const
+    {
+        ASSERT(valid());
+        return mLevelCount;
+    }
+    angle::FormatID getIntendedFormatID() const
+    {
+        ASSERT(valid());
+        return mIntendedFormatID;
+    }
+    const angle::Format &getIntendedFormat() const
+    {
+        ASSERT(valid());
+        return angle::Format::Get(mIntendedFormatID);
+    }
+    angle::FormatID getActualFormatID() const
+    {
+        ASSERT(valid());
+        return mActualFormatID;
+    }
+    VkFormat getActualVkFormat() const
+    {
+        ASSERT(valid());
+        return GetVkFormatFromFormatID(mActualFormatID);
+    }
+    const angle::Format &getActualFormat() const
+    {
+        ASSERT(valid());
+        return angle::Format::Get(mActualFormatID);
+    }
     bool hasEmulatedImageChannels() const;
     bool hasEmulatedImageFormat() const { return mActualFormatID != mIntendedFormatID; }
     GLint getSamples() const { return mSamples; }
@@ -1699,7 +1684,7 @@ class ImageHelper final : public Resource, public angle::Subject
 
     // Resolve this image into a destination image.  This image should be in the TransferSrc layout.
     // The destination image is automatically transitioned into TransferDst.
-    void resolve(ImageHelper *dest, const VkImageResolve &region, CommandBuffer *commandBuffer);
+    void resolve(ImageHelper *dst, const VkImageResolve &region, CommandBuffer *commandBuffer);
 
     // Data staging
     void removeSingleSubresourceStagedUpdates(ContextVk *contextVk,
@@ -1877,8 +1862,11 @@ class ImageHelper final : public Resource, public angle::Subject
     // Returns true if the image is owned by an external API or instance.
     bool isReleasedToExternal() const;
 
-    gl::LevelIndex getFirstAllocatedLevel() const { return mFirstAllocatedLevel; }
-    void setFirstAllocatedLevel(gl::LevelIndex firstLevel);
+    gl::LevelIndex getFirstAllocatedLevel() const
+    {
+        ASSERT(valid());
+        return mFirstAllocatedLevel;
+    }
     gl::LevelIndex getLastAllocatedLevel() const;
     LevelIndex toVkLevel(gl::LevelIndex levelIndexGL) const;
     gl::LevelIndex toGLLevel(LevelIndex levelIndexVk) const;
@@ -1962,9 +1950,12 @@ class ImageHelper final : public Resource, public angle::Subject
     void restoreSubresourceStencilContent(gl::LevelIndex level,
                                           uint32_t layerIndex,
                                           uint32_t layerCount);
-    angle::Result reformatStagedUpdate(ContextVk *contextVk,
-                                       angle::FormatID srcFormatID,
-                                       angle::FormatID dstFormatID);
+    angle::Result reformatStagedBufferUpdates(ContextVk *contextVk,
+                                              angle::FormatID srcFormatID,
+                                              angle::FormatID dstFormatID);
+    bool hasStagedImageUpdatesWithMismatchedFormat(gl::LevelIndex levelStart,
+                                                   gl::LevelIndex levelEnd,
+                                                   angle::FormatID formatID) const;
 
   private:
     enum class UpdateSource
@@ -2606,25 +2597,9 @@ class ShaderProgramHelper : angle::NonCopyable
         ANGLE_TRY(renderPassCache->getCompatibleRenderPass(
             contextVk, pipelineDesc.getRenderPassDesc(), &compatibleRenderPass));
 
-        ShaderModule *vertexShader   = &mShaders[gl::ShaderType::Vertex].get().get();
-        ShaderModule *fragmentShader = mShaders[gl::ShaderType::Fragment].valid()
-                                           ? &mShaders[gl::ShaderType::Fragment].get().get()
-                                           : nullptr;
-        ShaderModule *geometryShader = mShaders[gl::ShaderType::Geometry].valid()
-                                           ? &mShaders[gl::ShaderType::Geometry].get().get()
-                                           : nullptr;
-        ShaderModule *tessControlShader = mShaders[gl::ShaderType::TessControl].valid()
-                                              ? &mShaders[gl::ShaderType::TessControl].get().get()
-                                              : nullptr;
-        ShaderModule *tessEvaluationShader =
-            mShaders[gl::ShaderType::TessEvaluation].valid()
-                ? &mShaders[gl::ShaderType::TessEvaluation].get().get()
-                : nullptr;
-
         return mGraphicsPipelines.getPipeline(
             contextVk, pipelineCache, *compatibleRenderPass, pipelineLayout,
-            activeAttribLocationsMask, programAttribsTypeMask, vertexShader, fragmentShader,
-            geometryShader, tessControlShader, tessEvaluationShader, mSpecializationConstants,
+            activeAttribLocationsMask, programAttribsTypeMask, mShaders, mSpecializationConstants,
             pipelineDesc, descPtrOut, pipelineOut);
     }
 
@@ -2633,7 +2608,7 @@ class ShaderProgramHelper : angle::NonCopyable
                                      PipelineAndSerial **pipelineOut);
 
   private:
-    gl::ShaderMap<BindingPointer<ShaderAndSerial>> mShaders;
+    ShaderAndSerialMap mShaders;
     GraphicsPipelineCache mGraphicsPipelines;
 
     // We should probably use PipelineHelper here so we can remove PipelineAndSerial.

@@ -135,10 +135,6 @@ constexpr const char *kSkippedMessages[] = {
     "UNASSIGNED-CoreValidation-Shader-PointSizeMissing",
     // http://anglebug.com/3832
     "VUID-VkPipelineInputAssemblyStateCreateInfo-topology-00428",
-    // http://anglebug.com/4063
-    "VUID-VkDeviceCreateInfo-pNext-pNext",
-    "VUID-VkPipelineRasterizationStateCreateInfo-pNext-pNext",
-    "VUID_Undefined",
     // Best Practices Skips https://issuetracker.google.com/issues/166641492
     // https://issuetracker.google.com/issues/166793850
     "UNASSIGNED-BestPractices-vkCreateCommandPool-command-buffer-reset",
@@ -181,12 +177,6 @@ constexpr const char *kSkippedMessages[] = {
     "VUID-vkCmdDraw-blendEnable-04727",
     // http://anglebug.com/6442
     "UNASSIGNED-CoreValidation-Shader-InterfaceTypeMismatch",
-    // http://anglebug.com/6478
-    "VUID-vkCmdBeginTransformFeedbackEXT-None-02373",
-    // http://anglebug.com/6491
-    "VUID-RuntimeSpirv-OpImage-06377",
-    // http://anglebug.com/6492
-    "VUID-RuntimeSpirv-OpImage-06376",
     // http://anglebug.com/6514
     "vkEnumeratePhysicalDevices: One or more layers modified physical devices",
 };
@@ -222,6 +212,15 @@ constexpr SkippedSyncvalMessage kSkippedSyncvalMessages[] = {
      "SYNC_IMAGE_LAYOUT_TRANSITION, write_barriers: "
      "SYNC_EARLY_FRAGMENT_TESTS_DEPTH_STENCIL_ATTACHMENT_READ|SYNC_LATE_FRAGMENT_TESTS_DEPTH_"
      "STENCIL_ATTACHMENT_READ, command: vkCmdPipelineBarrier",
+     "", false},
+    // http://angkebug.com/6584
+    {"SYNC-HAZARD-WRITE_AFTER_WRITE",
+     "aspect depth during load with loadOp VK_ATTACHMENT_LOAD_OP_DONT_CARE. Access info (usage: "
+     "SYNC_EARLY_FRAGMENT_TESTS_DEPTH_STENCIL_ATTACHMENT_WRITE, prior_usage: "
+     "SYNC_IMAGE_LAYOUT_TRANSITION, write_barriers: "
+     "SYNC_EARLY_FRAGMENT_TESTS_DEPTH_STENCIL_ATTACHMENT_READ|SYNC_LATE_FRAGMENT_TESTS_DEPTH_"
+     "STENCIL_ATTACHMENT_READ|SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_READ|SYNC_COLOR_"
+     "ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE, command: vkCmdPipelineBarrier",
      "", false},
     // http://anglebug.com/6416
     // http://anglebug.com/6421
@@ -347,6 +346,29 @@ constexpr SkippedSyncvalMessage kSkippedSyncvalMessages[] = {
      "binding #0, index 0. Access info (usage: SYNC_FRAGMENT_SHADER_SHADER_STORAGE_READ, "
      "prior_usage: SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE, write_barriers: 0, "
      "command: vkCmdBeginRenderPass, seq_no: 11",
+     "", false},
+    // http://anglebug.com/6551
+    {"SYNC-HAZARD-WRITE_AFTER_WRITE",
+     "Access info (usage: SYNC_IMAGE_LAYOUT_TRANSITION, prior_usage: "
+     "SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE, write_barriers: "
+     "SYNC_EARLY_FRAGMENT_TESTS_DEPTH_STENCIL_ATTACHMENT_READ|SYNC_EARLY_FRAGMENT_TESTS_DEPTH_"
+     "STENCIL_ATTACHMENT_WRITE|SYNC_LATE_FRAGMENT_TESTS_DEPTH_STENCIL_ATTACHMENT_READ|SYNC_LATE_"
+     "FRAGMENT_TESTS_DEPTH_STENCIL_ATTACHMENT_WRITE|SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_"
+     "READ|SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE, command: vkCmdEndRenderPass",
+     "", false},
+    {"SYNC-HAZARD-WRITE_AFTER_WRITE",
+     "Access info (usage: SYNC_IMAGE_LAYOUT_TRANSITION, prior_usage: "
+     "SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE, write_barriers: "
+     "SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_READ|SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_"
+     "ATTACHMENT_WRITE, command: vkCmdEndRenderPass",
+     "", false},
+    {"SYNC-HAZARD-WRITE_AFTER_WRITE",
+     "Access info (usage: SYNC_IMAGE_LAYOUT_TRANSITION, prior_usage: "
+     "SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE, write_barriers: "
+     "SYNC_TRANSFORM_FEEDBACK_EXT_TRANSFORM_FEEDBACK_COUNTER_READ_EXT|SYNC_TRANSFORM_FEEDBACK_EXT_"
+     "TRANSFORM_FEEDBACK_COUNTER_WRITE_EXT|SYNC_TRANSFORM_FEEDBACK_EXT_TRANSFORM_FEEDBACK_WRITE_"
+     "EXT|SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_READ|SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_"
+     "ATTACHMENT_WRITE, command: vkCmdEndRenderPass",
      "", false},
 };
 
@@ -984,6 +1006,7 @@ void RendererVk::onDestroy(vk::Context *context)
 
     mCommandBufferRecycler.onDestroy();
 
+    mBufferMemoryAllocator.destroy(this);
     mAllocator.destroy();
 
     sh::FinalizeGlslang();
@@ -1379,13 +1402,16 @@ angle::Result RendererVk::initialize(DisplayVk *displayVk,
         preferredLargeHeapBlockSize = 4 * 1024 * 1024;
     }
 
+    // Store the physical device memory properties so we can find the right memory pools.
+    mMemoryProperties.init(mPhysicalDevice);
+
     // Create VMA allocator
     ANGLE_VK_TRY(displayVk,
                  mAllocator.init(mPhysicalDevice, mDevice, mInstance, applicationInfo.apiVersion,
                                  preferredLargeHeapBlockSize));
 
-    // Store the physical device memory properties so we can find the right memory pools.
-    mMemoryProperties.init(mPhysicalDevice);
+    // Create buffer memory allocator
+    ANGLE_VK_TRY(displayVk, mBufferMemoryAllocator.initialize(this, preferredLargeHeapBlockSize));
 
     {
         ANGLE_TRACE_EVENT0("gpu.angle,startup", "GlslangWarmup");
@@ -2624,8 +2650,14 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
 
     ANGLE_FEATURE_CONDITION(&mFeatures, shadowBuffers, false);
 
+    // ARM does buffer copy on geometry pipeline, which may create a GPU pipeline bubble that
+    // prevents vertex shader to overlap with fragment shader. For now we always choose CPU to do
+    // copy on ARM. This may need to test with future ARM GPU architecture as well.
+    ANGLE_FEATURE_CONDITION(&mFeatures, preferCPUForBufferSubData, isARM);
+
     // On android, we usually are GPU limited, we try to use CPU to do data copy when other
-    // conditions are the same. Set to zero will use GPU to do copy.
+    // conditions are the same. Set to zero will use GPU to do copy. This is subject to further
+    // tuning for each platform https://issuetracker.google.com/201826021
     mMaxCopyBytesUsingCPUWhenPreservingBufferData =
         IsAndroid() ? std::numeric_limits<uint32_t>::max() : 0;
 
@@ -2693,8 +2725,7 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
 
     ANGLE_FEATURE_CONDITION(
         &mFeatures, supportsImageFormatList,
-        (ExtensionFound(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME, deviceExtensionNames)) &&
-            !isSwiftShader);
+        ExtensionFound(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME, deviceExtensionNames));
 
     // Feature disabled due to driver bugs:
     //
@@ -3051,6 +3082,7 @@ template <VkFormatFeatureFlags VkFormatProperties::*features>
 VkFormatFeatureFlags RendererVk::getFormatFeatureBits(angle::FormatID formatID,
                                                       const VkFormatFeatureFlags featureBits) const
 {
+    ASSERT(formatID != angle::FormatID::NONE);
     VkFormatProperties &deviceProperties = mFormatProperties[formatID];
 
     if (deviceProperties.bufferFeatures == kInvalidFormatFeatureFlags)
@@ -3064,6 +3096,7 @@ VkFormatFeatureFlags RendererVk::getFormatFeatureBits(angle::FormatID formatID,
         }
 
         VkFormat vkFormat = vk::GetVkFormatFromFormatID(formatID);
+        ASSERT(vkFormat != VK_FORMAT_UNDEFINED);
 
         // Otherwise query the format features and cache it.
         vkGetPhysicalDeviceFormatProperties(mPhysicalDevice, vkFormat, &deviceProperties);
@@ -3260,38 +3293,37 @@ angle::Result RendererVk::submitFrame(vk::Context *context,
                                       const vk::Semaphore *signalSemaphore,
                                       std::vector<vk::ResourceUseList> &&resourceUseLists,
                                       vk::GarbageList &&currentGarbage,
-                                      vk::CommandPool *commandPool)
+                                      vk::CommandPool *commandPool,
+                                      Serial *submitSerialOut)
 {
     std::lock_guard<std::mutex> commandQueueLock(mCommandQueueMutex);
 
-    Serial submitQueueSerial;
-
     if (mFeatures.asyncCommandQueue.enabled)
     {
-        submitQueueSerial = mCommandProcessor.reserveSubmitSerial();
+        *submitSerialOut = mCommandProcessor.reserveSubmitSerial();
 
         ANGLE_TRY(mCommandProcessor.submitFrame(
             context, hasProtectedContent, contextPriority, waitSemaphores, waitSemaphoreStageMasks,
             signalSemaphore, std::move(currentGarbage),
             std::move(mCommandBufferRecycler.getCommandBuffersToReset()), commandPool,
-            submitQueueSerial));
+            *submitSerialOut));
     }
     else
     {
-        submitQueueSerial = mCommandQueue.reserveSubmitSerial();
+        *submitSerialOut = mCommandQueue.reserveSubmitSerial();
 
         ANGLE_TRY(mCommandQueue.submitFrame(
             context, hasProtectedContent, contextPriority, waitSemaphores, waitSemaphoreStageMasks,
             signalSemaphore, std::move(currentGarbage),
             std::move(mCommandBufferRecycler.getCommandBuffersToReset()), commandPool,
-            submitQueueSerial));
+            *submitSerialOut));
     }
 
     waitSemaphores.clear();
     waitSemaphoreStageMasks.clear();
     for (vk::ResourceUseList &it : resourceUseLists)
     {
-        it.releaseResourceUsesAndUpdateSerials(submitQueueSerial);
+        it.releaseResourceUsesAndUpdateSerials(*submitSerialOut);
     }
     resourceUseLists.clear();
 
@@ -3350,7 +3382,18 @@ angle::Result RendererVk::waitForSerialWithUserTimeout(vk::Context *context,
 
 angle::Result RendererVk::finish(vk::Context *context, bool hasProtectedContent)
 {
-    return finishToSerial(context, getLastSubmittedQueueSerial());
+    std::lock_guard<std::mutex> lock(mCommandQueueMutex);
+
+    if (mFeatures.asyncCommandQueue.enabled)
+    {
+        ANGLE_TRY(mCommandProcessor.waitIdle(context, getMaxFenceWaitTimeNs()));
+    }
+    else
+    {
+        ANGLE_TRY(mCommandQueue.waitIdle(context, getMaxFenceWaitTimeNs()));
+    }
+
+    return angle::Result::Continue;
 }
 
 angle::Result RendererVk::checkCompletedCommands(vk::Context *context)
@@ -3529,15 +3572,17 @@ angle::Result RendererVk::getFormatDescriptorCountForExternalFormat(ContextVk *c
     return angle::Result::Stop;
 }
 
-vk::MemoryReport::MemoryReport()
+namespace vk
+{
+MemoryReport::MemoryReport()
     : mCurrentTotalAllocatedMemory(0),
       mMaxTotalAllocatedMemory(0),
       mCurrentTotalImportedMemory(0),
       mMaxTotalImportedMemory(0)
 {}
 
-void vk::MemoryReport::processCallback(const VkDeviceMemoryReportCallbackDataEXT &callbackData,
-                                       bool logCallback)
+void MemoryReport::processCallback(const VkDeviceMemoryReportCallbackDataEXT &callbackData,
+                                   bool logCallback)
 {
     std::lock_guard<std::mutex> lock(mMemoryReportMutex);
     VkDeviceSize size = 0;
@@ -3615,7 +3660,7 @@ void vk::MemoryReport::processCallback(const VkDeviceMemoryReportCallbackDataEXT
     }
 }
 
-void vk::MemoryReport::logMemoryReportStats() const
+void MemoryReport::logMemoryReportStats() const
 {
     std::lock_guard<std::mutex> lock(mMemoryReportMutex);
 
@@ -3638,4 +3683,58 @@ void vk::MemoryReport::logMemoryReportStats() const
                << " (max=" << std::setw(10) << importedMemoryMax << ")";
     }
 }
+
+// BufferMemoryAllocator implementation.
+BufferMemoryAllocator::BufferMemoryAllocator() {}
+
+BufferMemoryAllocator::~BufferMemoryAllocator() {}
+
+VkResult BufferMemoryAllocator::initialize(RendererVk *renderer,
+                                           VkDeviceSize preferredLargeHeapBlockSize)
+{
+    ASSERT(renderer->getAllocator().valid());
+    return VK_SUCCESS;
+}
+
+void BufferMemoryAllocator::destroy(RendererVk *renderer) {}
+
+VkResult BufferMemoryAllocator::createBuffer(RendererVk *renderer,
+                                             const VkBufferCreateInfo &bufferCreateInfo,
+                                             VkMemoryPropertyFlags requiredFlags,
+                                             VkMemoryPropertyFlags preferredFlags,
+                                             bool persistentlyMappedBuffers,
+                                             uint32_t *memoryTypeIndexOut,
+                                             Buffer *bufferOut,
+                                             Allocation *allocationOut)
+{
+    ASSERT(bufferOut && !bufferOut->valid());
+    ASSERT(allocationOut && !allocationOut->valid());
+    const Allocator &allocator = renderer->getAllocator();
+    return vma::CreateBuffer(allocator.getHandle(), &bufferCreateInfo, requiredFlags,
+                             preferredFlags, persistentlyMappedBuffers, memoryTypeIndexOut,
+                             &bufferOut->mHandle, &allocationOut->mHandle);
+}
+
+void BufferMemoryAllocator::getMemoryTypeProperties(RendererVk *renderer,
+                                                    uint32_t memoryTypeIndex,
+                                                    VkMemoryPropertyFlags *flagsOut) const
+{
+    const Allocator &allocator = renderer->getAllocator();
+    vma::GetMemoryTypeProperties(allocator.getHandle(), memoryTypeIndex, flagsOut);
+}
+
+VkResult BufferMemoryAllocator::findMemoryTypeIndexForBufferInfo(
+    RendererVk *renderer,
+    const VkBufferCreateInfo &bufferCreateInfo,
+    VkMemoryPropertyFlags requiredFlags,
+    VkMemoryPropertyFlags preferredFlags,
+    bool persistentlyMappedBuffers,
+    uint32_t *memoryTypeIndexOut) const
+{
+    const Allocator &allocator = renderer->getAllocator();
+    return vma::FindMemoryTypeIndexForBufferInfo(allocator.getHandle(), &bufferCreateInfo,
+                                                 requiredFlags, preferredFlags,
+                                                 persistentlyMappedBuffers, memoryTypeIndexOut);
+}
+}  // namespace vk
 }  // namespace rx

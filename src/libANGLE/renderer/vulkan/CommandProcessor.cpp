@@ -205,6 +205,11 @@ void CommandProcessorTask::initFinishToSerial(Serial serial)
     mSerial = serial;
 }
 
+void CommandProcessorTask::initWaitIdle()
+{
+    mTask = CustomTask::WaitIdle;
+}
+
 void CommandProcessorTask::initFlushAndQueueSubmit(
     const std::vector<VkSemaphore> &waitSemaphores,
     const std::vector<VkPipelineStageFlags> &waitSemaphoreStageMasks,
@@ -475,6 +480,11 @@ angle::Result CommandProcessor::processTask(CommandProcessorTask *task)
                                                    mRenderer->getMaxFenceWaitTimeNs()));
             break;
         }
+        case CustomTask::WaitIdle:
+        {
+            ANGLE_TRY(mCommandQueue.waitIdle(this, mRenderer->getMaxFenceWaitTimeNs()));
+            break;
+        }
         case CustomTask::Present:
         {
             VkResult result = present(task->getPriority(), task->getPresentInfo());
@@ -580,16 +590,17 @@ Serial CommandProcessor::getLastCompletedQueueSerial() const
     return mCommandQueue.getLastCompletedQueueSerial();
 }
 
-Serial CommandProcessor::getLastSubmittedQueueSerial() const
-{
-    std::lock_guard<std::mutex> lock(mQueueSerialMutex);
-    return mCommandQueue.getLastSubmittedQueueSerial();
-}
-
 Serial CommandProcessor::getCurrentQueueSerial() const
 {
     std::lock_guard<std::mutex> lock(mQueueSerialMutex);
     return mCommandQueue.getCurrentQueueSerial();
+}
+
+bool CommandProcessor::isBusy() const
+{
+    std::lock_guard<std::mutex> serialLock(mQueueSerialMutex);
+    std::lock_guard<std::mutex> workerLock(mWorkerMutex);
+    return !mTasks.empty() || mCommandQueue.isBusy();
 }
 
 Serial CommandProcessor::reserveSubmitSerial()
@@ -614,6 +625,17 @@ angle::Result CommandProcessor::finishToSerial(Context *context, Serial serial, 
     return waitForWorkComplete(context);
 }
 
+angle::Result CommandProcessor::waitIdle(Context *context, uint64_t timeout)
+{
+    ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::waitIdle");
+
+    CommandProcessorTask task;
+    task.initWaitIdle();
+    queueCommand(std::move(task));
+
+    return waitForWorkComplete(context);
+}
+
 void CommandProcessor::handleDeviceLost(RendererVk *renderer)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::handleDeviceLost");
@@ -622,13 +644,6 @@ void CommandProcessor::handleDeviceLost(RendererVk *renderer)
 
     // Worker thread is idle and command queue is empty so good to continue
     mCommandQueue.handleDeviceLost(renderer);
-}
-
-angle::Result CommandProcessor::finishAllWork(Context *context)
-{
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::finishAllWork");
-    // Wait for GPU work to finish
-    return finishToSerial(context, Serial::Infinite(), mRenderer->getMaxFenceWaitTimeNs());
 }
 
 VkResult CommandProcessor::getLastAndClearPresentResult(VkSwapchainKHR swapchain)
@@ -764,6 +779,11 @@ angle::Result CommandProcessor::flushRenderPassCommands(Context *context,
     queueCommand(std::move(task));
     return mRenderer->getCommandBufferHelper(context, true, (*renderPassCommands)->getCommandPool(),
                                              renderPassCommands);
+}
+
+angle::Result CommandProcessor::ensureNoPendingWork(Context *context)
+{
+    return waitForWorkComplete(context);
 }
 
 // CommandQueue implementation.
@@ -982,6 +1002,11 @@ angle::Result CommandQueue::finishToSerial(Context *context, Serial finishSerial
     ASSERT(allInFlightCommandsAreAfterSerial(finishSerial));
 
     return angle::Result::Continue;
+}
+
+angle::Result CommandQueue::waitIdle(Context *context, uint64_t timeout)
+{
+    return finishToSerial(context, mLastSubmittedQueueSerial, timeout);
 }
 
 Serial CommandQueue::reserveSubmitSerial()
@@ -1217,11 +1242,6 @@ VkResult CommandQueue::queuePresent(egl::ContextPriority contextPriority,
     return vkQueuePresentKHR(queue, &presentInfo);
 }
 
-Serial CommandQueue::getLastSubmittedQueueSerial() const
-{
-    return mLastSubmittedQueueSerial;
-}
-
 Serial CommandQueue::getLastCompletedQueueSerial() const
 {
     return mLastCompletedQueueSerial;
@@ -1230,6 +1250,11 @@ Serial CommandQueue::getLastCompletedQueueSerial() const
 Serial CommandQueue::getCurrentQueueSerial() const
 {
     return mCurrentQueueSerial;
+}
+
+bool CommandQueue::isBusy() const
+{
+    return mLastSubmittedQueueSerial > mLastCompletedQueueSerial;
 }
 
 // QueuePriorities:

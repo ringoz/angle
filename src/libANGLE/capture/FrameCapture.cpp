@@ -16,7 +16,7 @@
 
 #include "sys/stat.h"
 
-#include "common/angle_version.h"
+#include "common/angle_version_info.h"
 #include "common/mathutil.h"
 #include "common/serializer/JsonSerializer.h"
 #include "common/string_utils.h"
@@ -569,20 +569,25 @@ void WriteResourceIDPointerParamReplay(DataTracker *dataTracker,
     ASSERT(resourceIDType != ResourceIDType::InvalidEnum);
     const char *name = GetResourceIDTypeName(resourceIDType);
 
-    ASSERT(param.dataNElements > 0);
-    ASSERT(param.data.size() == 1);
-
-    const ParamT *returnedIDs = reinterpret_cast<const ParamT *>(param.data[0].data());
-    for (GLsizei resIndex = 0; resIndex < param.dataNElements; ++resIndex)
+    if (param.dataNElements > 0)
     {
-        ParamT id = returnedIDs[resIndex];
-        if (resIndex > 0)
-        {
-            header << ", ";
-        }
-        header << "g" << name << "Map2[" << id.value << "]";
-    }
+        ASSERT(param.data.size() == 1);
 
+        const ParamT *returnedIDs = reinterpret_cast<const ParamT *>(param.data[0].data());
+        for (GLsizei resIndex = 0; resIndex < param.dataNElements; ++resIndex)
+        {
+            ParamT id = returnedIDs[resIndex];
+            if (resIndex > 0)
+            {
+                header << ", ";
+            }
+            header << "g" << name << "Map2[" << id.value << "]";
+        }
+    }
+    else
+    {
+        header << "0";
+    }
     header << " };\n    ";
 
     WriteParamStaticVarName(call, param, counter, out);
@@ -1154,19 +1159,18 @@ void MaybeResetOpaqueTypeObjects(std::stringstream &out,
     MaybeResetFenceSyncObjects(out, dataTracker, header, resourceTracker, binaryData);
 }
 
-bool FindShaderProgramIDInCall(const CallCapture &call, gl::ShaderProgramID *idOut)
+bool FindShaderProgramIDsInCall(const CallCapture &call, std::vector<gl::ShaderProgramID> &idsOut)
 {
     for (const ParamCapture &param : call.params.getParamCaptures())
     {
         // Only checking for programs right now, but could be expanded to all ResourceTypes
         if (param.type == ParamType::TShaderProgramID)
         {
-            *idOut = param.value.ShaderProgramIDVal;
-            return true;
+            idsOut.push_back(param.value.ShaderProgramIDVal);
         }
     }
 
-    return false;
+    return !idsOut.empty();
 }
 
 void MarkResourceIDActive(ResourceIDType resourceType,
@@ -1661,10 +1665,12 @@ void MaybeCaptureUpdateResourceIDs(std::vector<CallCapture> *callsOut)
     }
 }
 
-void CaptureUpdateCurrentProgram(const CallCapture &call, std::vector<CallCapture> *callsOut)
+void CaptureUpdateCurrentProgram(const CallCapture &call,
+                                 int programParamPos,
+                                 std::vector<CallCapture> *callsOut)
 {
     const ParamCapture &param =
-        call.params.getParam("programPacked", ParamType::TShaderProgramID, 0);
+        call.params.getParam("programPacked", ParamType::TShaderProgramID, programParamPos);
     gl::ShaderProgramID programID = param.value.ShaderProgramIDVal;
 
     ParamBuffer paramBuffer;
@@ -1805,7 +1811,7 @@ void CaptureUpdateUniformValues(const gl::State &replayState,
     if (!replayState.getProgram() || replayState.getProgram()->id() != program->id())
     {
         Capture(callsOut, CaptureUseProgram(replayState, true, program->id()));
-        CaptureUpdateCurrentProgram(callsOut->back(), callsOut);
+        CaptureUpdateCurrentProgram(callsOut->back(), 0, callsOut);
     }
 
     const std::vector<gl::LinkedUniform> &uniforms = program->getState().getUniforms();
@@ -3494,7 +3500,7 @@ void CaptureMidExecutionSetup(const gl::Context *context,
         if (apiState.getProgram())
         {
             cap(CaptureUseProgram(replayState, true, apiState.getProgram()->id()));
-            CaptureUpdateCurrentProgram(setupCalls->back(), setupCalls);
+            CaptureUpdateCurrentProgram(setupCalls->back(), 0, setupCalls);
             (void)replayState.setProgram(context, apiState.getProgram());
 
             // Set this program as active so it will be generated in Setup
@@ -3504,7 +3510,7 @@ void CaptureMidExecutionSetup(const gl::Context *context,
         else if (replayState.getProgram())
         {
             cap(CaptureUseProgram(replayState, true, {0}));
-            CaptureUpdateCurrentProgram(setupCalls->back(), setupCalls);
+            CaptureUpdateCurrentProgram(setupCalls->back(), 0, setupCalls);
             (void)replayState.setProgram(context, nullptr);
         }
 
@@ -5295,16 +5301,19 @@ void FrameCaptureShared::maybeCapturePreCallUpdates(
 
     updateReadBufferSize(call.params.getReadBufferSize());
 
-    gl::ShaderProgramID shaderProgramID;
-    if (FindShaderProgramIDInCall(call, &shaderProgramID))
+    std::vector<gl::ShaderProgramID> shaderProgramIDs;
+    if (FindShaderProgramIDsInCall(call, shaderProgramIDs))
     {
-        mResourceTracker.onShaderProgramAccess(shaderProgramID);
-
-        if (isCaptureActive())
+        for (gl::ShaderProgramID shaderProgramID : shaderProgramIDs)
         {
-            // Track that this call referenced a ShaderProgram, setting it active for Setup
-            MarkResourceIDActive(ResourceIDType::ShaderProgram, shaderProgramID.value,
-                                 shareGroupSetupCalls, resourceIDToSetupCalls);
+            mResourceTracker.onShaderProgramAccess(shaderProgramID);
+
+            if (isCaptureActive())
+            {
+                // Track that this call referenced a ShaderProgram, setting it active for Setup
+                MarkResourceIDActive(ResourceIDType::ShaderProgram, shaderProgramID.value,
+                                     shareGroupSetupCalls, resourceIDToSetupCalls);
+            }
         }
     }
 
@@ -5451,7 +5460,10 @@ void FrameCaptureShared::maybeCapturePostCallUpdates(const gl::Context *context)
             break;
         }
         case EntryPoint::GLUseProgram:
-            CaptureUpdateCurrentProgram(lastCall, &mFrameCalls);
+            CaptureUpdateCurrentProgram(lastCall, 0, &mFrameCalls);
+            break;
+        case EntryPoint::GLActiveShaderProgram:
+            CaptureUpdateCurrentProgram(lastCall, 1, &mFrameCalls);
             break;
         case EntryPoint::GLDeleteProgram:
         {
@@ -6034,7 +6046,7 @@ void FrameCaptureShared::writeCppReplayIndexFiles(const gl::Context *context,
 
     JsonSerializer json;
     json.startGroup("TraceMetadata");
-    json.addScalar("CaptureRevision", ANGLE_REVISION);
+    json.addScalar("CaptureRevision", GetANGLERevision());
     json.addScalar("ContextClientMajorVersion", context->getClientMajorVersion());
     json.addScalar("ContextClientMinorVersion", context->getClientMinorVersion());
     json.addHexValue("DisplayPlatformType", displayAttribs.getAsInt(EGL_PLATFORM_ANGLE_TYPE_ANGLE));
@@ -6798,6 +6810,22 @@ void WriteParamValueReplay<ParamType::TvoidConstPointer>(std::ostream &os,
 }
 
 template <>
+void WriteParamValueReplay<ParamType::TvoidPointer>(std::ostream &os,
+                                                    const CallCapture &call,
+                                                    void *value)
+{
+    if (value == 0)
+    {
+        os << "nullptr";
+    }
+    else
+    {
+        os << "reinterpret_cast<void *>(" << static_cast<int>(reinterpret_cast<uintptr_t>(value))
+           << ")";
+    }
+}
+
+template <>
 void WriteParamValueReplay<ParamType::TGLfloatConstPointer>(std::ostream &os,
                                                             const CallCapture &call,
                                                             const GLfloat *value)
@@ -6967,10 +6995,11 @@ void WriteParamValueReplay<ParamType::TUniformLocation>(std::ostream &os,
     os << "gUniformLocations2[";
 
     // Find the program from the call parameters.
-    gl::ShaderProgramID programID;
-    if (FindShaderProgramIDInCall(call, &programID))
+    std::vector<gl::ShaderProgramID> programIDs;
+    if (FindShaderProgramIDsInCall(call, programIDs))
     {
-        os << "gShaderProgramMap2[" << programID.value << "]";
+        ASSERT(programIDs.size() == 1);
+        os << "gShaderProgramMap2[" << programIDs[0].value << "]";
     }
     else
     {
@@ -6986,11 +7015,11 @@ void WriteParamValueReplay<ParamType::TUniformBlockIndex>(std::ostream &os,
                                                           gl::UniformBlockIndex value)
 {
     // Find the program from the call parameters.
-    gl::ShaderProgramID programID;
-    bool foundProgram = FindShaderProgramIDInCall(call, &programID);
-    ASSERT(foundProgram);
+    std::vector<gl::ShaderProgramID> programIDs;
+    bool foundProgram = FindShaderProgramIDsInCall(call, programIDs);
+    ASSERT(foundProgram && programIDs.size() == 1);
 
-    os << "gUniformBlockIndexes[gShaderProgramMap2[" << programID.value << "]][" << value.value
+    os << "gUniformBlockIndexes[gShaderProgramMap2[" << programIDs[0].value << "]][" << value.value
        << "]";
 }
 

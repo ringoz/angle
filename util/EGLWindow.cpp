@@ -273,14 +273,12 @@ bool EGLWindow::initializeDisplay(OSWindow *osWindow,
 
     if (params.asyncCommandQueueFeatureVulkan == EGL_TRUE)
     {
-        // TODO(jmadill): Update feature names. b/172704839
-        enabledFeatureOverrides.push_back("commandProcessor");
-        enabledFeatureOverrides.push_back("asynchronousCommandProcessing");
+        enabledFeatureOverrides.push_back("asyncCommandQueue");
     }
 
-    if (params.directSPIRVGeneration == EGL_TRUE)
+    if (params.generateSPIRVThroughGlslang == EGL_TRUE)
     {
-        enabledFeatureOverrides.push_back("directSPIRVGeneration");
+        enabledFeatureOverrides.push_back("generateSPIRVThroughGlslang");
     }
 
     if (params.directMetalGeneration == EGL_TRUE)

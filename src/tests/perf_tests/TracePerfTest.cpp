@@ -690,6 +690,12 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
 
         // TODO: http://anglebug.com/4731 This extension is missing on older Intel drivers.
         addExtensionPrerequisite("GL_OES_EGL_image_external");
+
+        // Flaky on Intel/windows http://anglebug.com/6568
+        if (IsWindows() && IsIntel())
+        {
+            mSkipTest = true;
+        }
     }
 
     if (traceNameIs("brawl_stars"))
@@ -1096,6 +1102,13 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
     if (traceNameIs("pokemon_unite"))
     {
         addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
+
+        // http://anglebug.com/6548 - nondeterministic on Intel+Windows
+        // Crashes on Linux Intel
+        if (IsIntel())
+        {
+            mSkipTest = true;
+        }
     }
 
     ASSERT(mParams.surfaceType == SurfaceType::Window || gEnableAllTraceTests);

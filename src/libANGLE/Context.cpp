@@ -6,7 +6,6 @@
 
 // Context.cpp: Implements the gl::Context class, managing all GL state and performing
 // rendering operations. It is the GLES2 specific implementation of EGLContext.
-#include "libANGLE/Context.h"
 #include "libANGLE/Context.inl.h"
 
 #include <string.h>
@@ -15,7 +14,7 @@
 #include <vector>
 
 #include "common/PackedEnums.h"
-#include "common/angle_version.h"
+#include "common/angle_version_info.h"
 #include "common/matrix_utils.h"
 #include "common/platform.h"
 #include "common/system_utils.h"
@@ -455,12 +454,6 @@ void Context::initializeDefaultResources()
     mImplementation->setMemoryProgramCache(mMemoryProgramCache);
 
     initCaps();
-
-    if (mDisplay->getFrontendFeatures().syncFramebufferBindingsOnTexImage.enabled)
-    {
-        mTexImageDirtyBits.set(State::DIRTY_BIT_READ_FRAMEBUFFER_BINDING);
-        mTexImageDirtyBits.set(State::DIRTY_BIT_DRAW_FRAMEBUFFER_BINDING);
-    }
 
     mState.initialize(this);
 
@@ -2768,9 +2761,11 @@ void Context::handleError(GLenum errorCode,
     mErrors.handleError(errorCode, message, file, function, line);
 }
 
-void Context::validationError(GLenum errorCode, const char *message) const
+void Context::validationError(angle::EntryPoint entryPoint,
+                              GLenum errorCode,
+                              const char *message) const
 {
-    const_cast<Context *>(this)->mErrors.validationError(errorCode, message);
+    const_cast<Context *>(this)->mErrors.validationError(entryPoint, errorCode, message);
 }
 
 // Get one of the recorded errors and clear its flag, if any.
@@ -3214,7 +3209,7 @@ void Context::initVersionStrings()
         versionString << "OpenGL ES ";
     }
     versionString << clientVersion.major << "." << clientVersion.minor << ".0 (ANGLE "
-                  << ANGLE_VERSION_STRING << ")";
+                  << angle::GetANGLEVersionString() << ")";
     mVersionString = MakeStaticString(versionString.str());
 
     std::ostringstream shadingLanguageVersionString;
@@ -3228,8 +3223,8 @@ void Context::initVersionStrings()
         shadingLanguageVersionString << "OpenGL GLSL ";
     }
     shadingLanguageVersionString << (clientVersion.major == 2 ? 1 : clientVersion.major) << "."
-                                 << clientVersion.minor << "0 (ANGLE " << ANGLE_VERSION_STRING
-                                 << ")";
+                                 << clientVersion.minor << "0 (ANGLE "
+                                 << angle::GetANGLEVersionString() << ")";
     mShadingLanguageString = MakeStaticString(shadingLanguageVersionString.str());
 }
 
@@ -4115,15 +4110,11 @@ angle::Result Context::prepareForClearBuffer(GLenum buffer, GLint drawbuffer)
 ANGLE_INLINE angle::Result Context::prepareForCopyImage()
 {
     ANGLE_TRY(syncDirtyObjects(mCopyImageDirtyObjects, Command::CopyImage));
-    return syncDirtyBits(mCopyImageDirtyBits);
+    return syncDirtyBits(mCopyImageDirtyBits, Command::CopyImage);
 }
 
 ANGLE_INLINE angle::Result Context::prepareForDispatch()
 {
-    // We always assume PPOs are used for draws, until they aren't. If we are executing a dispatch
-    // with a PPO, we need to convert it from a "draw"-type to "dispatch"-type.
-    convertPpoToComputeOrDraw(true);
-
     // Converting a PPO from graphics to compute requires re-linking it.
     // The compute shader must have successfully linked before being included in the PPO, so no link
     // errors that would have been caught during validation should be possible when re-linking the
@@ -4140,7 +4131,7 @@ ANGLE_INLINE angle::Result Context::prepareForDispatch()
     }
 
     ANGLE_TRY(syncDirtyObjects(mComputeDirtyObjects, Command::Dispatch));
-    return syncDirtyBits(mComputeDirtyBits);
+    return syncDirtyBits(mComputeDirtyBits, Command::Dispatch);
 }
 
 angle::Result Context::syncState(const State::DirtyBits &bitMask,
@@ -4148,7 +4139,7 @@ angle::Result Context::syncState(const State::DirtyBits &bitMask,
                                  Command command)
 {
     ANGLE_TRY(syncDirtyObjects(objectMask, command));
-    ANGLE_TRY(syncDirtyBits(bitMask));
+    ANGLE_TRY(syncDirtyBits(bitMask, command));
     return angle::Result::Continue;
 }
 
@@ -5950,7 +5941,8 @@ void Context::debugMessageInsert(GLenum source,
                                  const GLchar *buf)
 {
     std::string msg(buf, (length > 0) ? static_cast<size_t>(length) : strlen(buf));
-    mState.getDebug().insertMessage(source, type, id, severity, std::move(msg), gl::LOG_INFO);
+    mState.getDebug().insertMessage(source, type, id, severity, std::move(msg), gl::LOG_INFO,
+                                    angle::EntryPoint::GLDebugMessageInsert);
 }
 
 void Context::debugMessageCallback(GLDEBUGPROCKHR callback, const void *userParam)
@@ -6380,36 +6372,9 @@ void Context::dispatchCompute(GLuint numGroupsX, GLuint numGroupsY, GLuint numGr
     // before convertPpoToComputeOrDraw() reverts the PPO back to graphics.
     MarkShaderStorageUsage(this);
 
-    // We always assume PPOs are used for draws, until they aren't. If we just executed a dispatch
-    // with a PPO, we need to convert it back to a "draw"-type.
-    // We don't re-link the PPO again, since it's possible for that link to generate validation
-    // errors due to bad VS/FS, and we want to catch those errors during validation of the draw
-    // command: 11.1.3.11 Validation It is not always possible to determine at link time if a
-    // program object can execute successfully, given that LinkProgram can not know the state of the
-    // remainder of the pipeline. Therefore validation is done when the first rendering command
-    // which triggers shader invocations is issued, to determine if the set of active program
-    // objects can be executed.
-    convertPpoToComputeOrDraw(false);
-
     if (ANGLE_UNLIKELY(IsError(result)))
     {
         return;
-    }
-}
-
-void Context::convertPpoToComputeOrDraw(bool isCompute)
-{
-    Program *program          = mState.getProgram();
-    ProgramPipeline *pipeline = mState.getProgramPipeline();
-    if (!program && pipeline)
-    {
-        pipeline->getExecutable().setIsCompute(isCompute);
-        pipeline->resetIsLinked();
-
-        // The PPO's isCompute() has changed, so its ProgramExecutable will produce different
-        // results for things like getShaderStorageBlocks() or getImageBindings().
-        mState.mDirtyBits.set(State::DirtyBitType::DIRTY_BIT_PROGRAM_EXECUTABLE);
-        mStateCache.onProgramExecutableChange(this);
     }
 }
 
@@ -6603,7 +6568,7 @@ GLenum Context::checkFramebufferStatus(GLenum target)
 
 void Context::compileShader(ShaderProgramID shader)
 {
-    Shader *shaderObject = GetValidShader(this, shader);
+    Shader *shaderObject = GetValidShader(this, angle::EntryPoint::GLCompileShader, shader);
     if (!shaderObject)
     {
         return;
@@ -9213,17 +9178,17 @@ void ErrorSet::handleError(GLenum errorCode,
 
     mContext->getState().getDebug().insertMessage(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_ERROR,
                                                   errorCode, GL_DEBUG_SEVERITY_HIGH, message,
-                                                  gl::LOG_WARN);
+                                                  gl::LOG_WARN, angle::EntryPoint::GLInvalid);
 }
 
-void ErrorSet::validationError(GLenum errorCode, const char *message)
+void ErrorSet::validationError(angle::EntryPoint entryPoint, GLenum errorCode, const char *message)
 {
     ASSERT(errorCode != GL_NO_ERROR);
     mErrors.insert(errorCode);
 
     mContext->getState().getDebug().insertMessage(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_ERROR,
                                                   errorCode, GL_DEBUG_SEVERITY_HIGH, message,
-                                                  gl::LOG_INFO);
+                                                  gl::LOG_INFO, entryPoint);
 }
 
 bool ErrorSet::empty() const

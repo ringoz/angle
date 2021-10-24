@@ -82,6 +82,38 @@ class MemoryReport final : angle::NonCopyable
     VkDeviceSize mMaxTotalImportedMemory;
     angle::HashMap<uint64_t, int> mUniqueIDCounts;
 };
+
+class BufferMemoryAllocator : angle::NonCopyable
+{
+  public:
+    BufferMemoryAllocator();
+    ~BufferMemoryAllocator();
+
+    VkResult initialize(RendererVk *renderer, VkDeviceSize preferredLargeHeapBlockSize);
+    void destroy(RendererVk *renderer);
+
+    // Initializes the buffer handle and memory allocation.
+    VkResult createBuffer(RendererVk *renderer,
+                          const VkBufferCreateInfo &bufferCreateInfo,
+                          VkMemoryPropertyFlags requiredFlags,
+                          VkMemoryPropertyFlags preferredFlags,
+                          bool persistentlyMapped,
+                          uint32_t *memoryTypeIndexOut,
+                          Buffer *bufferOut,
+                          Allocation *allocationOut);
+
+    void getMemoryTypeProperties(RendererVk *renderer,
+                                 uint32_t memoryTypeIndex,
+                                 VkMemoryPropertyFlags *flagsOut) const;
+    VkResult findMemoryTypeIndexForBufferInfo(RendererVk *renderer,
+                                              const VkBufferCreateInfo &bufferCreateInfo,
+                                              VkMemoryPropertyFlags requiredFlags,
+                                              VkMemoryPropertyFlags preferredFlags,
+                                              bool persistentlyMappedBuffers,
+                                              uint32_t *memoryTypeIndexOut) const;
+
+  private:
+};
 }  // namespace vk
 
 // Supports one semaphore from current surface, and one semaphore passed to
@@ -161,6 +193,7 @@ class RendererVk : angle::NonCopyable
     }
     VkDevice getDevice() const { return mDevice; }
 
+    vk::BufferMemoryAllocator &getBufferMemoryAllocator() { return mBufferMemoryAllocator; }
     const vk::Allocator &getAllocator() const { return mAllocator; }
 
     angle::Result selectPresentQueueForSurface(DisplayVk *displayVk,
@@ -319,19 +352,6 @@ class RendererVk : angle::NonCopyable
         }
     }
 
-    ANGLE_INLINE Serial getLastSubmittedQueueSerial()
-    {
-        if (mFeatures.asyncCommandQueue.enabled)
-        {
-            return mCommandProcessor.getLastSubmittedQueueSerial();
-        }
-        else
-        {
-            std::lock_guard<std::mutex> lock(mCommandQueueMutex);
-            return mCommandQueue.getLastSubmittedQueueSerial();
-        }
-    }
-
     ANGLE_INLINE Serial getLastCompletedQueueSerial()
     {
         if (mFeatures.asyncCommandQueue.enabled)
@@ -345,9 +365,29 @@ class RendererVk : angle::NonCopyable
         }
     }
 
-    ANGLE_INLINE bool isBusy()
+    ANGLE_INLINE bool isCommandQueueBusy()
     {
-        return getLastSubmittedQueueSerial() > getLastCompletedQueueSerial();
+        std::lock_guard<std::mutex> lock(mCommandQueueMutex);
+        if (mFeatures.asyncCommandQueue.enabled)
+        {
+            return mCommandProcessor.isBusy();
+        }
+        else
+        {
+            return mCommandQueue.isBusy();
+        }
+    }
+
+    angle::Result ensureNoPendingWork(vk::Context *context)
+    {
+        if (mFeatures.asyncCommandQueue.enabled)
+        {
+            return mCommandProcessor.ensureNoPendingWork(context);
+        }
+        else
+        {
+            return mCommandQueue.ensureNoPendingWork(context);
+        }
     }
 
     egl::Display *getDisplay() const { return mDisplay; }
@@ -385,7 +425,8 @@ class RendererVk : angle::NonCopyable
                               const vk::Semaphore *signalSemaphore,
                               std::vector<vk::ResourceUseList> &&resourceUseLists,
                               vk::GarbageList &&currentGarbage,
-                              vk::CommandPool *commandPool);
+                              vk::CommandPool *commandPool,
+                              Serial *submitSerialOut);
 
     void handleDeviceLost();
     angle::Result finishToSerial(vk::Context *context, Serial serial);
@@ -565,16 +606,18 @@ class RendererVk : angle::NonCopyable
     };
     std::deque<PendingOneOffCommands> mPendingOneOffCommands;
 
+    // Synchronous Command Queue
     std::mutex mCommandQueueMutex;
     vk::CommandQueue mCommandQueue;
+
+    // Async Command Queue
+    vk::CommandProcessor mCommandProcessor;
 
     // Command buffer pool management.
     std::mutex mCommandBufferRecyclerMutex;
     vk::CommandBufferRecycler mCommandBufferRecycler;
 
-    // Async Command Queue
-    vk::CommandProcessor mCommandProcessor;
-
+    vk::BufferMemoryAllocator mBufferMemoryAllocator;
     vk::Allocator mAllocator;
     SamplerCache mSamplerCache;
     SamplerYcbcrConversionCache mYuvConversionCache;

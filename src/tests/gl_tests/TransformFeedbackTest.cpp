@@ -2264,7 +2264,8 @@ TEST_P(TransformFeedbackTest, BufferOutOfMemory)
     compileDefaultProgram(tfVaryings, GL_INTERLEAVED_ATTRIBS);
 
     GLint positionLocation   = glGetAttribLocation(mProgram, essl1_shaders::PositionAttrib());
-    const GLfloat vertices[] = {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+    const GLfloat vertices[] = {-1.0f, -0.5f, 0.0f,  0.5f, 1.0f,  1.0f, -0.5f, 0.0f,
+                                0.5f,  1.0f,  -1.0f, 0.0f, -0.5f, 0.0f, 1.0f};
 
     glVertexAttribPointer(positionLocation, 3, GL_FLOAT, GL_FALSE, 0, vertices);
     glEnableVertexAttribArray(positionLocation);
@@ -3681,8 +3682,7 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TransformFeedbackLifetimeTest);
 ANGLE_INSTANTIATE_TEST_ES3(TransformFeedbackLifetimeTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TransformFeedbackTestES31);
-ANGLE_INSTANTIATE_TEST_ES31_AND(TransformFeedbackTestES31,
-                                WithDirectSPIRVGeneration(ES31_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES31(TransformFeedbackTestES31);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TransformFeedbackTestIOBlocks);
 ANGLE_INSTANTIATE_TEST_ES31(TransformFeedbackTestIOBlocks);

@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <utility>
 
-#include "common/angle_version.h"
+#include "common/angle_version_info.h"
 #include "common/bitset_utils.h"
 #include "common/debug.h"
 #include "common/platform.h"
@@ -1559,12 +1559,12 @@ angle::Result Program::linkImpl(const Context *context)
     LinkingVariables linkingVariables(mState);
     ProgramLinkedResources &resources = linkingState->resources;
 
+    resources.init(&mState.mExecutable->mUniformBlocks, &mState.mExecutable->mUniforms,
+                   &mState.mExecutable->mShaderStorageBlocks, &mState.mBufferVariables,
+                   &mState.mExecutable->mAtomicCounterBuffers);
+
     if (mState.mAttachedShaders[ShaderType::Compute])
     {
-        resources.init(&mState.mExecutable->mUniformBlocks, &mState.mExecutable->mUniforms,
-                       &mState.mExecutable->mComputeShaderStorageBlocks, &mState.mBufferVariables,
-                       &mState.mExecutable->mAtomicCounterBuffers);
-
         GLuint combinedImageUniforms = 0u;
         if (!linkUniforms(context->getCaps(), context->getClientVersion(), infoLog,
                           mState.mUniformLocationBindings, &combinedImageUniforms,
@@ -1601,10 +1601,6 @@ angle::Result Program::linkImpl(const Context *context)
     }
     else
     {
-        resources.init(&mState.mExecutable->mUniformBlocks, &mState.mExecutable->mUniforms,
-                       &mState.mExecutable->mGraphicsShaderStorageBlocks, &mState.mBufferVariables,
-                       &mState.mExecutable->mAtomicCounterBuffers);
-
         if (!linkAttributes(context, infoLog))
         {
             return angle::Result::Continue;
@@ -1757,15 +1753,6 @@ void Program::updateLinkedShaderStages()
         {
             mState.mExecutable->setLinkedShaderStages(shader->getType());
         }
-    }
-
-    if (mState.mExecutable->hasLinkedShaderStage(ShaderType::Compute))
-    {
-        mState.mExecutable->setIsCompute(true);
-    }
-    else
-    {
-        mState.mExecutable->setIsCompute(false);
     }
 }
 
@@ -3654,20 +3641,16 @@ void Program::linkSamplerAndImageBindings(GLuint *combinedImageUniforms)
         --low;
     }
 
-    mState.mExecutable->mImageUniformRange = RangeUI(low, high);
-    *combinedImageUniforms                 = 0u;
-    // The Program is still linking, so getExecutable().isCompute() isn't accurate yet.
-    bool hasComputeShader = mState.mAttachedShaders[ShaderType::Compute] != nullptr;
-    std::vector<ImageBinding> &imageBindings = hasComputeShader
-                                                   ? mState.mExecutable->mComputeImageBindings
-                                                   : mState.mExecutable->mGraphicsImageBindings;
+    mState.mExecutable->mImageUniformRange   = RangeUI(low, high);
+    *combinedImageUniforms                   = 0u;
+    std::vector<ImageBinding> &imageBindings = mState.mExecutable->mImageBindings;
     // If uniform is a image type, insert it into the mImageBindings array.
     for (unsigned int imageIndex : mState.mExecutable->getImageUniformRange())
     {
         // ES3.1 (section 7.6.1) and GLSL ES3.1 (section 4.4.5), Uniform*i{v} commands
         // cannot load values into a uniform defined as an image. if declare without a
         // binding qualifier, any uniform image variable (include all elements of
-        // unbound image array) shoud be bound to unit zero.
+        // unbound image array) should be bound to unit zero.
         auto &imageUniform      = mState.mExecutable->getUniforms()[imageIndex];
         TextureType textureType = ImageTypeToTextureType(imageUniform.type);
         const GLuint arraySize  = imageUniform.isArray() ? imageUniform.arraySizes[0] : 1u;
@@ -4635,8 +4618,8 @@ angle::Result Program::serialize(const Context *context, angle::MemoryBuffer *bi
 {
     BinaryOutputStream stream;
 
-    stream.writeBytes(reinterpret_cast<const unsigned char *>(ANGLE_COMMIT_HASH),
-                      ANGLE_COMMIT_HASH_SIZE);
+    stream.writeBytes(reinterpret_cast<const unsigned char *>(angle::GetANGLECommitHash()),
+                      angle::GetANGLECommitHashSize());
 
     // nullptr context is supported when computing binary length.
     if (context)
@@ -4716,7 +4699,7 @@ angle::Result Program::serialize(const Context *context, angle::MemoryBuffer *bi
             }
             else
             {
-                // If we dont have an attached shader, which would occur if this program was
+                // If we don't have an attached shader, which would occur if this program was
                 // created via glProgramBinary, pull from our cached copy
                 const angle::ProgramSources &cachedLinkedSources =
                     context->getShareGroup()->getFrameCaptureShared()->getProgramSources(id());
@@ -4744,10 +4727,9 @@ angle::Result Program::deserialize(const Context *context,
                                    BinaryInputStream &stream,
                                    InfoLog &infoLog)
 {
-    unsigned char commitString[ANGLE_COMMIT_HASH_SIZE];
-    stream.readBytes(commitString, ANGLE_COMMIT_HASH_SIZE);
-    if (memcmp(commitString, ANGLE_COMMIT_HASH, sizeof(unsigned char) * ANGLE_COMMIT_HASH_SIZE) !=
-        0)
+    std::vector<uint8_t> commitString(angle::GetANGLECommitHashSize(), 0);
+    stream.readBytes(commitString.data(), commitString.size());
+    if (memcmp(commitString.data(), angle::GetANGLECommitHash(), commitString.size()) != 0)
     {
         infoLog << "Invalid program binary version.";
         return angle::Result::Stop;

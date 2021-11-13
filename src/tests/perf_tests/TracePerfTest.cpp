@@ -1111,6 +1111,26 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
         }
     }
 
+    if (traceNameIs("world_cricket_championship_2"))
+    {
+        addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
+
+        // http://anglebug.com/6657 - Native test timing out on Intel Linux
+        if (IsLinux() && IsIntel() && mParams.driver == GLESDriverType::SystemWGL)
+        {
+            mSkipTest = true;
+        }
+    }
+
+    if (traceNameIs("zillow"))
+    {
+        // http://anglebug.com/6658 - Crashing in Vulkan backend
+        if ((IsLinux() || IsWindows()) && IsNVIDIA() && mParams.driver == GLESDriverType::AngleEGL)
+        {
+            mSkipTest = true;
+        }
+    }
+
     ASSERT(mParams.surfaceType == SurfaceType::Window || gEnableAllTraceTests);
     ASSERT(mParams.eglParameters.deviceType == EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE ||
            gEnableAllTraceTests);

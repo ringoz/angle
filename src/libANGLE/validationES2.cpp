@@ -4335,12 +4335,28 @@ bool ValidateGetAttribLocation(const Context *context,
                                ShaderProgramID program,
                                const GLchar *name)
 {
-    // The WebGL spec (section 6.20) disallows strings containing invalid ESSL characters for
-    // shader-related entry points
-    if (context->isWebGL() && !IsValidESSLString(name, strlen(name)))
+    if (strncmp(name, "gl_", 3) == 0)
     {
-        context->validationError(entryPoint, GL_INVALID_VALUE, kInvalidNameCharacters);
         return false;
+    }
+
+    if (context->isWebGL())
+    {
+        const size_t length = strlen(name);
+
+        if (!IsValidESSLString(name, length))
+        {
+            // The WebGL spec (section 6.20) disallows strings containing invalid ESSL characters
+            // for shader-related entry points
+            context->validationError(entryPoint, GL_INVALID_VALUE, kInvalidNameCharacters);
+            return false;
+        }
+
+        if (!ValidateWebGLNameLength(context, entryPoint, length) ||
+            strncmp(name, "webgl_", 6) == 0 || strncmp(name, "_webgl_", 7) == 0)
+        {
+            return false;
+        }
     }
 
     Program *programObject = GetValidProgram(context, entryPoint, program);
@@ -6294,8 +6310,8 @@ bool ValidateFramebufferTexture2DMultisampleEXT(const Context *context,
     if (texture.value != 0 && context->getClientMajorVersion() >= 3)
     {
         Texture *tex                  = context->getTexture(texture);
-        GLenum internalformat         = tex->getFormat(textarget, level).info->internalFormat;
-        const TextureCaps &formatCaps = context->getTextureCaps().get(internalformat);
+        GLenum sizedInternalFormat    = tex->getFormat(textarget, level).info->sizedInternalFormat;
+        const TextureCaps &formatCaps = context->getTextureCaps().get(sizedInternalFormat);
         if (static_cast<GLuint>(samples) > formatCaps.getMaxSamples())
         {
             context->validationError(entryPoint, GL_INVALID_OPERATION, kSamplesOutOfRange);

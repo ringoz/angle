@@ -188,29 +188,18 @@ bool EGLWindow::initializeDisplay(OSWindow *osWindow,
         displayAttributes.push_back(params.debugLayersEnabled);
     }
 
-    const bool hasFeatureVirtualizationANGLE =
-        strstr(extensionString, "EGL_ANGLE_platform_angle_context_virtualization") != nullptr;
-
-    if (params.contextVirtualization != EGL_DONT_CARE)
-    {
-        if (hasFeatureVirtualizationANGLE)
-        {
-            displayAttributes.push_back(EGL_PLATFORM_ANGLE_CONTEXT_VIRTUALIZATION_ANGLE);
-            displayAttributes.push_back(params.contextVirtualization);
-        }
-        else
-        {
-            fprintf(stderr,
-                    "EGL_ANGLE_platform_angle_context_virtualization extension not active\n");
-        }
-    }
-
     if (params.platformMethods)
     {
         static_assert(sizeof(EGLAttrib) == sizeof(params.platformMethods),
                       "Unexpected pointer size");
         displayAttributes.push_back(EGL_PLATFORM_ANGLE_PLATFORM_METHODS_ANGLEX);
         displayAttributes.push_back(reinterpret_cast<EGLAttrib>(params.platformMethods));
+    }
+
+    if (params.displayPowerPreference != EGL_DONT_CARE)
+    {
+        displayAttributes.push_back(EGL_POWER_PREFERENCE_ANGLE);
+        displayAttributes.push_back(params.displayPowerPreference);
     }
 
     std::vector<const char *> disabledFeatureOverrides;
@@ -515,10 +504,10 @@ GLWindowContext EGLWindow::getCurrentContextGeneric()
 GLWindowContext EGLWindow::createContextGeneric(GLWindowContext share)
 {
     EGLContext shareContext = reinterpret_cast<EGLContext>(share);
-    return reinterpret_cast<GLWindowContext>(createContext(shareContext));
+    return reinterpret_cast<GLWindowContext>(createContext(shareContext, nullptr));
 }
 
-EGLContext EGLWindow::createContext(EGLContext share)
+EGLContext EGLWindow::createContext(EGLContext share, EGLint *extraAttributes)
 {
     const char *displayExtensions = eglQueryString(mDisplay, EGL_EXTENSIONS);
 
@@ -605,6 +594,13 @@ EGLContext EGLWindow::createContext(EGLContext share)
     }
 
     std::vector<EGLint> contextAttributes;
+    for (EGLint *extraAttrib = extraAttributes;
+         extraAttrib != nullptr && extraAttrib[0] != EGL_NONE; extraAttrib += 2)
+    {
+        contextAttributes.push_back(extraAttrib[0]);
+        contextAttributes.push_back(extraAttrib[1]);
+    }
+
     if (hasKHRCreateContext)
     {
         contextAttributes.push_back(EGL_CONTEXT_MAJOR_VERSION_KHR);
@@ -703,7 +699,7 @@ EGLContext EGLWindow::createContext(EGLContext share)
 
 bool EGLWindow::initializeContext()
 {
-    mContext = createContext(EGL_NO_CONTEXT);
+    mContext = createContext(EGL_NO_CONTEXT, nullptr);
     if (mContext == EGL_NO_CONTEXT)
     {
         destroyGL();

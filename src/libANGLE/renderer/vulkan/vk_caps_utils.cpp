@@ -11,6 +11,7 @@
 
 #include <type_traits>
 
+#include "common/system_utils.h"
 #include "common/utilities.h"
 #include "libANGLE/Caps.h"
 #include "libANGLE/formatutils.h"
@@ -23,6 +24,13 @@
 namespace
 {
 constexpr unsigned int kComponentsPerVector = 4;
+
+// Environment variable and Android property to remove the restriction on exposing
+// GL_EXT_shader_framebuffer_fetch_non_coherent on ARM and Qualcomm.
+constexpr char kEnableExtShaderFramebufferFetchNonCoherentOverrideVarName[] =
+    "ANGLE_ENABLE_EXT_SHADER_FRAMEBUFFER_FETCH_NON_COHERENT_OVERRIDE";
+constexpr char kEnableExtShaderFramebufferFetchNonCoherentOverridePropertyName[] =
+    "debug.angle.enable.ext_shader_framebuffer_fetch_non_coherent_override";
 }  // anonymous namespace
 
 namespace rx
@@ -94,8 +102,8 @@ bool GetTextureSRGBDecodeSupport(const RendererVk *rendererVk)
     return true;
 }
 
-bool GetTextureSRGBOverrideSupport(const RendererVk *rendererVk,
-                                   const gl::Extensions &supportedExtensions)
+ANGLE_MAYBE_UNUSED bool GetTextureSRGBOverrideSupport(const RendererVk *rendererVk,
+                                                      const gl::Extensions &supportedExtensions)
 {
     static constexpr bool kNonLinearColorspace = false;
 
@@ -476,8 +484,8 @@ void RendererVk::ensureCapsInitialized() const
 
     // Vulkan natively supports format reinterpretation, but we still require support for all
     // formats we may reinterpret to
-    mNativeExtensions.textureFormatSRGBOverrideEXT =
-        vk::GetTextureSRGBOverrideSupport(this, mNativeExtensions);
+    mNativeExtensions.textureFormatSRGBOverrideEXT = true;
+    //    vk::GetTextureSRGBOverrideSupport(this, mNativeExtensions);
     mNativeExtensions.textureSRGBDecodeEXT = vk::GetTextureSRGBDecodeSupport(this);
 
     // EXT_srgb_write_control requires image_format_list
@@ -528,6 +536,9 @@ void RendererVk::ensureCapsInitialized() const
     mNativeCaps.minInterpolationOffset          = limitsVk.minInterpolationOffset;
     mNativeCaps.maxInterpolationOffset          = limitsVk.maxInterpolationOffset;
     mNativeCaps.subPixelInterpolationOffsetBits = limitsVk.subPixelInterpolationOffsetBits;
+
+    // Enable GL_ANGLE_robust_fragment_shader_output
+    mNativeExtensions.robustFragmentShaderOutputANGLE = true;
 
     // From the Vulkan spec:
     //
@@ -898,10 +909,16 @@ void RendererVk::ensureCapsInitialized() const
 
     // Important games are not checking supported extensions properly, and are confusing the
     // GL_EXT_shader_framebuffer_fetch_non_coherent as the GL_EXT_shader_framebuffer_fetch
-    // extension.  Therefore, don't enable the extension on Arm and Qualcomm.
+    // extension.  Therefore, don't enable the extension on Arm and Qualcomm by default.
     // https://issuetracker.google.com/issues/186643966
-    if (!(IsARM(mPhysicalDeviceProperties.vendorID) ||
-          IsQualcomm(mPhysicalDeviceProperties.vendorID)))
+    // However, it can be enabled by using an environment variable or Android property as below.
+    const std::string enableOverrideValue = angle::GetEnvironmentVarOrAndroidProperty(
+        kEnableExtShaderFramebufferFetchNonCoherentOverrideVarName,
+        kEnableExtShaderFramebufferFetchNonCoherentOverridePropertyName);
+    const bool enableOverride =
+        !enableOverrideValue.empty() && enableOverrideValue.compare("0") != 0;
+    if (enableOverride || (!(IsARM(mPhysicalDeviceProperties.vendorID) ||
+                             IsQualcomm(mPhysicalDeviceProperties.vendorID))))
     {
         // Enable GL_EXT_shader_framebuffer_fetch_non_coherent
         // For supporting this extension, gl::IMPLEMENTATION_MAX_DRAW_BUFFERS is used.
@@ -1148,6 +1165,13 @@ egl::Config GenerateDefaultConfig(DisplayVk *display,
     EGLint es2Support = (maxSupportedESVersion.major >= 2 ? EGL_OPENGL_ES2_BIT : 0);
     EGLint es3Support = (maxSupportedESVersion.major >= 3 ? EGL_OPENGL_ES3_BIT : 0);
 
+    EGLint surfaceType = EGL_WINDOW_BIT;
+    // Don't support RGB8 PBuffers.
+    if (colorFormat.internalFormat != GL_RGB8)
+    {
+        surfaceType |= EGL_PBUFFER_BIT;
+    }
+
     egl::Config config;
 
     config.renderTargetFormat = colorFormat.internalFormat;
@@ -1178,7 +1202,7 @@ egl::Config GenerateDefaultConfig(DisplayVk *display,
     config.renderableType     = es1Support | es2Support | es3Support;
     config.sampleBuffers      = (sampleCount > 0) ? 1 : 0;
     config.samples            = sampleCount;
-    config.surfaceType        = EGL_WINDOW_BIT | EGL_PBUFFER_BIT;
+    config.surfaceType        = surfaceType;
     // Vulkan surfaces use a different origin than OpenGL, always prefer to be flipped vertically if
     // possible.
     config.optimalOrientation    = EGL_SURFACE_ORIENTATION_INVERT_Y_ANGLE;

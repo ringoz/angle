@@ -1453,16 +1453,13 @@ angle::Result UtilsVk::setupProgram(ContextVk *contextVk,
 
     const vk::BindingPointer<vk::PipelineLayout> &pipelineLayout = mPipelineLayouts[function];
 
-    Serial serial = contextVk->getCurrentQueueSerial();
-
     if (isCompute)
     {
-        vk::PipelineAndSerial *pipelineAndSerial;
+        vk::PipelineHelper *pipeline;
         program->setShader(gl::ShaderType::Compute, fsCsShader);
-        ANGLE_TRY(program->getComputePipeline(contextVk, pipelineLayout.get(), &pipelineAndSerial));
-        // TODO: https://issuetracker.google.com/issues/169788986: Update serial handling.
-        pipelineAndSerial->updateSerial(serial);
-        commandBuffer->bindComputePipeline(pipelineAndSerial->get());
+        ANGLE_TRY(program->getComputePipeline(contextVk, pipelineLayout.get(), &pipeline));
+        pipeline->retain(&contextVk->getResourceUseList());
+        commandBuffer->bindComputePipeline(pipeline->getPipeline());
 
         contextVk->invalidateComputePipelineBinding();
     }
@@ -1479,10 +1476,11 @@ angle::Result UtilsVk::setupProgram(ContextVk *contextVk,
         vk::PipelineHelper *helper;
         vk::PipelineCache *pipelineCache = nullptr;
         ANGLE_TRY(renderer->getPipelineCache(&pipelineCache));
-        ANGLE_TRY(program->getGraphicsPipeline(
-            contextVk, &contextVk->getRenderPassCache(), *pipelineCache, pipelineLayout.get(),
-            *pipelineDesc, gl::AttributesMask(), gl::ComponentTypeMask(), &descPtr, &helper));
-        helper->updateSerial(serial);
+        ANGLE_TRY(program->getGraphicsPipeline(contextVk, &contextVk->getRenderPassCache(),
+                                               *pipelineCache, pipelineLayout.get(), *pipelineDesc,
+                                               gl::AttributesMask(), gl::ComponentTypeMask(),
+                                               gl::DrawBufferMask(), &descPtr, &helper));
+        helper->retain(&contextVk->getResourceUseList());
         commandBuffer->bindGraphicsPipeline(helper->getPipeline());
 
         contextVk->invalidateGraphicsPipelineBinding();
@@ -2111,7 +2109,8 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
     // render pass.
     if (isTransformFeedbackActiveUnpaused)
     {
-        ANGLE_TRY(contextVk->flushCommandsAndEndRenderPass());
+        ANGLE_TRY(contextVk->flushCommandsAndEndRenderPass(
+            RenderPassClosureReason::XfbResumeAfterDrawBasedClear));
     }
 
     return angle::Result::Continue;
@@ -2209,7 +2208,8 @@ angle::Result UtilsVk::clearImage(ContextVk *contextVk,
     contextVk->addGarbage(&destViewObject);
 
     // Close the render pass for this temporary framebuffer.
-    return contextVk->flushCommandsAndEndRenderPass();
+    return contextVk->flushCommandsAndEndRenderPass(
+        RenderPassClosureReason::TemporaryForImageClear);
 }
 
 angle::Result UtilsVk::colorBlitResolve(ContextVk *contextVk,
@@ -2303,7 +2303,7 @@ angle::Result UtilsVk::blitResolveImpl(ContextVk *contextVk,
     shaderParams.flipY    = params.flipY;
     shaderParams.rotateXY = 0;
 
-    // Potentially make adjustments for pre-rotatation.  Depending on the angle some of the
+    // Potentially make adjustments for pre-rotation.  Depending on the angle some of the
     // shaderParams need to be adjusted.
     switch (params.rotation)
     {
@@ -2879,7 +2879,7 @@ angle::Result UtilsVk::copyImage(ContextVk *contextVk,
     descriptorPoolBinding.reset();
 
     // Close the render pass for this temporary framebuffer.
-    return contextVk->flushCommandsAndEndRenderPass();
+    return contextVk->flushCommandsAndEndRenderPass(RenderPassClosureReason::TemporaryForImageCopy);
 }
 
 angle::Result UtilsVk::copyImageBits(ContextVk *contextVk,

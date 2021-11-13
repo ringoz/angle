@@ -108,6 +108,8 @@ class CommandProcessorTask
     void initOneOffQueueSubmit(VkCommandBuffer commandBufferHandle,
                                bool hasProtectedContent,
                                egl::ContextPriority priority,
+                               const Semaphore *waitSemaphore,
+                               VkPipelineStageFlags waitSemaphoreStageMask,
                                const Fence *fence,
                                Serial submitQueueSerial);
 
@@ -132,6 +134,8 @@ class CommandProcessorTask
     egl::ContextPriority getPriority() const { return mPriority; }
     bool hasProtectedContent() const { return mHasProtectedContent; }
     VkCommandBuffer getOneOffCommandBufferVk() const { return mOneOffCommandBufferVk; }
+    const Semaphore *getOneOffWaitSemaphore() { return mOneOffWaitSemaphore; }
+    VkPipelineStageFlags getOneOffWaitSemaphoreStageMask() { return mOneOffWaitSemaphoreStageMask; }
     const Fence *getOneOffFence() { return mOneOffFence; }
     const VkPresentInfoKHR &getPresentInfo() const { return mPresentInfo; }
     const RenderPass *getRenderPass() const { return mRenderPass; }
@@ -170,6 +174,8 @@ class CommandProcessorTask
 
     // Used by OneOffQueueSubmit
     VkCommandBuffer mOneOffCommandBufferVk;
+    const Semaphore *mOneOffWaitSemaphore;
+    VkPipelineStageFlags mOneOffWaitSemaphoreStageMask;
     const Fence *mOneOffFence;
 
     // Flush, Present & QueueWaitIdle data
@@ -291,6 +297,8 @@ class CommandQueueInterface : angle::NonCopyable
                                             bool hasProtectedContent,
                                             egl::ContextPriority contextPriority,
                                             VkCommandBuffer commandBufferHandle,
+                                            const Semaphore *waitSemaphore,
+                                            VkPipelineStageFlags waitSemaphoreStageMask,
                                             const Fence *fence,
                                             SubmitPolicy submitPolicy,
                                             Serial submitQueueSerial)  = 0;
@@ -320,7 +328,6 @@ class CommandQueueInterface : angle::NonCopyable
     virtual angle::Result ensureNoPendingWork(Context *context) = 0;
 
     virtual Serial getLastCompletedQueueSerial() const = 0;
-    virtual Serial getCurrentQueueSerial() const       = 0;
     virtual bool isBusy() const                        = 0;
 };
 
@@ -356,6 +363,8 @@ class CommandQueue final : public CommandQueueInterface
                                     bool hasProtectedContent,
                                     egl::ContextPriority contextPriority,
                                     VkCommandBuffer commandBufferHandle,
+                                    const Semaphore *waitSemaphore,
+                                    VkPipelineStageFlags waitSemaphoreStageMask,
                                     const Fence *fence,
                                     SubmitPolicy submitPolicy,
                                     Serial submitQueueSerial) override;
@@ -381,7 +390,6 @@ class CommandQueue final : public CommandQueueInterface
     angle::Result ensureNoPendingWork(Context *context) override { return angle::Result::Continue; }
 
     Serial getLastCompletedQueueSerial() const override;
-    Serial getCurrentQueueSerial() const override;
     bool isBusy() const override;
 
     angle::Result queueSubmit(Context *context,
@@ -396,6 +404,8 @@ class CommandQueue final : public CommandQueueInterface
     }
     uint32_t getDeviceQueueIndex() const { return mQueueMap.getIndex(); }
 
+    VkQueue getQueue(egl::ContextPriority priority) { return mQueueMap[priority]; }
+
   private:
     void releaseToCommandBatch(bool hasProtectedContent,
                                PrimaryCommandBuffer &&commandBuffer,
@@ -405,8 +415,6 @@ class CommandQueue final : public CommandQueueInterface
     angle::Result ensurePrimaryCommandBufferValid(Context *context, bool hasProtectedContent);
 
     bool allInFlightCommandsAreAfterSerial(Serial serial);
-
-    VkQueue getQueue(egl::ContextPriority priority) { return mQueueMap[priority]; }
 
     PrimaryCommandBuffer &getCommandBuffer(bool hasProtectedContent)
     {
@@ -504,6 +512,8 @@ class CommandProcessor : public Context, public CommandQueueInterface
                                     bool hasProtectedContent,
                                     egl::ContextPriority contextPriority,
                                     VkCommandBuffer commandBufferHandle,
+                                    const Semaphore *waitSemaphore,
+                                    VkPipelineStageFlags waitSemaphoreStageMask,
                                     const Fence *fence,
                                     SubmitPolicy submitPolicy,
                                     Serial submitQueueSerial) override;
@@ -528,7 +538,6 @@ class CommandProcessor : public Context, public CommandQueueInterface
     angle::Result ensureNoPendingWork(Context *context) override;
 
     Serial getLastCompletedQueueSerial() const override;
-    Serial getCurrentQueueSerial() const override;
     bool isBusy() const override;
 
     egl::ContextPriority getDriverPriority(egl::ContextPriority priority)
@@ -536,6 +545,7 @@ class CommandProcessor : public Context, public CommandQueueInterface
         return mCommandQueue.getDriverPriority(priority);
     }
     uint32_t getDeviceQueueIndex() const { return mCommandQueue.getDeviceQueueIndex(); }
+    VkQueue getQueue(egl::ContextPriority priority) { return mCommandQueue.getQueue(priority); }
 
   private:
     bool hasPendingError() const

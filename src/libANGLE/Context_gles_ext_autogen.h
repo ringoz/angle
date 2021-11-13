@@ -141,6 +141,11 @@
     /* GL_EXT_memory_object_fd */                                                                  \
     void importMemoryFd(MemoryObjectID memoryPacked, GLuint64 size, HandleType handleTypePacked,   \
                         GLint fd);                                                                 \
+    /* GL_EXT_multi_draw_indirect */                                                               \
+    void multiDrawArraysIndirect(GLenum mode, const void *indirect, GLsizei drawcount,             \
+                                 GLsizei stride);                                                  \
+    void multiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect,                 \
+                                   GLsizei drawcount, GLsizei stride);                             \
     /* GL_EXT_multisample_compatibility */                                                         \
     /* GL_EXT_multisampled_render_to_texture */                                                    \
     void framebufferTexture2DMultisample(GLenum target, GLenum attachment,                         \
@@ -331,20 +336,22 @@
     /* GL_ANGLE_memory_object_flags */                                                             \
     void texStorageMemFlags2D(TextureType targetPacked, GLsizei levels, GLenum internalFormat,     \
                               GLsizei width, GLsizei height, MemoryObjectID memoryPacked,          \
-                              GLuint64 offset, GLbitfield createFlags, GLbitfield usageFlags);     \
+                              GLuint64 offset, GLbitfield createFlags, GLbitfield usageFlags,      \
+                              const void *imageCreateInfoPNext);                                   \
     void texStorageMemFlags2DMultisample(                                                          \
         TextureType targetPacked, GLsizei samples, GLenum internalFormat, GLsizei width,           \
         GLsizei height, GLboolean fixedSampleLocations, MemoryObjectID memoryPacked,               \
-        GLuint64 offset, GLbitfield createFlags, GLbitfield usageFlags);                           \
-    void texStorageMemFlags3D(TextureType targetPacked, GLsizei levels, GLenum internalFormat,     \
-                              GLsizei width, GLsizei height, GLsizei depth,                        \
-                              MemoryObjectID memoryPacked, GLuint64 offset,                        \
-                              GLbitfield createFlags, GLbitfield usageFlags);                      \
-    void texStorageMemFlags3DMultisample(TextureType targetPacked, GLsizei samples,                \
-                                         GLenum internalFormat, GLsizei width, GLsizei height,     \
-                                         GLsizei depth, GLboolean fixedSampleLocations,            \
-                                         MemoryObjectID memoryPacked, GLuint64 offset,             \
-                                         GLbitfield createFlags, GLbitfield usageFlags);           \
+        GLuint64 offset, GLbitfield createFlags, GLbitfield usageFlags,                            \
+        const void *imageCreateInfoPNext);                                                         \
+    void texStorageMemFlags3D(                                                                     \
+        TextureType targetPacked, GLsizei levels, GLenum internalFormat, GLsizei width,            \
+        GLsizei height, GLsizei depth, MemoryObjectID memoryPacked, GLuint64 offset,               \
+        GLbitfield createFlags, GLbitfield usageFlags, const void *imageCreateInfoPNext);          \
+    void texStorageMemFlags3DMultisample(                                                          \
+        TextureType targetPacked, GLsizei samples, GLenum internalFormat, GLsizei width,           \
+        GLsizei height, GLsizei depth, GLboolean fixedSampleLocations,                             \
+        MemoryObjectID memoryPacked, GLuint64 offset, GLbitfield createFlags,                      \
+        GLbitfield usageFlags, const void *imageCreateInfoPNext);                                  \
     /* GL_ANGLE_memory_object_fuchsia */                                                           \
     void importMemoryZirconHandle(MemoryObjectID memoryPacked, GLuint64 size,                      \
                                   HandleType handleTypePacked, GLuint handle);                     \

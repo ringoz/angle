@@ -177,6 +177,7 @@ class RendererVk : angle::NonCopyable
     gl::Version getMaxSupportedESVersion() const;
     gl::Version getMaxConformantESVersion() const;
 
+    uint32_t getApiVersion() const { return mApiVersion; }
     VkInstance getInstance() const { return mInstance; }
     VkPhysicalDevice getPhysicalDevice() const { return mPhysicalDevice; }
     const VkPhysicalDeviceProperties &getPhysicalDeviceProperties() const
@@ -191,6 +192,7 @@ class RendererVk : angle::NonCopyable
     {
         return mPhysicalDeviceFeatures;
     }
+    const VkPhysicalDeviceFeatures2KHR &getEnabledFeatures() const { return mEnabledFeatures; }
     VkDevice getDevice() const { return mDevice; }
 
     vk::BufferMemoryAllocator &getBufferMemoryAllocator() { return mBufferMemoryAllocator; }
@@ -276,6 +278,18 @@ class RendererVk : angle::NonCopyable
         }
     }
 
+    VkQueue getQueue(egl::ContextPriority priority)
+    {
+        if (mFeatures.asyncCommandQueue.enabled)
+        {
+            return mCommandProcessor.getQueue(priority);
+        }
+        else
+        {
+            return mCommandQueue.getQueue(priority);
+        }
+    }
+
     // This command buffer should be submitted immediately via queueSubmitOneOff.
     angle::Result getCommandBufferOneOff(vk::Context *context,
                                          bool hasProtectedContent,
@@ -292,6 +306,8 @@ class RendererVk : angle::NonCopyable
                                     vk::PrimaryCommandBuffer &&primary,
                                     bool hasProtectedContent,
                                     egl::ContextPriority priority,
+                                    const vk::Semaphore *waitSemaphore,
+                                    VkPipelineStageFlags waitSemaphoreStageMasks,
                                     const vk::Fence *fence,
                                     vk::SubmitPolicy submitPolicy,
                                     Serial *serialOut);
@@ -338,19 +354,6 @@ class RendererVk : angle::NonCopyable
     std::string getAndClearLastValidationMessage(uint32_t *countSinceLastClear);
 
     uint64_t getMaxFenceWaitTimeNs() const;
-
-    ANGLE_INLINE Serial getCurrentQueueSerial()
-    {
-        if (mFeatures.asyncCommandQueue.enabled)
-        {
-            return mCommandProcessor.getCurrentQueueSerial();
-        }
-        else
-        {
-            std::lock_guard<std::mutex> lock(mCommandQueueMutex);
-            return mCommandQueue.getCurrentQueueSerial();
-        }
-    }
 
     ANGLE_INLINE Serial getLastCompletedQueueSerial()
     {
@@ -488,6 +491,16 @@ class RendererVk : angle::NonCopyable
         return mMaxCopyBytesUsingCPUWhenPreservingBufferData;
     }
 
+    const vk::ExtensionNameList &getEnabledInstanceExtensions() const
+    {
+        return mEnabledInstanceExtensions;
+    }
+
+    const vk::ExtensionNameList &getEnabledDeviceExtensions() const
+    {
+        return mEnabledDeviceExtensions;
+    }
+
   private:
     angle::Result initializeDevice(DisplayVk *displayVk, uint32_t queueFamilyIndex);
     void ensureCapsInitialized() const;
@@ -518,6 +531,7 @@ class RendererVk : angle::NonCopyable
     mutable gl::Limitations mNativeLimitations;
     mutable angle::FeaturesVk mFeatures;
 
+    uint32_t mApiVersion;
     VkInstance mInstance;
     bool mEnableValidationLayers;
     // True if ANGLE is enabling the VK_EXT_debug_utils extension.
@@ -548,6 +562,7 @@ class RendererVk : angle::NonCopyable
     VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT
         mMultisampledRenderToSingleSampledFeatures;
     VkPhysicalDeviceMultiviewFeatures mMultiviewFeatures;
+    VkPhysicalDeviceFeatures2KHR mEnabledFeatures;
     VkPhysicalDeviceMultiviewProperties mMultiviewProperties;
     VkPhysicalDeviceDriverPropertiesKHR mDriverProperties;
     VkPhysicalDeviceCustomBorderColorFeaturesEXT mCustomBorderColorFeatures;
@@ -647,6 +662,9 @@ class RendererVk : angle::NonCopyable
 
     // Use thread pool to compress cache data.
     std::shared_ptr<rx::WaitableCompressEvent> mCompressEvent;
+
+    vk::ExtensionNameList mEnabledInstanceExtensions;
+    vk::ExtensionNameList mEnabledDeviceExtensions;
 };
 
 }  // namespace rx

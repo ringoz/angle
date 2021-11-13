@@ -143,7 +143,8 @@ ANGLE_EXPORT void GL_APIENTRY GL_TexStorageMemFlags2DANGLE(GLenum target,
                                                            GLuint memory,
                                                            GLuint64 offset,
                                                            GLbitfield createFlags,
-                                                           GLbitfield usageFlags);
+                                                           GLbitfield usageFlags,
+                                                           const void *imageCreateInfoPNext);
 ANGLE_EXPORT void GL_APIENTRY
 GL_TexStorageMemFlags2DMultisampleANGLE(GLenum target,
                                         GLsizei samples,
@@ -154,7 +155,8 @@ GL_TexStorageMemFlags2DMultisampleANGLE(GLenum target,
                                         GLuint memory,
                                         GLuint64 offset,
                                         GLbitfield createFlags,
-                                        GLbitfield usageFlags);
+                                        GLbitfield usageFlags,
+                                        const void *imageCreateInfoPNext);
 ANGLE_EXPORT void GL_APIENTRY GL_TexStorageMemFlags3DANGLE(GLenum target,
                                                            GLsizei levels,
                                                            GLenum internalFormat,
@@ -164,7 +166,8 @@ ANGLE_EXPORT void GL_APIENTRY GL_TexStorageMemFlags3DANGLE(GLenum target,
                                                            GLuint memory,
                                                            GLuint64 offset,
                                                            GLbitfield createFlags,
-                                                           GLbitfield usageFlags);
+                                                           GLbitfield usageFlags,
+                                                           const void *imageCreateInfoPNext);
 ANGLE_EXPORT void GL_APIENTRY
 GL_TexStorageMemFlags3DMultisampleANGLE(GLenum target,
                                         GLsizei samples,
@@ -176,7 +179,8 @@ GL_TexStorageMemFlags3DMultisampleANGLE(GLenum target,
                                         GLuint memory,
                                         GLuint64 offset,
                                         GLbitfield createFlags,
-                                        GLbitfield usageFlags);
+                                        GLbitfield usageFlags,
+                                        const void *imageCreateInfoPNext);
 
 // GL_ANGLE_memory_object_fuchsia
 ANGLE_EXPORT void GL_APIENTRY GL_ImportMemoryZirconHandleANGLE(GLuint memory,
@@ -904,6 +908,17 @@ ANGLE_EXPORT void GL_APIENTRY GL_ImportMemoryFdEXT(GLuint memory,
                                                    GLuint64 size,
                                                    GLenum handleType,
                                                    GLint fd);
+
+// GL_EXT_multi_draw_indirect
+ANGLE_EXPORT void GL_APIENTRY GL_MultiDrawArraysIndirectEXT(GLenum mode,
+                                                            const void *indirect,
+                                                            GLsizei drawcount,
+                                                            GLsizei stride);
+ANGLE_EXPORT void GL_APIENTRY GL_MultiDrawElementsIndirectEXT(GLenum mode,
+                                                              GLenum type,
+                                                              const void *indirect,
+                                                              GLsizei drawcount,
+                                                              GLsizei stride);
 
 // GL_EXT_multisampled_render_to_texture
 ANGLE_EXPORT void GL_APIENTRY GL_FramebufferTexture2DMultisampleEXT(GLenum target,

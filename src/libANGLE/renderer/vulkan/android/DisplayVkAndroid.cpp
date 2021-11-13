@@ -54,7 +54,7 @@ egl::ConfigSet DisplayVkAndroid::generateConfigs()
     // https://cs.android.com/android/platform/superproject/+/master:frameworks/native/vulkan/libvulkan/swapchain.cpp;l=465-486?q=GetNativePixelFormat
     // TODO (Issue 4062): Add conditional support for GL_RGB10_A2 and GL_RGBA16F when the
     // Android Vulkan loader adds conditional support for them.
-    const std::array<GLenum, 2> kColorFormats = {GL_RGBA8, GL_RGB565};
+    const std::array<GLenum, 3> kColorFormats = {GL_RGBA8, GL_RGB8, GL_RGB565};
 
     std::vector<GLenum> depthStencilFormats(
         egl_vk::kConfigDepthStencilFormats,
@@ -70,18 +70,10 @@ egl::ConfigSet DisplayVkAndroid::generateConfigs()
 
 void DisplayVkAndroid::enableRecordableIfSupported(egl::Config *config)
 {
-    const VkPhysicalDeviceProperties &physicalDeviceProperties =
-        getRenderer()->getPhysicalDeviceProperties();
-
     // TODO(b/181163023): Determine how to properly query for support. This is a hack to unblock
     // launching SwANGLE on Cuttlefish.
-    bool isSwiftShader =
-        IsSwiftshader(physicalDeviceProperties.vendorID, physicalDeviceProperties.deviceID);
-
-    if (isSwiftShader)
-    {
-        config->recordable = true;
-    }
+    // anglebug.com/6612: This is also required for app compatiblity.
+    config->recordable = true;
 }
 
 void DisplayVkAndroid::checkConfigSupport(egl::Config *config)

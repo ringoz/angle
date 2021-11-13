@@ -196,11 +196,6 @@ std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
         stream << "_NoFixture";
     }
 
-    if (pp.eglParameters.contextVirtualization == EGL_FALSE)
-    {
-        stream << "_NoVirtual";
-    }
-
     if (pp.eglParameters.transformFeedbackFeature == EGL_FALSE)
     {
         stream << "_NoTransformFeedback";
@@ -301,6 +296,16 @@ std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
     if (pp.eglParameters.forceVulkanFallbackFormat == EGL_TRUE)
     {
         stream << "_FallbackFormat";
+    }
+
+    if (pp.eglParameters.displayPowerPreference == EGL_LOW_POWER_ANGLE)
+    {
+        stream << "_LowPowerGPU";
+    }
+
+    if (pp.eglParameters.displayPowerPreference == EGL_HIGH_POWER_ANGLE)
+    {
+        stream << "_HighPowerGPU";
     }
 
     return stream;

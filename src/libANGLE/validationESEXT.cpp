@@ -440,6 +440,29 @@ bool ValidateMultiDrawElementsBaseVertexEXT(const Context *context,
     return true;
 }
 
+bool ValidateMultiDrawArraysIndirectEXT(const Context *context,
+                                        angle::EntryPoint entryPoint,
+                                        GLenum mode,
+                                        const void *indirect,
+                                        GLsizei drawcount,
+                                        GLsizei stride)
+{
+    UNIMPLEMENTED();
+    return false;
+}
+
+bool ValidateMultiDrawElementsIndirectEXT(const Context *context,
+                                          angle::EntryPoint entryPoint,
+                                          GLenum mode,
+                                          GLenum type,
+                                          const void *indirect,
+                                          GLsizei drawcount,
+                                          GLsizei stride)
+{
+    UNIMPLEMENTED();
+    return false;
+}
+
 bool ValidateDrawElementsBaseVertexOES(const Context *context,
                                        angle::EntryPoint entryPoint,
                                        PrimitiveMode mode,
@@ -1432,7 +1455,8 @@ bool ValidateTexStorageMemFlags2DANGLE(const Context *context,
                                        MemoryObjectID memoryPacked,
                                        GLuint64 offset,
                                        GLbitfield createFlags,
-                                       GLbitfield usageFlags)
+                                       GLbitfield usageFlags,
+                                       const void *imageCreateInfoPNext)
 {
     if (!context->getExtensions().memoryObjectFlagsANGLE)
     {
@@ -1490,7 +1514,8 @@ bool ValidateTexStorageMemFlags2DMultisampleANGLE(const Context *context,
                                                   MemoryObjectID memoryPacked,
                                                   GLuint64 offset,
                                                   GLbitfield createFlags,
-                                                  GLbitfield usageFlags)
+                                                  GLbitfield usageFlags,
+                                                  const void *imageCreateInfoPNext)
 {
     UNIMPLEMENTED();
     return false;
@@ -1507,7 +1532,8 @@ bool ValidateTexStorageMemFlags3DANGLE(const Context *context,
                                        MemoryObjectID memoryPacked,
                                        GLuint64 offset,
                                        GLbitfield createFlags,
-                                       GLbitfield usageFlags)
+                                       GLbitfield usageFlags,
+                                       const void *imageCreateInfoPNext)
 {
     UNIMPLEMENTED();
     return false;
@@ -1525,7 +1551,8 @@ bool ValidateTexStorageMemFlags3DMultisampleANGLE(const Context *context,
                                                   MemoryObjectID memoryPacked,
                                                   GLuint64 offset,
                                                   GLbitfield createFlags,
-                                                  GLbitfield usageFlags)
+                                                  GLbitfield usageFlags,
+                                                  const void *imageCreateInfoPNext)
 {
     UNIMPLEMENTED();
     return false;

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# import the use_x11 variable
+# import the ozone_platform_x11 variable
 import("gni/angle.gni")
 if (angle_has_build) {
   import("//build/config/linux/pkg_config.gni")
@@ -48,6 +48,10 @@ declare_args() {
 
   # Optional feature that forces dirty state whenever we use a new context regardless of thread.
   angle_force_context_check_every_call = false
+
+  # Allow shared library custom name extensions for setting soname such as libEGL.so.1
+  angle_egl_extension = ""
+  angle_glesv2_extension = ""
 }
 
 if (angle_build_all) {
@@ -199,8 +203,9 @@ config("extra_warnings") {
       "-Wtautological-type-limit-compare",
       "-Wundefined-reinterpret-cast",
       "-Wunneeded-internal-declaration",
-      "-Wweak-template-vtables",
       "-Wunused-but-set-variable",
+      "-Wsuggest-destructor-override",
+      "-Wsuggest-override",
 
       # The below warnings are used by WebKit. We enable them to make rolling
       # ANGLE in WebKit easier.
@@ -210,13 +215,6 @@ config("extra_warnings") {
       "-Wunreachable-code-aggressive",
       "-Wshorten-64-to-32",
     ]
-    if (!use_xcode_clang) {
-      # Mac catalyst uses a clang version that doesn't have these.
-      cflags += [
-        "-Wsuggest-destructor-override",
-        "-Wsuggest-override",
-      ]
-    }
   }
 
   if (is_gcc) {
@@ -714,14 +712,6 @@ angle_source_set("angle_version") {
       ":libGLESv2_capture_complement",
     ]
   }
-
-  # TODO(jmadill): Remove once headers isolated. http://anglebug.com/2551
-  if (build_with_chromium) {
-    visibility += [
-      "//content/browser:browser",
-      "//gpu/command_buffer/service:gles2_sources",
-    ]
-  }
 }
 
 angle_source_set("angle_version_info") {
@@ -937,7 +927,7 @@ angle_source_set("libANGLE_base") {
   }
 
   # Enable extra Chromium style warnings for libANGLE.
-  if (is_clang && angle_has_build && !use_xcode_clang) {
+  if (is_clang && angle_has_build) {
     suppressed_configs -= [ "//build/config/clang:find_bad_constructs" ]
   }
 
@@ -1148,6 +1138,9 @@ template("angle_libGLESv2") {
     }
 
     output_name = "${invoker.output_name}${angle_libs_suffix}"
+    if (angle_glesv2_extension != "") {
+      output_extension = angle_glesv2_extension
+    }
 
     configs += [
       ":angle_gl_visibility_config",
@@ -1279,6 +1272,9 @@ angle_shared_library("libEGL") {
   }
 
   output_name = "libEGL${angle_libs_suffix}"
+  if (angle_egl_extension != "") {
+    output_extension = angle_egl_extension
+  }
 
   configs += [
     ":debug_annotations_config",

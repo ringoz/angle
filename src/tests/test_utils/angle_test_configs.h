@@ -191,13 +191,6 @@ PlatformParameters ES3_EGL();
 
 const char *GetNativeEGLLibraryNameWithExtension();
 
-inline PlatformParameters WithNoVirtualContexts(const PlatformParameters &params)
-{
-    PlatformParameters withNoVirtualContexts                  = params;
-    withNoVirtualContexts.eglParameters.contextVirtualization = EGL_FALSE;
-    return withNoVirtualContexts;
-}
-
 inline PlatformParameters WithNoFixture(const PlatformParameters &params)
 {
     PlatformParameters withNoFixture = params;
@@ -318,6 +311,20 @@ inline PlatformParameters WithForceVulkanFallbackFormat(const PlatformParameters
 {
     PlatformParameters paramsOut                      = paramsIn;
     paramsOut.eglParameters.forceVulkanFallbackFormat = EGL_TRUE;
+    return paramsOut;
+}
+
+inline PlatformParameters WithLowPowerGPU(const PlatformParameters &paramsIn)
+{
+    PlatformParameters paramsOut                   = paramsIn;
+    paramsOut.eglParameters.displayPowerPreference = EGL_LOW_POWER_ANGLE;
+    return paramsOut;
+}
+
+inline PlatformParameters WithHighPowerGPU(const PlatformParameters &paramsIn)
+{
+    PlatformParameters paramsOut                   = paramsIn;
+    paramsOut.eglParameters.displayPowerPreference = EGL_HIGH_POWER_ANGLE;
     return paramsOut;
 }
 }  // namespace angle

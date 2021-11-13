@@ -214,12 +214,13 @@ angle::Result QueryVk::onRenderPassStart(ContextVk *contextVk)
 void QueryVk::onRenderPassEnd(ContextVk *contextVk)
 {
     ASSERT(IsRenderPassQuery(contextVk, mType));
-    ASSERT(mQueryHelper.isReferenced());
 
     QueryVk *shareQuery = GetOnRenderPassStartEndShareQuery(contextVk, mType);
 
     // If present, share query has already taken care of ending the query.
-    if (shareQuery == nullptr)
+    // The query may not be referenced if it's a transform feedback query that was never resumed due
+    // to transform feedback being paused when the render pass was broken.
+    if (shareQuery == nullptr && mQueryHelper.isReferenced())
     {
         mQueryHelper.get().endRenderPassQuery(contextVk);
     }
@@ -520,7 +521,7 @@ angle::Result QueryVk::getResult(const gl::Context *context, bool wait)
 
     if (isUsedInRecordedCommands())
     {
-        ANGLE_TRY(contextVk->flushImpl(nullptr));
+        ANGLE_TRY(contextVk->flushImpl(nullptr, RenderPassClosureReason::GetQueryResult));
 
         ASSERT(!mQueryHelperTimeElapsedBegin.usedInRecordedCommands());
         ASSERT(!mQueryHelper.get().usedInRecordedCommands());
@@ -543,8 +544,8 @@ angle::Result QueryVk::getResult(const gl::Context *context, bool wait)
             {
                 return angle::Result::Continue;
             }
-            ANGLE_PERF_WARNING(contextVk->getDebug(), GL_DEBUG_SEVERITY_HIGH,
-                               "GPU stall due to waiting on uncompleted query");
+            ANGLE_VK_PERF_WARNING(contextVk, GL_DEBUG_SEVERITY_HIGH,
+                                  "GPU stall due to waiting on uncompleted query");
 
             // Assert that the work has been sent to the GPU
             ASSERT(!isUsedInRecordedCommands());

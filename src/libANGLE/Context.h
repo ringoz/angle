@@ -490,6 +490,7 @@ class Context final : public egl::LabeledObject, angle::NonCopyable, public angl
 
     angle::Result prepareForCopyImage();
     angle::Result prepareForDispatch();
+    angle::Result prepareForInvalidate(GLenum target);
 
     MemoryProgramCache *getMemoryProgramCache() const { return mMemoryProgramCache; }
     std::mutex &getProgramCacheMutex() const;
@@ -770,11 +771,13 @@ class Context final : public egl::LabeledObject, angle::NonCopyable, public angl
     State::DirtyObjects mComputeDirtyObjects;
     State::DirtyBits mCopyImageDirtyBits;
     State::DirtyObjects mCopyImageDirtyObjects;
+    State::DirtyBits mInvalidateDirtyBits;
 
     // Binding to container objects that use dependent state updates.
     angle::ObserverBinding mVertexArrayObserverBinding;
     angle::ObserverBinding mDrawFramebufferObserverBinding;
     angle::ObserverBinding mReadFramebufferObserverBinding;
+    angle::ObserverBinding mProgramPipelineObserverBinding;
     std::vector<angle::ObserverBinding> mUniformBufferObserverBindings;
     std::vector<angle::ObserverBinding> mAtomicCounterBufferObserverBindings;
     std::vector<angle::ObserverBinding> mShaderStorageBufferObserverBindings;

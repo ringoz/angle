@@ -281,7 +281,8 @@ enum SubjectIndexes : angle::SubjectIndex
     kSamplerMaxSubjectIndex  = kSampler0SubjectIndex + IMPLEMENTATION_MAX_ACTIVE_TEXTURES,
     kVertexArraySubjectIndex = kSamplerMaxSubjectIndex,
     kReadFramebufferSubjectIndex,
-    kDrawFramebufferSubjectIndex
+    kDrawFramebufferSubjectIndex,
+    kProgramPipelineSubjectIndex,
 };
 
 bool IsClearBufferEnabled(const FramebufferState &fbState, GLenum buffer, GLint drawbuffer)
@@ -316,7 +317,6 @@ bool GetSaveAndRestoreState(const egl::AttributeMap &attribs)
 {
     return (attribs.get(EGL_EXTERNAL_CONTEXT_SAVE_STATE_ANGLE, EGL_FALSE) == EGL_TRUE);
 }
-
 }  // anonymous namespace
 
 #if defined(ANGLE_PLATFORM_APPLE)
@@ -400,6 +400,7 @@ Context::Context(egl::Display *display,
       mVertexArrayObserverBinding(this, kVertexArraySubjectIndex),
       mDrawFramebufferObserverBinding(this, kDrawFramebufferSubjectIndex),
       mReadFramebufferObserverBinding(this, kReadFramebufferSubjectIndex),
+      mProgramPipelineObserverBinding(this, kProgramPipelineSubjectIndex),
       mThreadPool(nullptr),
       mFrameCapture(new angle::FrameCapture),
       mRefCount(0),
@@ -643,6 +644,9 @@ void Context::initializeDefaultResources()
 
     mCopyImageDirtyBits.set(State::DIRTY_BIT_READ_FRAMEBUFFER_BINDING);
     mCopyImageDirtyObjects.set(State::DIRTY_OBJECT_READ_FRAMEBUFFER);
+
+    mInvalidateDirtyBits.set(State::DIRTY_BIT_READ_FRAMEBUFFER_BINDING);
+    mInvalidateDirtyBits.set(State::DIRTY_BIT_DRAW_FRAMEBUFFER_BINDING);
 
     // Initialize overlay after implementation is initialized.
     ANGLE_CONTEXT_TRY(mOverlay.init(this));
@@ -1293,8 +1297,7 @@ void Context::useProgramStages(ProgramPipelineID pipeline,
                                                                        pipeline);
 
     ASSERT(programPipeline);
-    ANGLE_CONTEXT_TRY(mState.useProgramStages(this, programPipeline, stages, shaderProgram));
-    mStateCache.onProgramExecutableChange(this);
+    ANGLE_CONTEXT_TRY(programPipeline->useProgramStages(this, stages, shaderProgram));
 }
 
 void Context::bindTransformFeedback(GLenum target, TransformFeedbackID transformFeedbackHandle)
@@ -1310,7 +1313,12 @@ void Context::bindProgramPipeline(ProgramPipelineID pipelineHandle)
     ProgramPipeline *pipeline = mState.mProgramPipelineManager->checkProgramPipelineAllocation(
         mImplementation.get(), pipelineHandle);
     ANGLE_CONTEXT_TRY(mState.setProgramPipelineBinding(this, pipeline));
+    if (pipeline && pipeline->isLinked())
+    {
+        ANGLE_CONTEXT_TRY(mState.onProgramPipelineExecutableChange(this));
+    }
     mStateCache.onProgramExecutableChange(this);
+    mProgramPipelineObserverBinding.bind(pipeline);
 }
 
 void Context::beginQuery(QueryType target, QueryID query)
@@ -4134,6 +4142,19 @@ ANGLE_INLINE angle::Result Context::prepareForDispatch()
     return syncDirtyBits(mComputeDirtyBits, Command::Dispatch);
 }
 
+angle::Result Context::prepareForInvalidate(GLenum target)
+{
+    // Only sync the FBO that's being invalidated.  Per the GLES3 spec, GL_FRAMEBUFFER is equivalent
+    // to GL_DRAW_FRAMEBUFFER for the purposes of invalidation.
+    GLenum effectiveTarget = target;
+    if (effectiveTarget == GL_FRAMEBUFFER)
+    {
+        effectiveTarget = GL_DRAW_FRAMEBUFFER;
+    }
+    ANGLE_TRY(mState.syncDirtyObject(this, effectiveTarget));
+    return syncDirtyBits(mInvalidateDirtyBits, Command::Invalidate);
+}
+
 angle::Result Context::syncState(const State::DirtyBits &bitMask,
                                  const State::DirtyObjects &objectMask,
                                  Command command)
@@ -4775,15 +4796,9 @@ void Context::readBuffer(GLenum mode)
 
 void Context::discardFramebuffer(GLenum target, GLsizei numAttachments, const GLenum *attachments)
 {
-    // Only sync the FBO
-    ANGLE_CONTEXT_TRY(mState.syncDirtyObject(this, target));
-
-    Framebuffer *framebuffer = mState.getTargetFramebuffer(target);
-    ASSERT(framebuffer);
-
     // The specification isn't clear what should be done when the framebuffer isn't complete.
-    // We leave it up to the framebuffer implementation to decide what to do.
-    ANGLE_CONTEXT_TRY(framebuffer->discard(this, numAttachments, attachments));
+    // We threat it the same way as GLES3 glInvalidateFramebuffer.
+    invalidateFramebuffer(target, numAttachments, attachments);
 }
 
 void Context::invalidateFramebuffer(GLenum target,
@@ -4799,8 +4814,7 @@ void Context::invalidateFramebuffer(GLenum target,
         return;
     }
 
-    // Only sync the FBO
-    ANGLE_CONTEXT_TRY(mState.syncDirtyObject(this, target));
+    ANGLE_CONTEXT_TRY(prepareForInvalidate(target));
     ANGLE_CONTEXT_TRY(framebuffer->invalidate(this, numAttachments, attachments));
 }
 
@@ -4821,8 +4835,7 @@ void Context::invalidateSubFramebuffer(GLenum target,
     }
 
     Rectangle area(x, y, width, height);
-    // Only sync the FBO
-    ANGLE_CONTEXT_TRY(mState.syncDirtyObject(this, target));
+    ANGLE_CONTEXT_TRY(prepareForInvalidate(target));
     ANGLE_CONTEXT_TRY(framebuffer->invalidateSub(this, numAttachments, attachments, area));
 }
 
@@ -6439,6 +6452,14 @@ void Context::multiDrawArraysInstanced(PrimitiveMode mode,
                                                                 instanceCounts, drawcount));
 }
 
+void Context::multiDrawArraysIndirect(GLenum mode,
+                                      const void *indirect,
+                                      GLsizei drawcount,
+                                      GLsizei stride)
+{
+    UNIMPLEMENTED();
+}
+
 void Context::multiDrawElements(PrimitiveMode mode,
                                 const GLsizei *counts,
                                 DrawElementsType type,
@@ -6460,6 +6481,15 @@ void Context::multiDrawElementsInstanced(PrimitiveMode mode,
     ANGLE_CONTEXT_TRY(prepareForDraw(mode));
     ANGLE_CONTEXT_TRY(mImplementation->multiDrawElementsInstanced(this, mode, counts, type, indices,
                                                                   instanceCounts, drawcount));
+}
+
+void Context::multiDrawElementsIndirect(GLenum mode,
+                                        GLenum type,
+                                        const void *indirect,
+                                        GLsizei drawcount,
+                                        GLsizei stride)
+{
+    UNIMPLEMENTED();
 }
 
 void Context::drawArraysInstancedBaseInstance(PrimitiveMode mode,
@@ -8431,7 +8461,7 @@ void Context::texStorageMem2D(TextureType target,
                               GLuint64 offset)
 {
     texStorageMemFlags2D(target, levels, internalFormat, width, height, memory, offset, 0,
-                         std::numeric_limits<uint32_t>::max());
+                         std::numeric_limits<uint32_t>::max(), nullptr);
 }
 
 void Context::texStorageMem2DMultisample(TextureType target,
@@ -8494,14 +8524,16 @@ void Context::texStorageMemFlags2D(TextureType target,
                                    MemoryObjectID memory,
                                    GLuint64 offset,
                                    GLbitfield createFlags,
-                                   GLbitfield usageFlags)
+                                   GLbitfield usageFlags,
+                                   const void *imageCreateInfoPNext)
 {
     MemoryObject *memoryObject = getMemoryObject(memory);
     ASSERT(memoryObject);
     Extents size(width, height, 1);
     Texture *texture = getTextureByType(target);
-    ANGLE_CONTEXT_TRY(texture->setStorageExternalMemory(
-        this, target, levels, internalFormat, size, memoryObject, offset, createFlags, usageFlags));
+    ANGLE_CONTEXT_TRY(texture->setStorageExternalMemory(this, target, levels, internalFormat, size,
+                                                        memoryObject, offset, createFlags,
+                                                        usageFlags, imageCreateInfoPNext));
 }
 
 void Context::texStorageMemFlags2DMultisample(TextureType target,
@@ -8513,7 +8545,8 @@ void Context::texStorageMemFlags2DMultisample(TextureType target,
                                               MemoryObjectID memory,
                                               GLuint64 offset,
                                               GLbitfield createFlags,
-                                              GLbitfield usageFlags)
+                                              GLbitfield usageFlags,
+                                              const void *imageCreateInfoPNext)
 {
     UNIMPLEMENTED();
 }
@@ -8527,7 +8560,8 @@ void Context::texStorageMemFlags3D(TextureType target,
                                    MemoryObjectID memory,
                                    GLuint64 offset,
                                    GLbitfield createFlags,
-                                   GLbitfield usageFlags)
+                                   GLbitfield usageFlags,
+                                   const void *imageCreateInfoPNext)
 {
     UNIMPLEMENTED();
 }
@@ -8542,7 +8576,8 @@ void Context::texStorageMemFlags3DMultisample(TextureType target,
                                               MemoryObjectID memory,
                                               GLuint64 offset,
                                               GLbitfield createFlags,
-                                              GLbitfield usageFlags)
+                                              GLbitfield usageFlags,
+                                              const void *imageCreateInfoPNext)
 {
     UNIMPLEMENTED();
 }
@@ -8917,6 +8952,22 @@ void Context::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMess
                     break;
                 case angle::SubjectMessage::SurfaceChanged:
                     mState.setDrawFramebufferBindingDirty();
+                    break;
+                default:
+                    UNREACHABLE();
+                    break;
+            }
+            break;
+
+        case kProgramPipelineSubjectIndex:
+            switch (message)
+            {
+                case angle::SubjectMessage::SubjectChanged:
+                    ANGLE_CONTEXT_TRY(mState.onProgramPipelineExecutableChange(this));
+                    mStateCache.onProgramExecutableChange(this);
+                    break;
+                case angle::SubjectMessage::ProgramRelinked:
+                    ANGLE_CONTEXT_TRY(mState.mProgramPipeline->link(this));
                     break;
                 default:
                     UNREACHABLE();

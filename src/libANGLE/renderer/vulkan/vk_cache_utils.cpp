@@ -1704,6 +1704,7 @@ angle::Result GraphicsPipelineDesc::initializePipeline(
     const PipelineLayout &pipelineLayout,
     const gl::AttributesMask &activeAttribLocationsMask,
     const gl::ComponentTypeMask &programAttribsTypeMask,
+    const gl::DrawBufferMask &missingOutputsMask,
     const ShaderAndSerialMap &shaders,
     const SpecializationConstants &specConsts,
     Pipeline *pipelineOut) const
@@ -2069,8 +2070,17 @@ angle::Result GraphicsPipelineDesc::initializePipeline(
                 UnpackBlendAttachmentState(inputAndBlend.attachments[colorIndexGL], &state);
             }
         }
-        state.colorWriteMask =
-            Int4Array_Get<VkColorComponentFlags>(inputAndBlend.colorWriteMaskBits, colorIndexGL);
+
+        if (contextVk->getExtensions().robustFragmentShaderOutputANGLE &&
+            missingOutputsMask[colorIndexGL])
+        {
+            state.colorWriteMask = 0;
+        }
+        else
+        {
+            state.colorWriteMask = Int4Array_Get<VkColorComponentFlags>(
+                inputAndBlend.colorWriteMaskBits, colorIndexGL);
+        }
     }
 
     // Dynamic state
@@ -3609,6 +3619,7 @@ angle::Result GraphicsPipelineCache::insertPipeline(
     const vk::PipelineLayout &pipelineLayout,
     const gl::AttributesMask &activeAttribLocationsMask,
     const gl::ComponentTypeMask &programAttribsTypeMask,
+    const gl::DrawBufferMask &missingOutputsMask,
     const vk::ShaderAndSerialMap &shaders,
     const vk::SpecializationConstants &specConsts,
     const vk::GraphicsPipelineDesc &desc,
@@ -3621,9 +3632,10 @@ angle::Result GraphicsPipelineCache::insertPipeline(
     if (contextVk != nullptr)
     {
         contextVk->getRenderer()->onNewGraphicsPipeline();
-        ANGLE_TRY(desc.initializePipeline(
-            contextVk, pipelineCacheVk, compatibleRenderPass, pipelineLayout,
-            activeAttribLocationsMask, programAttribsTypeMask, shaders, specConsts, &newPipeline));
+        ANGLE_TRY(desc.initializePipeline(contextVk, pipelineCacheVk, compatibleRenderPass,
+                                          pipelineLayout, activeAttribLocationsMask,
+                                          programAttribsTypeMask, missingOutputsMask, shaders,
+                                          specConsts, &newPipeline));
     }
 
     // The Serial will be updated outside of this query.
@@ -3986,8 +3998,6 @@ void DescriptorSetCache<Key, CacheType>::destroy(RendererVk *rendererVk)
 
 // RendererVk's methods are not accessible in vk_cache_utils.h
 // Below declarations are needed to avoid linker errors.
-// Unclear why Clang warns about weak vtables in this case.
-ANGLE_DISABLE_WEAK_TEMPLATE_VTABLES_WARNING
 template class DescriptorSetCache<vk::TextureDescriptorDesc, VulkanCacheType::TextureDescriptors>;
 
 template class DescriptorSetCache<vk::UniformsAndXfbDescriptorDesc,
@@ -3995,5 +4005,4 @@ template class DescriptorSetCache<vk::UniformsAndXfbDescriptorDesc,
 
 template class DescriptorSetCache<vk::ShaderBuffersDescriptorDesc,
                                   VulkanCacheType::ShaderBuffersDescriptors>;
-ANGLE_REENABLE_WEAK_TEMPLATE_VTABLES_WARNING
 }  // namespace rx

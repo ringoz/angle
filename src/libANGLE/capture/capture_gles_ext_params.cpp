@@ -203,6 +203,29 @@ void CaptureDrawElementsInstancedBaseVertexEXT_indices(const State &glState,
     UNIMPLEMENTED();
 }
 
+void CaptureMultiDrawArraysIndirectEXT_indirect(const State &glState,
+                                                bool isCallValid,
+                                                GLenum mode,
+                                                const void *indirect,
+                                                GLsizei drawcount,
+                                                GLsizei stride,
+                                                angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
+void CaptureMultiDrawElementsIndirectEXT_indirect(const State &glState,
+                                                  bool isCallValid,
+                                                  GLenum mode,
+                                                  GLenum type,
+                                                  const void *indirect,
+                                                  GLsizei drawcount,
+                                                  GLsizei stride,
+                                                  angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
 void CaptureDrawRangeElementsBaseVertexEXT_indices(const State &glState,
                                                    bool isCallValid,
                                                    PrimitiveMode modePacked,
@@ -3877,6 +3900,80 @@ void CaptureEGLImageTargetTextureStorageEXT_attrib_list(const State &glState,
                                                         GLeglImageOES image,
                                                         const GLint *attrib_list,
                                                         angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
+void CaptureTexStorageMemFlags2DANGLE_imageCreateInfoPNext(const State &glState,
+                                                           bool isCallValid,
+                                                           TextureType targetPacked,
+                                                           GLsizei levels,
+                                                           GLenum internalFormat,
+                                                           GLsizei width,
+                                                           GLsizei height,
+                                                           MemoryObjectID memoryPacked,
+                                                           GLuint64 offset,
+                                                           GLbitfield createFlags,
+                                                           GLbitfield usageFlags,
+                                                           const void *imageCreateInfoPNext,
+                                                           angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
+void CaptureTexStorageMemFlags2DMultisampleANGLE_imageCreateInfoPNext(
+    const State &glState,
+    bool isCallValid,
+    TextureType targetPacked,
+    GLsizei samples,
+    GLenum internalFormat,
+    GLsizei width,
+    GLsizei height,
+    GLboolean fixedSampleLocations,
+    MemoryObjectID memoryPacked,
+    GLuint64 offset,
+    GLbitfield createFlags,
+    GLbitfield usageFlags,
+    const void *imageCreateInfoPNext,
+    angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
+void CaptureTexStorageMemFlags3DANGLE_imageCreateInfoPNext(const State &glState,
+                                                           bool isCallValid,
+                                                           TextureType targetPacked,
+                                                           GLsizei levels,
+                                                           GLenum internalFormat,
+                                                           GLsizei width,
+                                                           GLsizei height,
+                                                           GLsizei depth,
+                                                           MemoryObjectID memoryPacked,
+                                                           GLuint64 offset,
+                                                           GLbitfield createFlags,
+                                                           GLbitfield usageFlags,
+                                                           const void *imageCreateInfoPNext,
+                                                           angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
+void CaptureTexStorageMemFlags3DMultisampleANGLE_imageCreateInfoPNext(
+    const State &glState,
+    bool isCallValid,
+    TextureType targetPacked,
+    GLsizei samples,
+    GLenum internalFormat,
+    GLsizei width,
+    GLsizei height,
+    GLsizei depth,
+    GLboolean fixedSampleLocations,
+    MemoryObjectID memoryPacked,
+    GLuint64 offset,
+    GLbitfield createFlags,
+    GLbitfield usageFlags,
+    const void *imageCreateInfoPNext,
+    angle::ParamCapture *paramCapture)
 {
     UNIMPLEMENTED();
 }

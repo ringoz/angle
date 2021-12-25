@@ -205,7 +205,7 @@ void CaptureDrawElementsInstancedBaseVertexEXT_indices(const State &glState,
 
 void CaptureMultiDrawArraysIndirectEXT_indirect(const State &glState,
                                                 bool isCallValid,
-                                                GLenum mode,
+                                                PrimitiveMode modePacked,
                                                 const void *indirect,
                                                 GLsizei drawcount,
                                                 GLsizei stride,
@@ -216,8 +216,8 @@ void CaptureMultiDrawArraysIndirectEXT_indirect(const State &glState,
 
 void CaptureMultiDrawElementsIndirectEXT_indirect(const State &glState,
                                                   bool isCallValid,
-                                                  GLenum mode,
-                                                  GLenum type,
+                                                  PrimitiveMode modePacked,
+                                                  DrawElementsType typePacked,
                                                   const void *indirect,
                                                   GLsizei drawcount,
                                                   GLsizei stride,
@@ -3050,6 +3050,16 @@ void CapturePushDebugGroupKHR_message(const State &glState,
     // Skipped
 }
 
+void CaptureGetFramebufferParameterivMESA_params(const State &glState,
+                                                 bool isCallValid,
+                                                 GLenum target,
+                                                 GLenum pname,
+                                                 GLint *params,
+                                                 angle::ParamCapture *paramCapture)
+{
+    // Skipped
+}
+
 void CaptureDeleteFencesNV_fencesPacked(const State &glState,
                                         bool isCallValid,
                                         GLsizei n,
@@ -3977,4 +3987,45 @@ void CaptureTexStorageMemFlags3DMultisampleANGLE_imageCreateInfoPNext(
 {
     UNIMPLEMENTED();
 }
+
+void CaptureAcquireTexturesANGLE_texturesPacked(const State &glState,
+                                                bool isCallValid,
+                                                GLuint numTextures,
+                                                const TextureID *textures,
+                                                const GLenum *layouts,
+                                                angle::ParamCapture *paramCapture)
+{
+    CaptureArray(textures, numTextures, paramCapture);
+}
+
+void CaptureAcquireTexturesANGLE_layouts(const State &glState,
+                                         bool isCallValid,
+                                         GLuint numTextures,
+                                         const TextureID *texturesPacked,
+                                         const GLenum *layouts,
+                                         angle::ParamCapture *paramCapture)
+{
+    CaptureArray(layouts, numTextures * sizeof(GLenum), paramCapture);
+}
+
+void CaptureReleaseTexturesANGLE_texturesPacked(const State &glState,
+                                                bool isCallValid,
+                                                GLuint numTextures,
+                                                const TextureID *textures,
+                                                GLenum *layouts,
+                                                angle::ParamCapture *paramCapture)
+{
+    CaptureArray(textures, numTextures, paramCapture);
+}
+
+void CaptureReleaseTexturesANGLE_layouts(const State &glState,
+                                         bool isCallValid,
+                                         GLuint numTextures,
+                                         const TextureID *texturesPacked,
+                                         GLenum *layouts,
+                                         angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
 }  // namespace gl

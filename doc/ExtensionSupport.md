@@ -78,6 +78,7 @@ using data from registry_xml.py and gl.xml.
 | [GL_EXT_frag_depth](https://khronos.org/registry/OpenGL/extensions/EXT/EXT_frag_depth.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
 | [GL_ANGLE_framebuffer_blit](https://khronos.org/registry/OpenGL/extensions/ANGLE/ANGLE_framebuffer_blit.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
 | [GL_NV_framebuffer_blit](https://khronos.org/registry/OpenGL/extensions/NV/NV_framebuffer_blit.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
+| [GL_MESA_framebuffer_flip_y](https://khronos.org/registry/OpenGL/extensions/MESA/MESA_framebuffer_flip_y.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_EXT_geometry_shader](https://khronos.org/registry/OpenGL/extensions/EXT/EXT_geometry_shader.txt) | &#10004; | &#10004; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_OES_geometry_shader](https://khronos.org/registry/OpenGL/extensions/OES/OES_geometry_shader.txt) | &#10004; | &#10004; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_OES_get_program_binary](https://khronos.org/registry/OpenGL/extensions/OES/OES_get_program_binary.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
@@ -182,6 +183,7 @@ using data from registry_xml.py and gl.xml.
 | Extension Name | NVIDIA P400 Win10 | Intel 630 Win10 | NVIDIA P400 Linux | Intel 630 Linux | SwiftShader Win10 | Pixel 4 Android 11 |
 | -------------- | :---------------: | :-------------: | :---------------: | :-------------: | :---------------: | :----------------: |
 | [GL_ANGLE_base_vertex_base_instance](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_base_vertex_base_instance.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
+| [GL_ANGLE_base_vertex_base_instance_shader_builtin](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_base_vertex_base_instance_shader_builtin.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
 | [GL_CHROMIUM_bind_generates_resource](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/CHROMIUM_bind_generates_resource.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
 | [GL_CHROMIUM_bind_uniform_location](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/CHROMIUM_bind_uniform_location.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
 | [GL_ANGLE_client_arrays](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_client_arrays.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
@@ -208,6 +210,7 @@ using data from registry_xml.py and gl.xml.
 | [GL_ANGLE_provoking_vertex](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_provoking_vertex.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_ANGLE_relaxed_vertex_attribute_type](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_relaxed_vertex_attribute_type.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
 | [GL_ANGLE_request_extension](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_request_extension.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
+| [GL_ANGLE_rgbx_internal_format](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_rgbx_internal_format.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_ANGLE_robust_client_memory](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_robust_client_memory.txt) | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; | &#10004; |
 | [GL_ANGLE_robust_fragment_shader_output](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_robust_fragment_shader_output.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_ANGLE_robust_resource_initialization](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_robust_resource_initialization.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
@@ -219,6 +222,7 @@ using data from registry_xml.py and gl.xml.
 | [GL_CHROMIUM_texture_filtering_hint](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/CHROMIUM_texture_filtering_hint.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10004; | &#10060; |
 | [GL_ANGLE_texture_multisample](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_texture_multisample.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_ANGLE_texture_rectangle](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_texture_rectangle.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
+| [GL_ANGLE_vulkan_image](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_vulkan_image.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_ANGLE_webgl_compatibility](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_webgl_compatibility.txt) | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; | &#10060; |
 | [GL_ANGLE_yuv_internal_format](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/extensions/ANGLE_yuv_internal_format.txt) | &#10004; | &#10060; | &#10004; | &#10004; | &#10004; | &#10004; |
 

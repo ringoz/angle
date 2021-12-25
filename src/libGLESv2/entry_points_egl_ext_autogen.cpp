@@ -534,6 +534,30 @@ EGLBoolean EGLAPIENTRY EGL_GetMscRateANGLE(EGLDisplay dpy,
     return GetMscRateANGLE(thread, dpyPacked, surfacePacked, numerator, denominator);
 }
 
+// EGL_ANGLE_vulkan_image
+EGLBoolean EGLAPIENTRY EGL_ExportVkImageANGLE(EGLDisplay dpy,
+                                              EGLImage image,
+                                              void *vk_image,
+                                              void *vk_image_create_info)
+{
+    ANGLE_SCOPED_GLOBAL_LOCK();
+    EGL_EVENT(ExportVkImageANGLE,
+              "dpy = 0x%016" PRIxPTR ", image = 0x%016" PRIxPTR ", vk_image = 0x%016" PRIxPTR
+              ", vk_image_create_info = 0x%016" PRIxPTR "",
+              (uintptr_t)dpy, (uintptr_t)image, (uintptr_t)vk_image,
+              (uintptr_t)vk_image_create_info);
+
+    Thread *thread = egl::GetCurrentThread();
+
+    egl::Display *dpyPacked = PackParam<egl::Display *>(dpy);
+    Image *imagePacked      = PackParam<Image *>(image);
+
+    ANGLE_EGL_VALIDATE(thread, ExportVkImageANGLE, GetDisplayIfValid(dpyPacked), EGLBoolean,
+                       dpyPacked, imagePacked, vk_image, vk_image_create_info);
+
+    return ExportVkImageANGLE(thread, dpyPacked, imagePacked, vk_image, vk_image_create_info);
+}
+
 // EGL_CHROMIUM_sync_control
 EGLBoolean EGLAPIENTRY EGL_GetSyncValuesCHROMIUM(EGLDisplay dpy,
                                                  EGLSurface surface,
@@ -867,13 +891,14 @@ EGLBoolean EGLAPIENTRY EGL_LockSurfaceKHR(EGLDisplay dpy,
 
     Thread *thread = egl::GetCurrentThread();
 
-    egl::Display *dpyPacked = PackParam<egl::Display *>(dpy);
-    Surface *surfacePacked  = PackParam<Surface *>(surface);
+    egl::Display *dpyPacked               = PackParam<egl::Display *>(dpy);
+    Surface *surfacePacked                = PackParam<Surface *>(surface);
+    const AttributeMap &attrib_listPacked = PackParam<const AttributeMap &>(attrib_list);
 
     ANGLE_EGL_VALIDATE(thread, LockSurfaceKHR, GetDisplayIfValid(dpyPacked), EGLBoolean, dpyPacked,
-                       surfacePacked, attrib_list);
+                       surfacePacked, attrib_listPacked);
 
-    return LockSurfaceKHR(thread, dpyPacked, surfacePacked, attrib_list);
+    return LockSurfaceKHR(thread, dpyPacked, surfacePacked, attrib_listPacked);
 }
 
 EGLBoolean EGLAPIENTRY EGL_QuerySurface64KHR(EGLDisplay dpy,

@@ -6,6 +6,7 @@
 import("gni/angle.gni")
 if (angle_has_build) {
   import("//build/config/linux/pkg_config.gni")
+  import("//build/config/sanitizers/sanitizers.gni")
   import("//build/config/ui.gni")
   import("//testing/libfuzzer/fuzzer_test.gni")
 
@@ -15,6 +16,8 @@ if (angle_has_build) {
     import("//build/config/android/rules.gni")
     import("android/angle_apk.gni")
   }
+} else {
+  using_sanitizer = false
 }
 
 declare_args() {
@@ -398,6 +401,10 @@ angle_static_library("angle_common") {
   if (angle_expose_non_conformant_extensions_and_versions) {
     defines = [ "ANGLE_EXPOSE_NON_CONFORMANT_EXTENSIONS_AND_VERSIONS" ]
   }
+
+  if (using_sanitizer && !build_with_chromium) {
+    data_deps = [ "//build/config/clang:llvm-symbolizer_data($host_toolchain)" ]
+  }
 }
 
 config("angle_image_util_config") {
@@ -450,14 +457,15 @@ angle_static_library("angle_gpu_info_util") {
   libs = []
   defines = []
 
-  if (!is_chromeos && angle_has_build) {
+  if (angle_build_vulkan_system_info) {
     sources += libangle_gpu_info_util_vulkan_sources
     deps += [
-      "$angle_root/src/common/vulkan:angle_libvulkan_loader",
       "$angle_vulkan_headers_dir:vulkan_headers",
+      "src/common/vulkan:angle_libvulkan_loader",
+      "src/common/vulkan:angle_vulkan_icd",
     ]
     if (angle_enable_vulkan_system_info) {
-      defines += [ "ANGLE_HAS_VULKAN_SYSTEM_INFO" ]
+      defines += [ "ANGLE_USE_VULKAN_SYSTEM_INFO" ]
     }
   }
 
@@ -941,6 +949,11 @@ angle_source_set("libANGLE_base") {
 
   if (is_debug) {
     defines += [ "ANGLE_GENERATE_SHADER_DEBUG_INFO" ]
+  }
+
+  # If VVL are enabled, enable RenderDoc capture as well.
+  if (angle_enable_vulkan_validation_layers) {
+    defines += [ "ANGLE_TEST_ENABLE_RENDERDOC_CAPTURE" ]
   }
 
   configs += [ ":debug_annotations_config" ]

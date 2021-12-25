@@ -630,6 +630,14 @@ ANGLE_EXPORT void GL_APIENTRY GL_GetTranslatedShaderSourceANGLE(GLuint shader,
                                                                 GLsizei *length,
                                                                 GLchar *source);
 
+// GL_ANGLE_vulkan_image
+ANGLE_EXPORT void GL_APIENTRY GL_AcquireTexturesANGLE(GLuint numTextures,
+                                                      const GLuint *textures,
+                                                      const GLenum *layouts);
+ANGLE_EXPORT void GL_APIENTRY GL_ReleaseTexturesANGLE(GLuint numTextures,
+                                                      const GLuint *textures,
+                                                      GLenum *layouts);
+
 // GL_APPLE_clip_distance
 
 // GL_ARB_sync
@@ -1308,6 +1316,14 @@ ANGLE_EXPORT void GL_APIENTRY GL_MaxShaderCompilerThreadsKHR(GLuint count);
 // GL_KHR_texture_compression_astc_ldr
 
 // GL_KHR_texture_compression_astc_sliced_3d
+
+// GL_MESA_framebuffer_flip_y
+ANGLE_EXPORT void GL_APIENTRY GL_FramebufferParameteriMESA(GLenum target,
+                                                           GLenum pname,
+                                                           GLint param);
+ANGLE_EXPORT void GL_APIENTRY GL_GetFramebufferParameterivMESA(GLenum target,
+                                                               GLenum pname,
+                                                               GLint *params);
 
 // GL_NV_fence
 ANGLE_EXPORT void GL_APIENTRY GL_DeleteFencesNV(GLsizei n, const GLuint *fences);

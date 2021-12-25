@@ -10,6 +10,7 @@
 #include "libANGLE/renderer/driver_utils.h"
 
 #include "common/utilities.h"
+#include "common/vulkan/vk_headers.h"
 #include "image_util/loadimage.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/renderer/renderer_utils.h"
@@ -299,6 +300,21 @@ constexpr angle::PackedEnumMap<ImageLayout, ImageMemoryBarrierData> kImageMemory
             // Transition from: RAR and WAR don't need memory barrier.
             0,
             ResourceAccess::ReadOnly,
+            PipelineStage::BottomOfPipe,
+        },
+    },
+    {
+        ImageLayout::SharedPresent,
+        ImageMemoryBarrierData{
+            "SharedPresent",
+            VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            // Transition to: all reads and writes must happen after barrier.
+            VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            // Transition from: all writes must finish before barrier.
+            VK_ACCESS_MEMORY_WRITE_BIT,
+            ResourceAccess::Write,
             PipelineStage::BottomOfPipe,
         },
     },
@@ -826,6 +842,70 @@ VkImageCreateFlags GetImageCreateFlags(gl::TextureType textureType)
     }
 }
 
+ImageLayout GetImageLayoutFromGLImageLayout(GLenum layout)
+{
+    switch (layout)
+    {
+        case GL_NONE:
+            return ImageLayout::Undefined;
+        case GL_LAYOUT_GENERAL_EXT:
+            return ImageLayout::ExternalShadersWrite;
+        case GL_LAYOUT_COLOR_ATTACHMENT_EXT:
+            return ImageLayout::ColorAttachment;
+        case GL_LAYOUT_DEPTH_STENCIL_ATTACHMENT_EXT:
+        case GL_LAYOUT_DEPTH_STENCIL_READ_ONLY_EXT:
+        case GL_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_EXT:
+        case GL_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_EXT:
+            // Note: once VK_KHR_separate_depth_stencil_layouts becomes core or ubiquitous, we
+            // should optimize depth/stencil image layout transitions to only be performed on the
+            // aspect that needs transition.  In that case, these four layouts can be distinguished
+            // and optimized.  Note that the exact equivalent of these layouts are specified in
+            // VK_KHR_maintenance2, which are also usable, granted we transition the pair of
+            // depth/stencil layouts accordingly elsewhere in ANGLE.
+            return ImageLayout::DepthStencilAttachment;
+        case GL_LAYOUT_SHADER_READ_ONLY_EXT:
+            return ImageLayout::ExternalShadersReadOnly;
+        case GL_LAYOUT_TRANSFER_SRC_EXT:
+            return ImageLayout::TransferSrc;
+        case GL_LAYOUT_TRANSFER_DST_EXT:
+            return ImageLayout::TransferDst;
+        default:
+            UNREACHABLE();
+            return vk::ImageLayout::Undefined;
+    }
+}
+
+GLenum ConvertImageLayoutToGLImageLayout(ImageLayout layout)
+{
+    switch (kImageMemoryBarrierData[layout].layout)
+    {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            return GL_NONE;
+        case VK_IMAGE_LAYOUT_GENERAL:
+            return GL_LAYOUT_GENERAL_EXT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return GL_LAYOUT_COLOR_ATTACHMENT_EXT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            return GL_LAYOUT_DEPTH_STENCIL_ATTACHMENT_EXT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            return GL_LAYOUT_DEPTH_STENCIL_READ_ONLY_EXT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return GL_LAYOUT_SHADER_READ_ONLY_EXT;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return GL_LAYOUT_TRANSFER_SRC_EXT;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            return GL_LAYOUT_TRANSFER_DST_EXT;
+        case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL:
+            return GL_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_EXT;
+        case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL:
+            return GL_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_EXT;
+        default:
+            break;
+    }
+    UNREACHABLE();
+    return GL_NONE;
+}
+
 VkImageLayout ConvertImageLayoutToVkImageLayout(ImageLayout imageLayout)
 {
     return kImageMemoryBarrierData[imageLayout].layout;
@@ -1007,7 +1087,6 @@ void CommandBufferHelper::bufferRead(ContextVk *contextVk,
                                      PipelineStage readStage,
                                      BufferHelper *buffer)
 {
-    buffer->retainReadOnly(&contextVk->getResourceUseList());
     VkPipelineStageFlagBits stageBits = kPipelineStageFlagBitMap[readStage];
     if (buffer->recordReadBarrier(readAccessType, stageBits, &mPipelineBarriers[readStage]))
     {
@@ -1018,6 +1097,7 @@ void CommandBufferHelper::bufferRead(ContextVk *contextVk,
     if (!mUsedBuffers.contains(buffer->getBufferSerial().getValue()))
     {
         mUsedBuffers.insert(buffer->getBufferSerial().getValue(), BufferAccess::Read);
+        buffer->retainReadOnly(&contextVk->getResourceUseList());
     }
 }
 
@@ -1058,8 +1138,6 @@ void CommandBufferHelper::imageRead(ContextVk *contextVk,
                                     ImageLayout imageLayout,
                                     ImageHelper *image)
 {
-    image->retain(&contextVk->getResourceUseList());
-
     if (image->isReadBarrierNecessary(imageLayout))
     {
         updateImageLayoutAndBarrier(contextVk, image, aspectFlags, imageLayout);
@@ -1072,7 +1150,12 @@ void CommandBufferHelper::imageRead(ContextVk *contextVk,
         if (!usesImageInRenderPass(*image))
         {
             mRenderPassUsedImages.insert(image->getImageSerial().getValue());
+            image->retain(&contextVk->getResourceUseList());
         }
+    }
+    else
+    {
+        image->retain(&contextVk->getResourceUseList());
     }
 }
 
@@ -2492,6 +2575,190 @@ void DynamicShadowBuffer::reset()
     mSize = 0;
 }
 
+// BufferPool implementation.
+BufferPool::BufferPool()
+    : mVirtualBlockCreateFlags(vma::VirtualBlockCreateFlagBits::GENERAL),
+      mUsage(0),
+      mHostVisible(false),
+      mSize(0),
+      mMemoryTypeIndex(0)
+{}
+
+BufferPool::BufferPool(BufferPool &&other)
+    : mVirtualBlockCreateFlags(other.mVirtualBlockCreateFlags),
+      mUsage(other.mUsage),
+      mHostVisible(other.mHostVisible),
+      mSize(other.mSize),
+      mMemoryTypeIndex(other.mMemoryTypeIndex)
+{}
+
+void BufferPool::initWithFlags(RendererVk *renderer,
+                               vma::VirtualBlockCreateFlags flags,
+                               VkBufferUsageFlags usage,
+                               VkDeviceSize initialSize,
+                               uint32_t memoryTypeIndex,
+                               VkMemoryPropertyFlags memoryPropertyFlags)
+{
+    mVirtualBlockCreateFlags = flags;
+    mUsage                   = usage;
+    mMemoryTypeIndex         = memoryTypeIndex;
+    if (initialSize)
+    {
+        // Should be power of two
+        ASSERT(gl::isPow2(initialSize));
+        mSize = initialSize;
+    }
+    else
+    {
+        mSize = renderer->getPreferedBufferBlockSize(memoryTypeIndex);
+    }
+    mHostVisible = ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0);
+}
+
+BufferPool::~BufferPool()
+{
+    ASSERT(mBufferBlocks.empty());
+}
+
+void BufferPool::pruneEmptyBuffers(RendererVk *renderer)
+{
+    for (auto iter = mBufferBlocks.begin(); iter != mBufferBlocks.end();)
+    {
+        if (!(*iter)->isEmpty())
+        {
+            ++iter;
+            continue;
+        }
+
+        // Record how many times this buffer block has found to be empty  seqentially.
+        int32_t countRemainsEmpty = (*iter)->getAndIncrementEmptyCounter();
+
+        // We will always free empty buffers that has smaller size. Or if the empty buffer has been
+        // found empty for long enough time, we also free it.
+        if ((*iter)->getMemorySize() < mSize || countRemainsEmpty >= kMaxCountRemainsEmpty)
+        {
+            (*iter)->destroy(renderer);
+            iter = mBufferBlocks.erase(iter);
+        }
+        else
+        {
+            ++iter;
+        }
+    }
+}
+
+angle::Result BufferPool::allocateNewBuffer(ContextVk *contextVk, VkDeviceSize sizeInBytes)
+{
+    RendererVk *renderer                         = contextVk->getRenderer();
+    BufferMemoryAllocator &bufferMemoryAllocator = renderer->getBufferMemoryAllocator();
+    VkDeviceSize heapSize =
+        renderer->getMemoryProperties().getHeapSizeForMemoryType(mMemoryTypeIndex);
+
+    // First ensure we are not exceeding the heapSize to avoid the validation error.
+    ANGLE_VK_CHECK(contextVk, sizeInBytes <= heapSize, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+    // Double the size until meet the requirement. This also helps reducing the fragmentation. Since
+    // this is global pool, we have less worry about memory waste.
+    VkDeviceSize newSize = mSize;
+    while (newSize < sizeInBytes)
+    {
+        newSize <<= 1;
+    }
+    mSize = std::min(newSize, heapSize);
+
+    // Allocate buffer
+    VkBufferCreateInfo createInfo    = {};
+    createInfo.sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    createInfo.flags                 = 0;
+    createInfo.size                  = mSize;
+    createInfo.usage                 = mUsage;
+    createInfo.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.queueFamilyIndexCount = 0;
+    createInfo.pQueueFamilyIndices   = nullptr;
+
+    VkMemoryPropertyFlags memoryPropertyFlags;
+    bufferMemoryAllocator.getMemoryTypeProperties(renderer, mMemoryTypeIndex, &memoryPropertyFlags);
+
+    DeviceScoped<Buffer> buffer(renderer->getDevice());
+    AllocatorScoped<Allocation> allocation(renderer->getAllocator());
+    uint32_t memoryTypeIndex = kInvalidMemoryTypeIndex;
+    ANGLE_VK_TRY(contextVk, bufferMemoryAllocator.createBuffer(
+                                renderer, createInfo, memoryPropertyFlags, 0,
+                                renderer->getFeatures().persistentlyMappedBuffers.enabled,
+                                &memoryTypeIndex, &buffer.get(), &allocation.get()));
+    ASSERT(memoryTypeIndex != kInvalidMemoryTypeIndex);
+    if (memoryTypeIndex != mMemoryTypeIndex)
+    {
+        bufferMemoryAllocator.getMemoryTypeProperties(renderer, memoryTypeIndex,
+                                                      &memoryPropertyFlags);
+    }
+
+    // Allocate bufferBlock
+    std::unique_ptr<BufferBlock> block = std::make_unique<BufferBlock>();
+    ANGLE_TRY(block->init(contextVk, buffer.get(), mVirtualBlockCreateFlags, allocation.get(),
+                          memoryPropertyFlags, mSize));
+
+    if (mHostVisible)
+    {
+        ANGLE_TRY(block->map(contextVk));
+    }
+
+    // Append the bufferBlock into the pool
+    mBufferBlocks.push_back(std::move(block));
+
+    return angle::Result::Continue;
+}
+
+angle::Result BufferPool::allocateBuffer(ContextVk *contextVk,
+                                         VkDeviceSize sizeInBytes,
+                                         VkDeviceSize alignment,
+                                         BufferSubAllocation *suballocation)
+{
+    ASSERT(alignment);
+    VkDeviceSize offset;
+    // We always allocate from reverse order so that older buffers have a chance to age out. The
+    // assumption is that to allocate from new buffers first may have a better chance to leave the
+    // older buffers completely empty and we may able to free it.
+    for (auto iter = mBufferBlocks.rbegin(); iter != mBufferBlocks.rend();)
+    {
+        std::unique_ptr<BufferBlock> &block = *iter;
+        if (block->isEmpty() && block->getMemorySize() < mSize)
+        {
+            // Don't try to allocate from an empty buffer that has smaller size. It will get
+            // released when pruneEmptyBuffers get called later on.
+            ++iter;
+            continue;
+        }
+
+        if (block->allocate(sizeInBytes, alignment, &offset) == VK_SUCCESS)
+        {
+            suballocation->init(contextVk->getDevice(), block.get(), offset, sizeInBytes);
+            return angle::Result::Continue;
+        }
+        ++iter;
+    }
+
+    ANGLE_TRY(allocateNewBuffer(contextVk, sizeInBytes));
+
+    // Sub-allocate from the bufferBlock.
+    std::unique_ptr<BufferBlock> &block = mBufferBlocks.back();
+    ANGLE_VK_CHECK(contextVk, block->allocate(sizeInBytes, alignment, &offset) == VK_SUCCESS,
+                   VK_ERROR_OUT_OF_DEVICE_MEMORY);
+    suballocation->init(contextVk->getDevice(), block.get(), offset, sizeInBytes);
+
+    return angle::Result::Continue;
+}
+
+void BufferPool::destroy(RendererVk *renderer)
+{
+    for (std::unique_ptr<BufferBlock> &block : mBufferBlocks)
+    {
+        ASSERT(block->isEmpty());
+        block->destroy(renderer);
+    }
+    mBufferBlocks.clear();
+}
+
 // DescriptorPoolHelper implementation.
 DescriptorPoolHelper::DescriptorPoolHelper() : mFreeDescriptorSets(0) {}
 
@@ -2963,7 +3230,7 @@ void QueryHelper::beginQueryImpl(ContextVk *contextVk,
 {
     ASSERT(mStatus != QueryStatus::Active);
     const QueryPool &queryPool = getQueryPool();
-    resetCommandBuffer->resetQueryPool(queryPool, mQuery, mQueryCount);
+    resetQueryPoolImpl(contextVk, queryPool, resetCommandBuffer);
     commandBuffer->beginQuery(queryPool, mQuery, 0);
     mStatus = QueryStatus::Active;
 }
@@ -3014,6 +3281,22 @@ angle::Result QueryHelper::endQuery(ContextVk *contextVk)
     return angle::Result::Continue;
 }
 
+template <typename CommandBufferT>
+void QueryHelper::resetQueryPoolImpl(ContextVk *contextVk,
+                                     const QueryPool &queryPool,
+                                     CommandBufferT *commandBuffer)
+{
+    RendererVk *renderer = contextVk->getRenderer();
+    if (vkResetQueryPoolEXT != nullptr && renderer->getFeatures().supportsHostQueryReset.enabled)
+    {
+        vkResetQueryPoolEXT(contextVk->getDevice(), queryPool.getHandle(), mQuery, mQueryCount);
+    }
+    else
+    {
+        commandBuffer->resetQueryPool(queryPool, mQuery, mQueryCount);
+    }
+}
+
 angle::Result QueryHelper::beginRenderPassQuery(ContextVk *contextVk)
 {
     CommandBuffer *outsideRenderPassCommandBuffer;
@@ -3054,14 +3337,14 @@ void QueryHelper::writeTimestampToPrimary(ContextVk *contextVk, PrimaryCommandBu
     // Note that commands may not be flushed at this point.
 
     const QueryPool &queryPool = getQueryPool();
-    primary->resetQueryPool(queryPool, mQuery, mQueryCount);
+    resetQueryPoolImpl(contextVk, queryPool, primary);
     primary->writeTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, mQuery);
 }
 
 void QueryHelper::writeTimestamp(ContextVk *contextVk, CommandBuffer *commandBuffer)
 {
     const QueryPool &queryPool = getQueryPool();
-    commandBuffer->resetQueryPool(queryPool, mQuery, mQueryCount);
+    resetQueryPoolImpl(contextVk, queryPool, commandBuffer);
     commandBuffer->writeTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, mQuery);
     // timestamp results are available immediately, retain this query so that we get its serial
     // updated which is used to indicate that query results are (or will be) available.
@@ -3313,8 +3596,8 @@ angle::Result LineLoopHelper::getIndexBufferForElementArrayBuffer(ContextVk *con
                                            bufferOffsetOut, nullptr));
     *bufferOut = mDynamicIndexBuffer.getCurrentBuffer();
 
-    VkDeviceSize sourceBufferOffset = 0;
-    BufferHelper *sourceBuffer = &elementArrayBufferVk->getBufferAndOffset(&sourceBufferOffset);
+    BufferHelper *sourceBuffer      = &elementArrayBufferVk->getBuffer();
+    VkDeviceSize sourceBufferOffset = sourceBuffer->getOffset();
 
     VkDeviceSize sourceOffset = static_cast<VkDeviceSize>(elementArrayOffset) + sourceBufferOffset;
     uint64_t unitCount        = static_cast<VkDeviceSize>(indexCount);
@@ -3524,9 +3807,7 @@ void PipelineBarrier::addDiagnosticsString(std::ostringstream &out) const
 
 // BufferHelper implementation.
 BufferHelper::BufferHelper()
-    : mMemoryPropertyFlags{},
-      mSize(0),
-      mCurrentQueueFamilyIndex(std::numeric_limits<uint32_t>::max()),
+    : mCurrentQueueFamilyIndex(std::numeric_limits<uint32_t>::max()),
       mCurrentWriteAccess(0),
       mCurrentReadAccess(0),
       mCurrentWriteStages(0),
@@ -3543,7 +3824,6 @@ angle::Result BufferHelper::init(ContextVk *contextVk,
     RendererVk *renderer = contextVk->getRenderer();
 
     mSerial = renderer->getResourceSerialFactory().generateBufferSerial();
-    mSize   = requestedCreateInfo.size;
 
     VkBufferCreateInfo modifiedCreateInfo;
     const VkBufferCreateInfo *createInfo = &requestedCreateInfo;
@@ -3566,7 +3846,7 @@ angle::Result BufferHelper::init(ContextVk *contextVk,
     bool persistentlyMapped = renderer->getFeatures().persistentlyMappedBuffers.enabled;
 
     // Check that the allocation is not too large.
-    uint32_t memoryTypeIndex = 0;
+    uint32_t memoryTypeIndex = kInvalidMemoryTypeIndex;
     ANGLE_VK_TRY(contextVk, bufferMemoryAllocator.findMemoryTypeIndexForBufferInfo(
                                 renderer, *createInfo, requiredFlags, preferredFlags,
                                 persistentlyMapped, &memoryTypeIndex));
@@ -3576,35 +3856,33 @@ angle::Result BufferHelper::init(ContextVk *contextVk,
 
     ANGLE_VK_CHECK(contextVk, createInfo->size <= heapSize, VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
+    // Allocate buffer object
+    DeviceScoped<Buffer> buffer(renderer->getDevice());
+    AllocatorScoped<Allocation> allocation(renderer->getAllocator());
     ANGLE_VK_TRY(contextVk, bufferMemoryAllocator.createBuffer(renderer, *createInfo, requiredFlags,
                                                                preferredFlags, persistentlyMapped,
-                                                               &memoryTypeIndex, &mBuffer,
-                                                               mMemory.getMemoryObject()));
-    bufferMemoryAllocator.getMemoryTypeProperties(renderer, memoryTypeIndex, &mMemoryPropertyFlags);
+                                                               &memoryTypeIndex, &buffer.get(),
+                                                               &allocation.get()));
+    VkMemoryPropertyFlags memoryPropertyFlagsOut;
+    bufferMemoryAllocator.getMemoryTypeProperties(renderer, memoryTypeIndex,
+                                                  &memoryPropertyFlagsOut);
+
+    ANGLE_VK_TRY(contextVk, mSubAllocation.initWithEntireBuffer(
+                                contextVk, buffer.get(), allocation.get(), memoryPropertyFlagsOut,
+                                requestedCreateInfo.size));
+
+    if (isHostVisible())
+    {
+        uint8_t *ptrOut;
+        ANGLE_TRY(map(contextVk, &ptrOut));
+    }
+
     mCurrentQueueFamilyIndex = renderer->getQueueFamilyIndex();
 
     if (renderer->getFeatures().allocateNonZeroMemory.enabled)
     {
-        // This memory can't be mapped, so the buffer must be marked as a transfer destination so we
-        // can use a staging resource to initialize it to a non-zero value. If the memory is
-        // mappable we do the initialization in AllocateBufferMemory.
-        if ((mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0 &&
-            (requestedCreateInfo.usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT) != 0)
-        {
-            ANGLE_TRY(initializeNonZeroMemory(contextVk, createInfo->size));
-        }
-        else if ((mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
-        {
-            const Allocator &allocator = renderer->getAllocator();
-            // Can map the memory.
-            // Pick an arbitrary value to initialize non-zero memory for sanitization.
-            constexpr int kNonZeroInitValue = 55;
-            ANGLE_TRY(InitMappableAllocation(contextVk, allocator, mMemory.getMemoryObject(), mSize,
-                                             kNonZeroInitValue, mMemoryPropertyFlags));
-        }
+        ANGLE_TRY(initializeNonZeroMemory(contextVk, createInfo->usage, createInfo->size));
     }
-
-    ANGLE_TRY(mMemory.init());
 
     return angle::Result::Continue;
 }
@@ -3619,7 +3897,6 @@ angle::Result BufferHelper::initExternal(ContextVk *contextVk,
     RendererVk *renderer = contextVk->getRenderer();
 
     mSerial = renderer->getResourceSerialFactory().generateBufferSerial();
-    mSize   = requestedCreateInfo.size;
 
     VkBufferCreateInfo modifiedCreateInfo             = requestedCreateInfo;
     VkExternalMemoryBufferCreateInfo externCreateInfo = {};
@@ -3629,70 +3906,130 @@ angle::Result BufferHelper::initExternal(ContextVk *contextVk,
     externCreateInfo.pNext   = nullptr;
     modifiedCreateInfo.pNext = &externCreateInfo;
 
-    ANGLE_VK_TRY(contextVk, mBuffer.init(renderer->getDevice(), modifiedCreateInfo));
+    DeviceScoped<Buffer> buffer(renderer->getDevice());
+    ANGLE_VK_TRY(contextVk, buffer.get().init(renderer->getDevice(), modifiedCreateInfo));
 
-    ANGLE_TRY(InitAndroidExternalMemory(contextVk, clientBuffer, memoryProperties, &mBuffer,
-                                        &mMemoryPropertyFlags, mMemory.getExternalMemoryObject()));
+    VkMemoryPropertyFlags memoryPropertyFlagsOut;
+    ANGLE_TRY(InitAndroidExternalMemory(contextVk, clientBuffer, memoryProperties, &buffer.get(),
+                                        &memoryPropertyFlagsOut,
+                                        mMemory.getExternalMemoryObject()));
 
     ANGLE_TRY(mMemory.initExternal(clientBuffer));
+
+    ANGLE_VK_TRY(contextVk, mSubAllocation.initWithEntireBuffer(
+                                contextVk, buffer.get(), *mMemory.getMemoryObject(),
+                                memoryPropertyFlagsOut, requestedCreateInfo.size));
+
+    if (isHostVisible())
+    {
+        uint8_t *ptrOut;
+        ANGLE_TRY(map(contextVk, &ptrOut));
+    }
 
     mCurrentQueueFamilyIndex = renderer->getQueueFamilyIndex();
 
     return angle::Result::Continue;
 }
 
-angle::Result BufferHelper::initializeNonZeroMemory(Context *context, VkDeviceSize size)
+angle::Result BufferHelper::initSubAllocation(ContextVk *contextVk,
+                                              uint32_t memoryTypeIndex,
+                                              size_t size,
+                                              size_t alignment)
 {
-    // Staging buffer memory is non-zero-initialized in 'init'.
-    StagingBuffer stagingBuffer;
-    ANGLE_TRY(stagingBuffer.init(context, size, StagingUsage::Both));
+    RendererVk *renderer = contextVk->getRenderer();
 
+    mSerial = renderer->getResourceSerialFactory().generateBufferSerial();
+
+    if (renderer->getFeatures().padBuffersToMaxVertexAttribStride.enabled)
+    {
+        const VkDeviceSize maxVertexAttribStride = renderer->getMaxVertexAttribStride();
+        ASSERT(maxVertexAttribStride);
+        size += maxVertexAttribStride;
+    }
+
+    vk::BufferPool *pool = contextVk->getDefaultBufferPool(memoryTypeIndex);
+    ANGLE_TRY(pool->allocateBuffer(contextVk, size, alignment, &mSubAllocation));
+
+    mCurrentQueueFamilyIndex = renderer->getQueueFamilyIndex();
+
+    if (renderer->getFeatures().allocateNonZeroMemory.enabled)
+    {
+        ANGLE_TRY(initializeNonZeroMemory(contextVk, GetDefaultBufferUsageFlags(renderer), size));
+    }
+
+    return angle::Result::Continue;
+}
+
+angle::Result BufferHelper::initializeNonZeroMemory(Context *context,
+                                                    VkBufferUsageFlags usage,
+                                                    VkDeviceSize size)
+{
     RendererVk *renderer = context->getRenderer();
 
-    PrimaryCommandBuffer commandBuffer;
-    ANGLE_TRY(renderer->getCommandBufferOneOff(context, false, &commandBuffer));
+    // This memory can't be mapped, so the buffer must be marked as a transfer destination so we
+    // can use a staging resource to initialize it to a non-zero value. If the memory is
+    // mappable we do the initialization in AllocateBufferMemory.
+    if (!isHostVisible() && (usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT) != 0)
+    {
+        ASSERT((usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT) != 0);
+        // Staging buffer memory is non-zero-initialized in 'init'.
+        StagingBuffer stagingBuffer;
+        ANGLE_TRY(stagingBuffer.init(context, size, StagingUsage::Both));
 
-    // Queue a DMA copy.
-    VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset    = 0;
-    copyRegion.dstOffset    = 0;
-    copyRegion.size         = size;
+        PrimaryCommandBuffer commandBuffer;
+        ANGLE_TRY(renderer->getCommandBufferOneOff(context, false, &commandBuffer));
 
-    commandBuffer.copyBuffer(stagingBuffer.getBuffer(), mBuffer, 1, &copyRegion);
+        // Queue a DMA copy.
+        VkBufferCopy copyRegion = {};
+        copyRegion.srcOffset    = 0;
+        copyRegion.dstOffset    = 0;
+        copyRegion.size         = size;
 
-    ANGLE_VK_TRY(context, commandBuffer.end());
+        commandBuffer.copyBuffer(stagingBuffer.getBuffer(), getBuffer(), 1, &copyRegion);
 
-    Serial serial;
-    ANGLE_TRY(renderer->queueSubmitOneOff(context, std::move(commandBuffer), false,
-                                          egl::ContextPriority::Medium, nullptr, 0, nullptr,
-                                          vk::SubmitPolicy::AllowDeferred, &serial));
+        Serial serial;
+        ANGLE_TRY(renderer->queueSubmitOneOff(context, std::move(commandBuffer), false,
+                                              egl::ContextPriority::Medium, nullptr, 0, nullptr,
+                                              vk::SubmitPolicy::AllowDeferred, &serial));
 
-    stagingBuffer.collectGarbage(renderer, serial);
-    // Update both SharedResourceUse objects, since mReadOnlyUse tracks when the buffer can be
-    // destroyed, and mReadWriteUse tracks when the write has completed.
-    mReadOnlyUse.updateSerialOneOff(serial);
-    mReadWriteUse.updateSerialOneOff(serial);
+        stagingBuffer.collectGarbage(renderer, serial);
+        // Update both SharedResourceUse objects, since mReadOnlyUse tracks when the buffer can be
+        // destroyed, and mReadWriteUse tracks when the write has completed.
+        mReadOnlyUse.updateSerialOneOff(serial);
+        mReadWriteUse.updateSerialOneOff(serial);
+    }
+    else if (isHostVisible())
+    {
+        const Allocator &allocator = renderer->getAllocator();
+        // Can map the memory.
+        // Pick an arbitrary value to initialize non-zero memory for sanitization.
+        constexpr int kNonZeroInitValue = 55;
+        uint8_t *mapPointer             = mSubAllocation.getMappedMemory();
+        memset(mapPointer, kNonZeroInitValue, static_cast<size_t>(getSize()));
+        if (!isCoherent())
+        {
+            mSubAllocation.flush(allocator);
+        }
+    }
 
     return angle::Result::Continue;
 }
 
 void BufferHelper::destroy(RendererVk *renderer)
 {
-    VkDevice device = renderer->getDevice();
     unmap(renderer);
-    mSize = 0;
 
-    mBuffer.destroy(device);
+    mSubAllocation.destroy(renderer);
     mMemory.destroy(renderer);
 }
 
 void BufferHelper::release(RendererVk *renderer)
 {
     unmap(renderer);
-    mSize = 0;
 
-    renderer->collectGarbageAndReinit(&mReadOnlyUse, &mBuffer, mMemory.getExternalMemoryObject(),
-                                      mMemory.getMemoryObject());
+    renderer->collectGarbageAndReinit(&mReadOnlyUse, &mSubAllocation,
+                                      mMemory.getExternalMemoryObject(), mMemory.getMemoryObject());
+
     mReadWriteUse.release();
     mReadWriteUse.init();
 }
@@ -3717,36 +4054,82 @@ angle::Result BufferHelper::copyFromBuffer(ContextVk *contextVk,
     CommandBuffer *commandBuffer;
     ANGLE_TRY(contextVk->getOutsideRenderPassCommandBuffer(access, &commandBuffer));
 
-    commandBuffer->copyBuffer(srcBuffer->getBuffer(), mBuffer, regionCount, copyRegions);
+    commandBuffer->copyBuffer(srcBuffer->getBuffer(), getBuffer(), regionCount, copyRegions);
 
+    return angle::Result::Continue;
+}
+
+angle::Result BufferHelper::map(ContextVk *contextVk, uint8_t **ptrOut)
+{
+    if (isExternalBuffer())
+    {
+        ANGLE_TRY(mMemory.map(contextVk, getSize(), ptrOut));
+    }
+    else
+    {
+        if (!mSubAllocation.isMapped())
+        {
+            ANGLE_TRY(mSubAllocation.getBlock()->map(contextVk));
+        }
+        *ptrOut = mSubAllocation.getMappedMemory();
+    }
+    return angle::Result::Continue;
+}
+
+angle::Result BufferHelper::mapWithOffset(ContextVk *contextVk, uint8_t **ptrOut, size_t offset)
+{
+    uint8_t *mapBufPointer;
+    ANGLE_TRY(map(contextVk, &mapBufPointer));
+    *ptrOut = mapBufPointer + offset;
     return angle::Result::Continue;
 }
 
 void BufferHelper::unmap(RendererVk *renderer)
 {
-    mMemory.unmap(renderer);
+    if (isExternalBuffer())
+    {
+        mMemory.unmap(renderer);
+    }
 }
 
 angle::Result BufferHelper::flush(RendererVk *renderer, VkDeviceSize offset, VkDeviceSize size)
 {
-    bool hostVisible  = mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    bool hostCoherent = mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    if (hostVisible && !hostCoherent)
+    if (isExternalBuffer())
     {
-        mMemory.flush(renderer, mMemoryPropertyFlags, offset, size);
+        if (!isCoherent())
+        {
+            mMemory.flush(renderer, offset, size);
+        }
+    }
+    else
+    {
+        mSubAllocation.flush(renderer->getAllocator());
     }
     return angle::Result::Continue;
+}
+angle::Result BufferHelper::flush(RendererVk *renderer)
+{
+    return flush(renderer, 0, getSize());
 }
 
 angle::Result BufferHelper::invalidate(RendererVk *renderer, VkDeviceSize offset, VkDeviceSize size)
 {
-    bool hostVisible  = mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    bool hostCoherent = mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    if (hostVisible && !hostCoherent)
+    if (isExternalBuffer())
     {
-        mMemory.invalidate(renderer, mMemoryPropertyFlags, offset, size);
+        if (!isCoherent())
+        {
+            mMemory.invalidate(renderer, getMemoryPropertyFlags(), offset, size);
+        }
+    }
+    else
+    {
+        mSubAllocation.invalidate(renderer->getAllocator());
     }
     return angle::Result::Continue;
+}
+angle::Result BufferHelper::invalidate(RendererVk *renderer)
+{
+    return invalidate(renderer, 0, getSize());
 }
 
 void BufferHelper::changeQueue(uint32_t newQueueFamilyIndex, CommandBuffer *commandBuffer)
@@ -3757,9 +4140,9 @@ void BufferHelper::changeQueue(uint32_t newQueueFamilyIndex, CommandBuffer *comm
     bufferMemoryBarrier.dstAccessMask         = 0;
     bufferMemoryBarrier.srcQueueFamilyIndex   = mCurrentQueueFamilyIndex;
     bufferMemoryBarrier.dstQueueFamilyIndex   = newQueueFamilyIndex;
-    bufferMemoryBarrier.buffer                = mBuffer.getHandle();
-    bufferMemoryBarrier.offset                = 0;
-    bufferMemoryBarrier.size                  = VK_WHOLE_SIZE;
+    bufferMemoryBarrier.buffer                = getBuffer().getHandle();
+    bufferMemoryBarrier.offset                = getOffset();
+    bufferMemoryBarrier.size                  = getSize();
 
     commandBuffer->bufferBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, &bufferMemoryBarrier);
@@ -3831,8 +4214,8 @@ bool BufferHelper::recordWriteBarrier(VkAccessFlags writeAccessType,
            (mCurrentReadStages && mCurrentReadAccess));
     if (mCurrentReadAccess != 0 || mCurrentWriteAccess != 0)
     {
-        barrier->mergeMemoryBarrier(mCurrentWriteStages | mCurrentReadStages, writeStage,
-                                    mCurrentWriteAccess, writeAccessType);
+        VkPipelineStageFlags srcStageMask = mCurrentWriteStages | mCurrentReadStages;
+        barrier->mergeMemoryBarrier(srcStageMask, writeStage, mCurrentWriteAccess, writeAccessType);
         barrierModified = true;
     }
 
@@ -3868,8 +4251,7 @@ ImageHelper::ImageHelper(ImageHelper &&other)
       mCurrentQueueFamilyIndex(other.mCurrentQueueFamilyIndex),
       mLastNonShaderReadOnlyLayout(other.mLastNonShaderReadOnlyLayout),
       mCurrentShaderReadStageMask(other.mCurrentShaderReadStageMask),
-      mYuvConversionSampler(std::move(other.mYuvConversionSampler)),
-      mExternalFormat(other.mExternalFormat),
+      mYcbcrConversionDesc(other.mYcbcrConversionDesc),
       mFirstAllocatedLevel(other.mFirstAllocatedLevel),
       mLayerCount(other.mLayerCount),
       mLevelCount(other.mLevelCount),
@@ -3907,7 +4289,7 @@ void ImageHelper::resetCachedProperties()
     mFirstAllocatedLevel         = gl::LevelIndex(0);
     mLayerCount                  = 0;
     mLevelCount                  = 0;
-    mExternalFormat              = 0;
+    mYcbcrConversionDesc.reset();
     mCurrentSingleClearValue.reset();
     mRenderPassUsageFlags.reset();
 
@@ -4098,9 +4480,13 @@ angle::Result ImageHelper::initExternal(Context *context,
             DeriveCreateInfoPNext(context, actualFormatID, nullptr, &imageFormatListInfoStorage,
                                   &imageListFormatsStorage, &mCreateFlags);
     }
+    else
+    {
+        // Derive the tiling for external images.
+        deriveExternalImageTiling(externalImageCreateInfo);
+    }
 
-    mYuvConversionSampler.reset();
-    mExternalFormat = 0;
+    mYcbcrConversionDesc.reset();
 
     const angle::Format &actualFormat = angle::Format::Get(actualFormatID);
     VkFormat actualVkFormat           = GetVkFormatFromFormatID(actualFormatID);
@@ -4126,19 +4512,20 @@ angle::Result ImageHelper::initExternal(Context *context,
                                                VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT) != 0)
                                                  ? VK_CHROMA_LOCATION_COSITED_EVEN
                                                  : VK_CHROMA_LOCATION_MIDPOINT;
+        VkSamplerYcbcrModelConversion conversionModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_601;
+        VkSamplerYcbcrRange colorRange                = VK_SAMPLER_YCBCR_RANGE_ITU_NARROW;
+        VkFilter chromaFilter                         = VK_FILTER_NEAREST;
+        VkComponentMapping components                 = {
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+        };
 
         // Create the VkSamplerYcbcrConversion to associate with image views and samplers
-        VkSamplerYcbcrConversionCreateInfo yuvConversionInfo = {};
-        yuvConversionInfo.sType         = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO;
-        yuvConversionInfo.format        = actualVkFormat;
-        yuvConversionInfo.xChromaOffset = supportedLocation;
-        yuvConversionInfo.yChromaOffset = supportedLocation;
-        yuvConversionInfo.ycbcrModel    = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_601;
-        yuvConversionInfo.ycbcrRange    = VK_SAMPLER_YCBCR_RANGE_ITU_NARROW;
-        yuvConversionInfo.chromaFilter  = VK_FILTER_NEAREST;
-
-        ANGLE_TRY(rendererVk->getYuvConversionCache().getYuvConversion(
-            context, actualVkFormat, false, yuvConversionInfo, &mYuvConversionSampler));
+        // Update the SamplerYcbcrConversionCache key
+        mYcbcrConversionDesc.update(rendererVk, 0, conversionModel, colorRange, supportedLocation,
+                                    supportedLocation, chromaFilter, components, intendedFormatID);
     }
 
     if (hasProtectedContent)
@@ -4166,6 +4553,10 @@ angle::Result ImageHelper::initExternal(Context *context,
     mCurrentLayout = initialLayout;
 
     ANGLE_VK_TRY(context, mImage.init(context->getDevice(), imageInfo));
+
+    mVkImageCreateInfo               = imageInfo;
+    mVkImageCreateInfo.pNext         = nullptr;
+    mVkImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     stageClearIfEmulatedFormat(isRobustResourceInitEnabled, externalImageCreateInfo != nullptr);
 
@@ -4214,6 +4605,22 @@ const void *ImageHelper::DeriveCreateInfoPNext(
     }
 
     return pNext;
+}
+
+void ImageHelper::deriveExternalImageTiling(const void *createInfoChain)
+{
+    const VkBaseInStructure *chain = reinterpret_cast<const VkBaseInStructure *>(createInfoChain);
+    while (chain != nullptr)
+    {
+        if (chain->sType == VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT ||
+            chain->sType == VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT)
+        {
+            mTilingMode = VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT;
+            return;
+        }
+
+        chain = reinterpret_cast<const VkBaseInStructure *>(chain->pNext);
+    }
 }
 
 void ImageHelper::releaseImage(RendererVk *renderer)
@@ -4405,15 +4812,13 @@ angle::Result ImageHelper::initMemory(Context *context,
     return angle::Result::Continue;
 }
 
-angle::Result ImageHelper::initExternalMemory(
-    Context *context,
-    const MemoryProperties &memoryProperties,
-    const VkMemoryRequirements &memoryRequirements,
-    const VkSamplerYcbcrConversionCreateInfo *samplerYcbcrConversionCreateInfo,
-    uint32_t extraAllocationInfoCount,
-    const void **extraAllocationInfo,
-    uint32_t currentQueueFamilyIndex,
-    VkMemoryPropertyFlags flags)
+angle::Result ImageHelper::initExternalMemory(Context *context,
+                                              const MemoryProperties &memoryProperties,
+                                              const VkMemoryRequirements &memoryRequirements,
+                                              uint32_t extraAllocationInfoCount,
+                                              const void **extraAllocationInfo,
+                                              uint32_t currentQueueFamilyIndex,
+                                              VkMemoryPropertyFlags flags)
 {
     // Vulkan allows up to 4 memory planes.
     constexpr size_t kMaxMemoryPlanes                                     = 4;
@@ -4441,20 +4846,6 @@ angle::Result ImageHelper::initExternalMemory(
     }
     mCurrentQueueFamilyIndex = currentQueueFamilyIndex;
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
-    if (samplerYcbcrConversionCreateInfo)
-    {
-        const VkExternalFormatANDROID *vkExternalFormat =
-            reinterpret_cast<const VkExternalFormatANDROID *>(
-                samplerYcbcrConversionCreateInfo->pNext);
-        ASSERT(vkExternalFormat->sType == VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID);
-        mExternalFormat = vkExternalFormat->externalFormat;
-
-        ANGLE_TRY(context->getRenderer()->getYuvConversionCache().getYuvConversion(
-            context, mExternalFormat, true, *samplerYcbcrConversionCreateInfo,
-            &mYuvConversionSampler));
-    }
-#endif
     return angle::Result::Continue;
 }
 
@@ -4537,7 +4928,7 @@ angle::Result ImageHelper::initLayerImageViewImpl(
     viewInfo.viewType              = gl_vk::GetImageViewType(textureType);
     viewInfo.format                = imageFormat;
 
-    if (swizzleMap.swizzleRequired() && !mYuvConversionSampler.valid())
+    if (swizzleMap.swizzleRequired() && !mYcbcrConversionDesc.valid())
     {
         viewInfo.components.r = gl_vk::GetSwizzle(swizzleMap.swizzleRed);
         viewInfo.components.g = gl_vk::GetSwizzle(swizzleMap.swizzleGreen);
@@ -4560,17 +4951,18 @@ angle::Result ImageHelper::initLayerImageViewImpl(
     viewInfo.pNext = imageViewUsageCreateInfo;
 
     VkSamplerYcbcrConversionInfo yuvConversionInfo = {};
-    if (mYuvConversionSampler.valid())
+    if (mYcbcrConversionDesc.valid())
     {
         ASSERT((context->getRenderer()->getFeatures().supportsYUVSamplerConversion.enabled));
-        yuvConversionInfo.sType      = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
-        yuvConversionInfo.pNext      = nullptr;
-        yuvConversionInfo.conversion = mYuvConversionSampler.get().getHandle();
+        yuvConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
+        yuvConversionInfo.pNext = nullptr;
+        ANGLE_TRY(context->getRenderer()->getYuvConversionCache().getSamplerYcbcrConversion(
+            context, mYcbcrConversionDesc, &yuvConversionInfo.conversion));
         AddToPNextChain(&viewInfo, &yuvConversionInfo);
 
         // VUID-VkImageViewCreateInfo-image-02399
         // If image has an external format, format must be VK_FORMAT_UNDEFINED
-        if (mExternalFormat)
+        if (mYcbcrConversionDesc.mIsExternalFormat)
         {
             viewInfo.format = VK_FORMAT_UNDEFINED;
         }
@@ -4636,9 +5028,10 @@ void ImageHelper::init2DWeakReference(Context *context,
     mActualFormatID     = actualFormatID;
     mSamples            = std::max(samples, 1);
     mImageSerial        = context->getRenderer()->getResourceSerialFactory().generateImageSerial();
-    mCurrentLayout      = ImageLayout::Undefined;
-    mLayerCount         = 1;
-    mLevelCount         = 1;
+    mCurrentQueueFamilyIndex = context->getRenderer()->getQueueFamilyIndex();
+    mCurrentLayout           = ImageLayout::Undefined;
+    mLayerCount              = 1;
+    mLevelCount              = 1;
 
     mImage.setHandle(handle);
 
@@ -4710,6 +5103,10 @@ angle::Result ImageHelper::initStaging(Context *context,
     imageInfo.initialLayout         = getCurrentLayout();
 
     ANGLE_VK_TRY(context, mImage.init(context->getDevice(), imageInfo));
+
+    mVkImageCreateInfo               = imageInfo;
+    mVkImageCreateInfo.pNext         = nullptr;
+    mVkImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     // Allocate and bind device-local memory.
     VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -4874,7 +5271,7 @@ bool ImageHelper::isReadBarrierNecessary(ImageLayout newLayout) const
     //
     // RAW (read-after-write) hazards always require a memory barrier.  This can only happen if the
     // layout (same as new layout) is writable which in turn is only possible if the image is
-    // simultaneously bound for shader write (i.e. the layout is GENERAL).
+    // simultaneously bound for shader write (i.e. the layout is GENERAL or SHARED_PRESENT).
     const ImageMemoryBarrierData &layoutData = kImageMemoryBarrierData[mCurrentLayout];
     return layoutData.type == ResourceAccess::Write;
 }
@@ -4987,6 +5384,23 @@ void ImageHelper::barrierImpl(Context *context,
                               uint32_t newQueueFamilyIndex,
                               CommandBufferT *commandBuffer)
 {
+    if (mCurrentLayout == ImageLayout::SharedPresent)
+    {
+        const ImageMemoryBarrierData &transition = kImageMemoryBarrierData[mCurrentLayout];
+
+        VkMemoryBarrier memoryBarrier = {};
+        memoryBarrier.sType           = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        memoryBarrier.srcAccessMask   = transition.srcAccessMask;
+        memoryBarrier.dstAccessMask   = transition.dstAccessMask;
+
+        commandBuffer->memoryBarrier(transition.srcStageMask, transition.dstStageMask,
+                                     &memoryBarrier);
+        return;
+    }
+
+    // Make sure we never transition out of SharedPresent
+    ASSERT(mCurrentLayout != ImageLayout::SharedPresent || newLayout == ImageLayout::SharedPresent);
+
     const ImageMemoryBarrierData &transitionFrom = kImageMemoryBarrierData[mCurrentLayout];
     const ImageMemoryBarrierData &transitionTo   = kImageMemoryBarrierData[newLayout];
 
@@ -5008,11 +5422,23 @@ void ImageHelper::barrierImpl(Context *context,
     mCurrentQueueFamilyIndex = newQueueFamilyIndex;
 }
 
+template void ImageHelper::barrierImpl<rx::vk::priv::CommandBuffer>(
+    Context *context,
+    VkImageAspectFlags aspectMask,
+    ImageLayout newLayout,
+    uint32_t newQueueFamilyIndex,
+    rx::vk::priv::CommandBuffer *commandBuffer);
+
 bool ImageHelper::updateLayoutAndBarrier(Context *context,
                                          VkImageAspectFlags aspectMask,
                                          ImageLayout newLayout,
                                          PipelineBarrier *barrier)
 {
+    // Once you transition to ImageLayout::SharedPresent, you never transition out of it.
+    if (mCurrentLayout == ImageLayout::SharedPresent)
+    {
+        newLayout = ImageLayout::SharedPresent;
+    }
     bool barrierModified = false;
     if (newLayout == mCurrentLayout)
     {
@@ -5092,7 +5518,8 @@ void ImageHelper::clearColor(const VkClearColorValue &color,
 {
     ASSERT(valid());
 
-    ASSERT(mCurrentLayout == ImageLayout::TransferDst);
+    ASSERT(mCurrentLayout == ImageLayout::TransferDst ||
+           mCurrentLayout == ImageLayout::SharedPresent);
 
     VkImageSubresourceRange range = {};
     range.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -5445,7 +5872,8 @@ void ImageHelper::resolve(ImageHelper *dst,
                           const VkImageResolve &region,
                           CommandBuffer *commandBuffer)
 {
-    ASSERT(mCurrentLayout == ImageLayout::TransferSrc);
+    ASSERT(mCurrentLayout == ImageLayout::TransferSrc ||
+           mCurrentLayout == ImageLayout::SharedPresent);
     commandBuffer->resolveImage(getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst->getImage(),
                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
@@ -5849,11 +6277,6 @@ angle::Result ImageHelper::CalculateBufferInfo(ContextVk *contextVk,
                                                inputSkipBytes));
 
     return angle::Result::Continue;
-}
-
-bool ImageHelper::hasImmutableSampler() const
-{
-    return mExternalFormat != 0 || getActualFormat().isYUV;
 }
 
 void ImageHelper::onWrite(gl::LevelIndex levelStart,
@@ -6369,6 +6792,9 @@ void ImageHelper::stageSelfAsSubresourceUpdates(ContextVk *contextVk,
 
     // Move the necessary information for staged update to work, and keep the rest as part of this
     // object.
+
+    // Usage info
+    prevImage->get().Resource::operator=(std::move(*this));
 
     // Vulkan objects
     prevImage->get().mImage        = std::move(mImage);
@@ -7314,9 +7740,8 @@ angle::Result ImageHelper::readPixels(ContextVk *contextVk,
     if (packPixelsParams.packBuffer &&
         canCopyWithTransformForReadPixels(packPixelsParams, readFormat))
     {
-        VkDeviceSize packBufferOffset = 0;
-        BufferHelper &packBuffer =
-            GetImpl(packPixelsParams.packBuffer)->getBufferAndOffset(&packBufferOffset);
+        BufferHelper &packBuffer      = GetImpl(packPixelsParams.packBuffer)->getBuffer();
+        VkDeviceSize packBufferOffset = packBuffer.getOffset();
 
         CommandBufferAccess copyAccess;
         copyAccess.onBufferTransferWrite(&packBuffer);

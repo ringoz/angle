@@ -208,8 +208,9 @@ angle::Result ProgramInfo::initProgram(ContextVk *contextVk,
     options.shaderType = shaderType;
     options.removeEarlyFragmentTestsOptimization =
         shaderType == gl::ShaderType::Fragment && optionBits.removeEarlyFragmentTestsOptimization;
-    options.removeDebugInfo             = !contextVk->getRenderer()->getEnableValidationLayers();
-    options.isTransformFeedbackStage    = isLastPreFragmentStage && isTransformFeedbackProgram;
+    options.removeDebugInfo          = !contextVk->getRenderer()->getEnableValidationLayers();
+    options.isTransformFeedbackStage = isLastPreFragmentStage && isTransformFeedbackProgram &&
+                                       !optionBits.removeTransformFeedbackEmulation;
     options.isTransformFeedbackEmulated = contextVk->getFeatures().emulateTransformFeedback.enabled;
     options.negativeViewportSupported   = contextVk->getFeatures().supportsNegativeViewport.enabled;
 
@@ -268,8 +269,7 @@ void ProgramExecutableVk::reset(ContextVk *contextVk)
         descriptorSetLayout.reset();
     }
     mImmutableSamplersMaxDescriptorCount = 1;
-    mExternalFormatIndexMap.clear();
-    mVkFormatIndexMap.clear();
+    mImmutableSamplerIndexMap.clear();
     mPipelineLayout.reset();
 
     mDescriptorSets.fill(VK_NULL_HANDLE);
@@ -733,6 +733,8 @@ void ProgramExecutableVk::addTextureDescriptorSetDesc(
                 const vk::Sampler &immutableSampler = textureVk->getSampler().get();
                 descOut->update(info.binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, arraySize,
                                 activeStages, &immutableSampler);
+                mImmutableSamplerIndexMap[*textureVk->getImage().getYcbcrConversionDesc()] =
+                    textureIndex;
                 // The Vulkan spec has the following note -
                 // All descriptors in a binding use the same maximum
                 // combinedImageSamplerDescriptorCount descriptors to allow implementations to use a
@@ -744,14 +746,12 @@ void ProgramExecutableVk::addTextureDescriptorSetDesc(
 
                 if (externalFormat != 0)
                 {
-                    mExternalFormatIndexMap[externalFormat] = textureIndex;
                     result = contextVk->getRenderer()->getFormatDescriptorCountForExternalFormat(
                         contextVk, externalFormat, &formatDescriptorCount);
                 }
                 else
                 {
                     ASSERT(vkFormat != 0);
-                    mVkFormatIndexMap[vkFormat] = textureIndex;
                     result = contextVk->getRenderer()->getFormatDescriptorCountForVkFormat(
                         contextVk, vkFormat, &formatDescriptorCount);
                 }
@@ -790,17 +790,29 @@ void WriteBufferDescriptorSetBinding(const vk::BufferHelper &buffer,
                                      VkDescriptorBufferInfo *bufferInfoOut,
                                      VkWriteDescriptorSet *writeInfoOut)
 {
-    // If requiredOffsetAlignment is 0, the buffer offset is guaranteed to have the necessary
-    // alignment through other means (the backend specifying the alignment through a GLES limit that
-    // the frontend then enforces).  If it's not 0, we need to bind the buffer at an offset that's
-    // aligned.  The difference in offsets is communicated to the shader via driver uniforms.
-    if (requiredOffsetAlignment)
+    if (IsDynamicDescriptor(descType))
     {
-        VkDeviceSize alignedOffset = (offset / requiredOffsetAlignment) * requiredOffsetAlignment;
-        VkDeviceSize offsetDiff    = offset - alignedOffset;
+        ASSERT(offset == 0);
+    }
+    else
+    {
+        // Adjust offset with buffer's offset since we are sending down buffer.getBuffer() below.
+        offset = buffer.getOffset() + offset;
 
-        offset = alignedOffset;
-        size += offsetDiff;
+        // If requiredOffsetAlignment is 0, the buffer offset is guaranteed to have the necessary
+        // alignment through other means (the backend specifying the alignment through a GLES limit
+        // that the frontend then enforces).  If it's not 0, we need to bind the buffer at an offset
+        // that's aligned.  The difference in offsets is communicated to the shader via driver
+        // uniforms.
+        if (requiredOffsetAlignment)
+        {
+            VkDeviceSize alignedOffset =
+                (offset / requiredOffsetAlignment) * requiredOffsetAlignment;
+            VkDeviceSize offsetDiff = offset - alignedOffset;
+
+            offset = alignedOffset;
+            size += offsetDiff;
+        }
     }
 
     bufferInfoOut->buffer = buffer.getBuffer().getHandle();
@@ -850,6 +862,9 @@ angle::Result ProgramExecutableVk::getGraphicsPipeline(ContextVk *contextVk,
     mTransformOptions.enableLineRasterEmulation = contextVk->isBresenhamEmulationEnabled(mode);
     mTransformOptions.surfaceRotation           = ToUnderlying(desc.getSurfaceRotation());
     mTransformOptions.enableDepthCorrection     = !glState.isClipControlDepthZeroToOne();
+    mTransformOptions.removeTransformFeedbackEmulation =
+        contextVk->getFeatures().emulateTransformFeedback.enabled &&
+        !glState.isTransformFeedbackActiveUnpaused();
 
     // This must be called after mTransformOptions have been set.
     ProgramInfo &programInfo                  = getGraphicsProgramInfo(mTransformOptions);
@@ -1293,8 +1308,7 @@ angle::Result ProgramExecutableVk::updateBuffersDescriptorSet(
         ASSERT(bufferBinding.getSize() >= 0);
 
         BufferVk *bufferVk             = vk::GetImpl(bufferBinding.get());
-        VkDeviceSize bufferOffset      = 0;
-        vk::BufferHelper &bufferHelper = bufferVk->getBufferAndOffset(&bufferOffset);
+        vk::BufferHelper &bufferHelper = bufferVk->getBuffer();
 
         if (!cacheHit)
         {
@@ -1305,7 +1319,7 @@ angle::Result ProgramExecutableVk::updateBuffersDescriptorSet(
             ANGLE_TRY(getOrAllocateShaderResourcesDescriptorSet(contextVk, &shaderBuffersDesc,
                                                                 &descriptorSet));
             VkDeviceSize offset =
-                IsDynamicDescriptor(descriptorType) ? 0 : bufferOffset + bufferBinding.getOffset();
+                IsDynamicDescriptor(descriptorType) ? 0 : bufferBinding.getOffset();
             WriteBufferDescriptorSetBinding(bufferHelper, offset, size, descriptorSet,
                                             descriptorType, binding, arrayElement, 0, &bufferInfo,
                                             &writeInfo);
@@ -1313,7 +1327,7 @@ angle::Result ProgramExecutableVk::updateBuffersDescriptorSet(
         if (IsDynamicDescriptor(descriptorType))
         {
             mDynamicShaderBufferDescriptorOffsets.push_back(
-                static_cast<uint32_t>(bufferOffset + bufferBinding.getOffset()));
+                static_cast<uint32_t>(bufferHelper.getOffset() + bufferBinding.getOffset()));
         }
     }
 
@@ -1374,14 +1388,13 @@ angle::Result ProgramExecutableVk::updateAtomicCounterBuffersDescriptorSet(
         VkWriteDescriptorSet &writeInfo    = contextVk->allocWriteDescriptorSet();
 
         BufferVk *bufferVk             = vk::GetImpl(bufferBinding.get());
-        VkDeviceSize bufferOffset      = 0;
-        vk::BufferHelper &bufferHelper = bufferVk->getBufferAndOffset(&bufferOffset);
+        vk::BufferHelper &bufferHelper = bufferVk->getBuffer();
 
         VkDeviceSize size = gl::GetBoundBufferAvailableSize(bufferBinding);
-        WriteBufferDescriptorSetBinding(
-            bufferHelper, static_cast<uint32_t>(bufferOffset + bufferBinding.getOffset()), size,
-            descriptorSet, kStorageBufferDescriptorType, info.binding, binding,
-            requiredOffsetAlignment, &bufferInfo, &writeInfo);
+        WriteBufferDescriptorSetBinding(bufferHelper,
+                                        static_cast<uint32_t>(bufferBinding.getOffset()), size,
+                                        descriptorSet, kStorageBufferDescriptorType, info.binding,
+                                        binding, requiredOffsetAlignment, &bufferInfo, &writeInfo);
 
         writtenBindings.set(binding);
     }
@@ -1395,7 +1408,7 @@ angle::Result ProgramExecutableVk::updateAtomicCounterBuffersDescriptorSet(
     size_t writeCount                   = 0;
     for (size_t binding : ~writtenBindings)
     {
-        WriteBufferDescriptorSetBinding(emptyBuffer, 0, VK_WHOLE_SIZE, descriptorSet,
+        WriteBufferDescriptorSetBinding(emptyBuffer, 0, emptyBuffer.getSize(), descriptorSet,
                                         kStorageBufferDescriptorType, info.binding,
                                         static_cast<uint32_t>(binding), 0, &bufferInfos[writeCount],
                                         &writeInfos[writeCount]);

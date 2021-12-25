@@ -42,12 +42,13 @@ void EnsureEGLLoaded()
         return;
     }
 
-    EntryPointsLib().reset(
-        angle::OpenSharedLibrary(ANGLE_GLESV2_LIBRARY_NAME, angle::SearchType::ModuleDir));
+    std::string errorOut;
+    EntryPointsLib().reset(angle::OpenSharedLibraryAndGetError(
+        ANGLE_GLESV2_LIBRARY_NAME, angle::SearchType::ModuleDir, &errorOut));
     angle::LoadEGL_EGL(GlobalLoad);
     if (!EGL_GetPlatformDisplay)
     {
-        fprintf(stderr, "Error loading EGL entry points.\n");
+        fprintf(stderr, "Error loading EGL entry points: %s\n", errorOut.c_str());
     }
     else
     {
@@ -597,6 +598,16 @@ EGLBoolean EGLAPIENTRY eglGetMscRateANGLE(EGLDisplay dpy,
 {
     EnsureEGLLoaded();
     return EGL_GetMscRateANGLE(dpy, surface, numerator, denominator);
+}
+
+// EGL_ANGLE_vulkan_image
+EGLBoolean EGLAPIENTRY eglExportVkImageANGLE(EGLDisplay dpy,
+                                             EGLImage image,
+                                             void *vk_image,
+                                             void *vk_image_create_info)
+{
+    EnsureEGLLoaded();
+    return EGL_ExportVkImageANGLE(dpy, image, vk_image, vk_image_create_info);
 }
 
 // EGL_CHROMIUM_sync_control

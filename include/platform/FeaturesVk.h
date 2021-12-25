@@ -193,6 +193,12 @@ struct FeaturesVk : FeatureSetBase
         "VkDevice supports the VK_EXT_custom_border_color extension", &members,
         "http://anglebug.com/3577"};
 
+    // Whether the VkDevice supports multiDrawIndirect (drawIndirect with drawCount > 1)
+    // http://anglebug.com/6439
+    Feature supportsMultiDrawIndirect = {
+        "supportsMultiDrawIndirect", FeatureCategory::VulkanFeatures,
+        "VkDevice supports the multiDrawIndirect extension", &members, "http://anglebug.com/6439"};
+
     // Whether the VkDevice supports the VK_KHR_depth_stencil_resolve extension with the
     // independentResolveNone feature.
     // http://anglebug.com/4836
@@ -277,13 +283,6 @@ struct FeaturesVk : FeatureSetBase
         "This workaround limits GL_MAX_VERTEX_ATTRIB_STRIDE to a maximum value and "
         "pads up every buffer allocation size to be a multiple of the maximum stride.",
         &members, "http://anglebug.com/4428"};
-
-    // Whether the VkDevice supports the VK_EXT_swapchain_colorspace extension
-    // http://anglebug.com/2514
-    Feature supportsSwapchainColorspace = {
-        "supportsSwapchainColorspace", FeatureCategory::VulkanFeatures,
-        "VkDevice supports the VK_EXT_swapchain_colorspace extension", &members,
-        "http://anglebug.com/2514"};
 
     // Whether the VkDevice supports the VK_EXT_external_memory_dma_buf and
     // VK_EXT_image_drm_format_modifier extensions.  These extensions are always used together to
@@ -564,6 +563,12 @@ struct FeaturesVk : FeatureSetBase
                                        "VkDevice supports protected memory", &members,
                                        "http://anglebug.com/3965"};
 
+    // Whether the VkDevice supports the VK_EXT_host_query_reset extension
+    // http://anglebug.com/6692
+    Feature supportsHostQueryReset = {"supportsHostQueryReset", FeatureCategory::VulkanFeatures,
+                                      "VkDevice supports VK_EXT_host_query_reset extension",
+                                      &members, "http://anglebug.com/6692"};
+
     // Whether the VkInstance supports the VK_KHR_get_surface_capabilities2 extension.
     Feature supportsSurfaceCapabilities2Extension = {
         "supportsSurfaceCapabilities2Extension", FeatureCategory::VulkanFeatures,
@@ -584,6 +589,11 @@ struct FeaturesVk : FeatureSetBase
     Feature overrideSurfaceFormatRGB8toRGBA8 = {
         "overrideSurfaceFormatRGB8toRGBA8", FeatureCategory::VulkanWorkarounds,
         "Override surface format GL_RGB8 to GL_RGBA8", &members, "http://anglebug.com/6651"};
+
+    // Whether the VkSurface supports VK_KHR_shared_presentable_images.
+    Feature supportsSharedPresentableImageExtension = {
+        "supportsSharedPresentableImageExtension", FeatureCategory::VulkanFeatures,
+        "VkSurface supports the VK_KHR_shared_presentable_images extension", &members};
 };
 
 inline FeaturesVk::FeaturesVk()  = default;

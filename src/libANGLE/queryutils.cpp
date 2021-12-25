@@ -4187,6 +4187,9 @@ void QueryContextAttrib(const gl::Context *context, EGLint attribute, EGLint *va
         case EGL_CONTEXT_PRIORITY_LEVEL_IMG:
             *value = static_cast<EGLint>(context->getContextPriority());
             break;
+        case EGL_PROTECTED_CONTENT_EXT:
+            *value = context->getState().hasProtectedContent();
+            break;
         default:
             UNREACHABLE();
             break;
@@ -4317,6 +4320,9 @@ egl::Error QuerySurfaceAttrib(const Display *display,
         case EGL_BITMAP_PIXEL_SIZE_KHR:
             *value = surface->getBitmapPixelSize();
             break;
+        case EGL_PROTECTED_CONTENT_EXT:
+            *value = surface->hasProtectedContent();
+            break;
         default:
             UNREACHABLE();
             break;
@@ -4366,7 +4372,7 @@ egl::Error QuerySurfaceAttrib64KHR(const Display *display,
     return NoError();
 }
 
-void SetSurfaceAttrib(Surface *surface, EGLint attribute, EGLint value)
+egl::Error SetSurfaceAttrib(Surface *surface, EGLint attribute, EGLint value)
 {
     switch (attribute)
     {
@@ -4389,12 +4395,12 @@ void SetSurfaceAttrib(Surface *surface, EGLint attribute, EGLint value)
             surface->setTimestampsEnabled(value != EGL_FALSE);
             break;
         case EGL_RENDER_BUFFER:
-            surface->setRenderBuffer(value);
-            break;
+            return surface->setRenderBuffer(value);
         default:
             UNREACHABLE();
             break;
     }
+    return NoError();
 }
 
 Error GetSyncAttrib(Display *display, Sync *sync, EGLint attribute, EGLint *value)

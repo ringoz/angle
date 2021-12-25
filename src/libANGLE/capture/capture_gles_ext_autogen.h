@@ -832,6 +832,18 @@ angle::CallCapture CaptureGetTranslatedShaderSourceANGLE(const State &glState,
                                                          GLsizei *length,
                                                          GLchar *source);
 
+// GL_ANGLE_vulkan_image
+angle::CallCapture CaptureAcquireTexturesANGLE(const State &glState,
+                                               bool isCallValid,
+                                               GLuint numTextures,
+                                               const TextureID *texturesPacked,
+                                               const GLenum *layouts);
+angle::CallCapture CaptureReleaseTexturesANGLE(const State &glState,
+                                               bool isCallValid,
+                                               GLuint numTextures,
+                                               const TextureID *texturesPacked,
+                                               GLenum *layouts);
+
 // GL_APPLE_clip_distance
 
 // GL_ARB_sync
@@ -1292,14 +1304,14 @@ angle::CallCapture CaptureImportMemoryFdEXT(const State &glState,
 // GL_EXT_multi_draw_indirect
 angle::CallCapture CaptureMultiDrawArraysIndirectEXT(const State &glState,
                                                      bool isCallValid,
-                                                     GLenum mode,
+                                                     PrimitiveMode modePacked,
                                                      const void *indirect,
                                                      GLsizei drawcount,
                                                      GLsizei stride);
 angle::CallCapture CaptureMultiDrawElementsIndirectEXT(const State &glState,
                                                        bool isCallValid,
-                                                       GLenum mode,
-                                                       GLenum type,
+                                                       PrimitiveMode modePacked,
+                                                       DrawElementsType typePacked,
                                                        const void *indirect,
                                                        GLsizei drawcount,
                                                        GLsizei stride);
@@ -1900,6 +1912,18 @@ angle::CallCapture CaptureMaxShaderCompilerThreadsKHR(const State &glState,
 // GL_KHR_texture_compression_astc_ldr
 
 // GL_KHR_texture_compression_astc_sliced_3d
+
+// GL_MESA_framebuffer_flip_y
+angle::CallCapture CaptureFramebufferParameteriMESA(const State &glState,
+                                                    bool isCallValid,
+                                                    GLenum target,
+                                                    GLenum pname,
+                                                    GLint param);
+angle::CallCapture CaptureGetFramebufferParameterivMESA(const State &glState,
+                                                        bool isCallValid,
+                                                        GLenum target,
+                                                        GLenum pname,
+                                                        GLint *params);
 
 // GL_NV_fence
 angle::CallCapture CaptureDeleteFencesNV(const State &glState,
@@ -3844,6 +3868,30 @@ void CaptureGetTranslatedShaderSourceANGLE_source(const State &glState,
                                                   GLsizei *length,
                                                   GLchar *source,
                                                   angle::ParamCapture *paramCapture);
+void CaptureAcquireTexturesANGLE_texturesPacked(const State &glState,
+                                                bool isCallValid,
+                                                GLuint numTextures,
+                                                const TextureID *texturesPacked,
+                                                const GLenum *layouts,
+                                                angle::ParamCapture *paramCapture);
+void CaptureAcquireTexturesANGLE_layouts(const State &glState,
+                                         bool isCallValid,
+                                         GLuint numTextures,
+                                         const TextureID *texturesPacked,
+                                         const GLenum *layouts,
+                                         angle::ParamCapture *paramCapture);
+void CaptureReleaseTexturesANGLE_texturesPacked(const State &glState,
+                                                bool isCallValid,
+                                                GLuint numTextures,
+                                                const TextureID *texturesPacked,
+                                                GLenum *layouts,
+                                                angle::ParamCapture *paramCapture);
+void CaptureReleaseTexturesANGLE_layouts(const State &glState,
+                                         bool isCallValid,
+                                         GLuint numTextures,
+                                         const TextureID *texturesPacked,
+                                         GLenum *layouts,
+                                         angle::ParamCapture *paramCapture);
 void CaptureBindUniformLocationCHROMIUM_name(const State &glState,
                                              bool isCallValid,
                                              ShaderProgramID programPacked,
@@ -4079,15 +4127,15 @@ void CaptureMemoryObjectParameterivEXT_params(const State &glState,
                                               angle::ParamCapture *paramCapture);
 void CaptureMultiDrawArraysIndirectEXT_indirect(const State &glState,
                                                 bool isCallValid,
-                                                GLenum mode,
+                                                PrimitiveMode modePacked,
                                                 const void *indirect,
                                                 GLsizei drawcount,
                                                 GLsizei stride,
                                                 angle::ParamCapture *paramCapture);
 void CaptureMultiDrawElementsIndirectEXT_indirect(const State &glState,
                                                   bool isCallValid,
-                                                  GLenum mode,
-                                                  GLenum type,
+                                                  PrimitiveMode modePacked,
+                                                  DrawElementsType typePacked,
                                                   const void *indirect,
                                                   GLsizei drawcount,
                                                   GLsizei stride,
@@ -4590,6 +4638,12 @@ void CapturePushDebugGroupKHR_message(const State &glState,
                                       GLsizei length,
                                       const GLchar *message,
                                       angle::ParamCapture *paramCapture);
+void CaptureGetFramebufferParameterivMESA_params(const State &glState,
+                                                 bool isCallValid,
+                                                 GLenum target,
+                                                 GLenum pname,
+                                                 GLint *params,
+                                                 angle::ParamCapture *paramCapture);
 void CaptureDeleteFencesNV_fencesPacked(const State &glState,
                                         bool isCallValid,
                                         GLsizei n,

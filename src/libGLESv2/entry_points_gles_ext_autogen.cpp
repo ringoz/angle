@@ -3568,6 +3568,69 @@ void GL_APIENTRY GL_GetTranslatedShaderSourceANGLE(GLuint shader,
     }
 }
 
+// GL_ANGLE_vulkan_image
+void GL_APIENTRY GL_AcquireTexturesANGLE(GLuint numTextures,
+                                         const GLuint *textures,
+                                         const GLenum *layouts)
+{
+    Context *context = GetValidGlobalContext();
+    EVENT(context, GLAcquireTexturesANGLE,
+          "context = %d, numTextures = %u, textures = 0x%016" PRIxPTR ", layouts = 0x%016" PRIxPTR
+          "",
+          CID(context), numTextures, (uintptr_t)textures, (uintptr_t)layouts);
+
+    if (context)
+    {
+        const TextureID *texturesPacked = PackParam<const TextureID *>(textures);
+        std::unique_lock<angle::GlobalMutex> shareContextLock = GetContextLock(context);
+        bool isCallValid =
+            (context->skipValidation() ||
+             ValidateAcquireTexturesANGLE(context, angle::EntryPoint::GLAcquireTexturesANGLE,
+                                          numTextures, texturesPacked, layouts));
+        if (isCallValid)
+        {
+            context->acquireTextures(numTextures, texturesPacked, layouts);
+        }
+        ANGLE_CAPTURE(AcquireTexturesANGLE, isCallValid, context, numTextures, texturesPacked,
+                      layouts);
+    }
+    else
+    {
+        GenerateContextLostErrorOnCurrentGlobalContext();
+    }
+}
+
+void GL_APIENTRY GL_ReleaseTexturesANGLE(GLuint numTextures,
+                                         const GLuint *textures,
+                                         GLenum *layouts)
+{
+    Context *context = GetValidGlobalContext();
+    EVENT(context, GLReleaseTexturesANGLE,
+          "context = %d, numTextures = %u, textures = 0x%016" PRIxPTR ", layouts = 0x%016" PRIxPTR
+          "",
+          CID(context), numTextures, (uintptr_t)textures, (uintptr_t)layouts);
+
+    if (context)
+    {
+        const TextureID *texturesPacked = PackParam<const TextureID *>(textures);
+        std::unique_lock<angle::GlobalMutex> shareContextLock = GetContextLock(context);
+        bool isCallValid =
+            (context->skipValidation() ||
+             ValidateReleaseTexturesANGLE(context, angle::EntryPoint::GLReleaseTexturesANGLE,
+                                          numTextures, texturesPacked, layouts));
+        if (isCallValid)
+        {
+            context->releaseTextures(numTextures, texturesPacked, layouts);
+        }
+        ANGLE_CAPTURE(ReleaseTexturesANGLE, isCallValid, context, numTextures, texturesPacked,
+                      layouts);
+    }
+    else
+    {
+        GenerateContextLostErrorOnCurrentGlobalContext();
+    }
+}
+
 // GL_APPLE_clip_distance
 
 // GL_ARB_sync
@@ -5697,17 +5760,18 @@ void GL_APIENTRY GL_MultiDrawArraysIndirectEXT(GLenum mode,
 
     if (context)
     {
+        PrimitiveMode modePacked                              = PackParam<PrimitiveMode>(mode);
         std::unique_lock<angle::GlobalMutex> shareContextLock = GetContextLock(context);
         bool isCallValid                                      = (context->skipValidation() ||
                             ValidateMultiDrawArraysIndirectEXT(
-                                context, angle::EntryPoint::GLMultiDrawArraysIndirectEXT, mode,
-                                indirect, drawcount, stride));
+                                context, angle::EntryPoint::GLMultiDrawArraysIndirectEXT,
+                                modePacked, indirect, drawcount, stride));
         if (isCallValid)
         {
-            context->multiDrawArraysIndirect(mode, indirect, drawcount, stride);
+            context->multiDrawArraysIndirect(modePacked, indirect, drawcount, stride);
         }
-        ANGLE_CAPTURE(MultiDrawArraysIndirectEXT, isCallValid, context, mode, indirect, drawcount,
-                      stride);
+        ANGLE_CAPTURE(MultiDrawArraysIndirectEXT, isCallValid, context, modePacked, indirect,
+                      drawcount, stride);
     }
     else
     {
@@ -5731,17 +5795,19 @@ void GL_APIENTRY GL_MultiDrawElementsIndirectEXT(GLenum mode,
 
     if (context)
     {
+        PrimitiveMode modePacked                              = PackParam<PrimitiveMode>(mode);
+        DrawElementsType typePacked                           = PackParam<DrawElementsType>(type);
         std::unique_lock<angle::GlobalMutex> shareContextLock = GetContextLock(context);
         bool isCallValid                                      = (context->skipValidation() ||
                             ValidateMultiDrawElementsIndirectEXT(
-                                context, angle::EntryPoint::GLMultiDrawElementsIndirectEXT, mode,
-                                type, indirect, drawcount, stride));
+                                context, angle::EntryPoint::GLMultiDrawElementsIndirectEXT,
+                                modePacked, typePacked, indirect, drawcount, stride));
         if (isCallValid)
         {
-            context->multiDrawElementsIndirect(mode, type, indirect, drawcount, stride);
+            context->multiDrawElementsIndirect(modePacked, typePacked, indirect, drawcount, stride);
         }
-        ANGLE_CAPTURE(MultiDrawElementsIndirectEXT, isCallValid, context, mode, type, indirect,
-                      drawcount, stride);
+        ANGLE_CAPTURE(MultiDrawElementsIndirectEXT, isCallValid, context, modePacked, typePacked,
+                      indirect, drawcount, stride);
     }
     else
     {
@@ -8504,6 +8570,61 @@ void GL_APIENTRY GL_MaxShaderCompilerThreadsKHR(GLuint count)
 // GL_KHR_texture_compression_astc_ldr
 
 // GL_KHR_texture_compression_astc_sliced_3d
+
+// GL_MESA_framebuffer_flip_y
+void GL_APIENTRY GL_FramebufferParameteriMESA(GLenum target, GLenum pname, GLint param)
+{
+    Context *context = GetValidGlobalContext();
+    EVENT(context, GLFramebufferParameteriMESA, "context = %d, target = %s, pname = %s, param = %d",
+          CID(context), GLenumToString(GLenumGroup::FramebufferTarget, target),
+          GLenumToString(GLenumGroup::FramebufferParameterName, pname), param);
+
+    if (context)
+    {
+        std::unique_lock<angle::GlobalMutex> shareContextLock = GetContextLock(context);
+        bool isCallValid =
+            (context->skipValidation() ||
+             ValidateFramebufferParameteriMESA(
+                 context, angle::EntryPoint::GLFramebufferParameteriMESA, target, pname, param));
+        if (isCallValid)
+        {
+            context->framebufferParameteriMESA(target, pname, param);
+        }
+        ANGLE_CAPTURE(FramebufferParameteriMESA, isCallValid, context, target, pname, param);
+    }
+    else
+    {
+        GenerateContextLostErrorOnCurrentGlobalContext();
+    }
+}
+
+void GL_APIENTRY GL_GetFramebufferParameterivMESA(GLenum target, GLenum pname, GLint *params)
+{
+    Context *context = GetValidGlobalContext();
+    EVENT(context, GLGetFramebufferParameterivMESA,
+          "context = %d, target = %s, pname = %s, params = 0x%016" PRIxPTR "", CID(context),
+          GLenumToString(GLenumGroup::FramebufferTarget, target),
+          GLenumToString(GLenumGroup::FramebufferAttachmentParameterName, pname),
+          (uintptr_t)params);
+
+    if (context)
+    {
+        std::unique_lock<angle::GlobalMutex> shareContextLock = GetContextLock(context);
+        bool isCallValid                                      = (context->skipValidation() ||
+                            ValidateGetFramebufferParameterivMESA(
+                                context, angle::EntryPoint::GLGetFramebufferParameterivMESA, target,
+                                pname, params));
+        if (isCallValid)
+        {
+            context->getFramebufferParameterivMESA(target, pname, params);
+        }
+        ANGLE_CAPTURE(GetFramebufferParameterivMESA, isCallValid, context, target, pname, params);
+    }
+    else
+    {
+        GenerateContextLostErrorOnCurrentGlobalContext();
+    }
+}
 
 // GL_NV_fence
 void GL_APIENTRY GL_DeleteFencesNV(GLsizei n, const GLuint *fences)

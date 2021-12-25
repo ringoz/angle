@@ -107,6 +107,7 @@ enum class TextureDimension
 // A maximum offset of 4096 covers almost every Vulkan driver on desktop (80%) and mobile (99%). The
 // next highest values to meet native drivers are 16 bits or 32 bits.
 constexpr uint32_t kAttributeOffsetMaxBits = 15;
+constexpr uint32_t kInvalidMemoryTypeIndex = UINT32_MAX;
 
 namespace vk
 {
@@ -393,10 +394,7 @@ class BufferMemory : angle::NonCopyable
         return angle::Result::Continue;
     }
     void unmap(RendererVk *renderer);
-    void flush(RendererVk *renderer,
-               VkMemoryMapFlags memoryPropertyFlags,
-               VkDeviceSize offset,
-               VkDeviceSize size);
+    void flush(RendererVk *renderer, VkDeviceSize offset, VkDeviceSize size);
     void invalidate(RendererVk *renderer,
                     VkMemoryMapFlags memoryPropertyFlags,
                     VkDeviceSize offset,
@@ -516,6 +514,23 @@ class DeviceScoped final : angle::NonCopyable
 
   private:
     VkDevice mDevice;
+    T mVar;
+};
+
+template <typename T>
+class AllocatorScoped final : angle::NonCopyable
+{
+  public:
+    AllocatorScoped(const Allocator &allocator) : mAllocator(allocator) {}
+    ~AllocatorScoped() { mVar.destroy(mAllocator); }
+
+    const T &get() const { return mVar; }
+    T &get() { return mVar; }
+
+    T &&release() { return std::move(mVar); }
+
+  private:
+    const Allocator &mAllocator;
     T mVar;
 };
 
@@ -898,6 +913,135 @@ class ResourceSerialFactory final : angle::NonCopyable
     std::atomic<uint32_t> mCurrentUniqueSerial;
 };
 
+// BufferBlock
+class BufferBlock final : angle::NonCopyable
+{
+  public:
+    BufferBlock();
+    BufferBlock(BufferBlock &&other);
+    ~BufferBlock();
+
+    void destroy(RendererVk *renderer);
+    angle::Result init(ContextVk *contextVk,
+                       Buffer &buffer,
+                       vma::VirtualBlockCreateFlags flags,
+                       Allocation &allocation,
+                       VkMemoryPropertyFlags memoryPropertyFlags,
+                       VkDeviceSize size);
+    void initWithoutVirtualBlock(ContextVk *contextVk,
+                                 Buffer &buffer,
+                                 Allocation &allocation,
+                                 VkMemoryPropertyFlags memoryPropertyFlags,
+                                 VkDeviceSize size);
+
+    BufferBlock &operator=(BufferBlock &&other);
+
+    Buffer *getBuffer();
+    const Allocation &getAllocation() const;
+    BufferSerial getBufferSerial() const { return mSerial; }
+
+    VkMemoryPropertyFlags getMemoryPropertyFlags() const;
+    VkDeviceSize getMemorySize() const;
+
+    VkResult allocate(VkDeviceSize size, VkDeviceSize alignment, VkDeviceSize *offsetOut);
+    void free(VkDeviceSize offset);
+    VkBool32 isEmpty();
+
+    bool hasVirtualBlock() const { return mVirtualBlock.valid(); }
+    bool isHostVisible() const;
+    bool isCoherent() const;
+    bool isMapped() const;
+    angle::Result map(ContextVk *contextVk);
+    void unmap(const Allocator &allocator);
+    uint8_t *getMappedMemory() const;
+
+    // This should be called whenever this found to be empty. The total number of count of empty is
+    // returned.
+    int32_t getAndIncrementEmptyCounter();
+
+  private:
+    // Protect multi-thread access to mVirtualBlock, which could be possible when asyncCommandQueue
+    // is enabled.
+    ConditionalMutex mVirtualBlockMutex;
+    VirtualBlock mVirtualBlock;
+
+    Buffer mBuffer;
+    Allocation mAllocation;
+    VkMemoryPropertyFlags mMemoryPropertyFlags;
+    VkDeviceSize mSize;
+    uint8_t *mMappedMemory;
+    BufferSerial mSerial;
+    // Heuristic information for pruneEmptyBuffer. This tracks how many times (consecutively) this
+    // buffer block is found to be empty when pruneEmptyBuffer is called. This gets reset whenever
+    // it becomes non-empty.
+    int32_t mCountRemainsEmpty;
+};
+using BufferBlockPointerVector = std::vector<std::unique_ptr<BufferBlock>>;
+
+// BufferSubAllocation
+struct VmaBufferSubAllocation_T
+{
+    BufferBlock *mBufferBlock;
+    VkDeviceSize mOffset;
+    VkDeviceSize mSize;
+};
+VK_DEFINE_HANDLE(VmaBufferSubAllocation)
+ANGLE_INLINE VkResult
+CreateVmaBufferSubAllocation(BufferBlock *block,
+                             VkDeviceSize offset,
+                             VkDeviceSize size,
+                             VmaBufferSubAllocation *vmaBufferSubAllocationOut)
+{
+    *vmaBufferSubAllocationOut = new VmaBufferSubAllocation_T{block, offset, size};
+    return *vmaBufferSubAllocationOut != VK_NULL_HANDLE ? VK_SUCCESS : VK_ERROR_OUT_OF_HOST_MEMORY;
+}
+ANGLE_INLINE void DestroyVmaBufferSubAllocation(RendererVk *renderer,
+                                                VmaBufferSubAllocation vmaBufferSubAllocation)
+{
+    ASSERT(vmaBufferSubAllocation->mBufferBlock);
+    if (vmaBufferSubAllocation->mBufferBlock->hasVirtualBlock())
+    {
+        vmaBufferSubAllocation->mBufferBlock->free(vmaBufferSubAllocation->mOffset);
+    }
+    else
+    {
+        // When virtual block is invalid, this is the standalone buffer that are created by
+        // BufferSubAllocation::initWithEntireBuffer call. In this case, vmaBufferSubAllocation owns
+        // block, we must properly delete the block object.
+        vmaBufferSubAllocation->mBufferBlock->destroy(renderer);
+        delete vmaBufferSubAllocation->mBufferBlock;
+    }
+
+    delete vmaBufferSubAllocation;
+}
+
+class BufferSubAllocation final : public WrappedObject<BufferSubAllocation, VmaBufferSubAllocation>
+{
+  public:
+    BufferSubAllocation() = default;
+    void destroy(RendererVk *renderer);
+
+    VkResult init(VkDevice device, BufferBlock *block, VkDeviceSize offset, VkDeviceSize size);
+    VkResult initWithEntireBuffer(ContextVk *contextVk,
+                                  Buffer &buffer,
+                                  Allocation &allocation,
+                                  VkMemoryPropertyFlags memoryPropertyFlags,
+                                  VkDeviceSize size);
+
+    BufferBlock *getBlock() const;
+    const Buffer &getBuffer() const;
+    VkDeviceSize getSize() const;
+    const Allocation &getAllocation() const;
+    VkMemoryMapFlags getMemoryPropertyFlags() const;
+    bool isHostVisible() const;
+    bool isCoherent() const;
+    bool isMapped() const;
+    uint8_t *getMappedMemory() const;
+    void flush(const Allocator &allocator) const;
+    void invalidate(const Allocator &allocator) const;
+    VkDeviceSize getOffset() const;
+};
+
 #if defined(ANGLE_ENABLE_PERF_COUNTER_OUTPUT)
 constexpr bool kOutputCumulativePerfCounters = ANGLE_ENABLE_PERF_COUNTER_OUTPUT;
 #else
@@ -991,6 +1135,9 @@ void InitExternalSemaphoreFdFunctions(VkInstance instance);
 // VK_EXT_external_memory_host
 void InitExternalMemoryHostFunctions(VkInstance instance);
 
+// VK_EXT_external_memory_host
+void InitHostQueryResetFunctions(VkInstance instance);
+
 // VK_KHR_external_fence_capabilities
 void InitExternalFenceCapabilitiesFunctions(VkInstance instance);
 
@@ -1005,6 +1152,9 @@ void InitExternalFenceFdFunctions(VkInstance instance);
 
 // VK_KHR_external_semaphore_capabilities
 void InitExternalSemaphoreCapabilitiesFunctions(VkInstance instance);
+
+// VK_KHR_shared_presentable_image
+void InitGetSwapchainStatusKHRFunctions(VkDevice device);
 
 #endif  // !defined(ANGLE_SHARED_LIBVULKAN)
 
@@ -1054,6 +1204,7 @@ void GetExtentsAndLayerCount(gl::TextureType textureType,
                              uint32_t *layerCountOut);
 
 vk::LevelIndex GetLevelIndex(gl::LevelIndex levelGL, gl::LevelIndex baseLevel);
+
 }  // namespace gl_vk
 
 namespace vk_gl
@@ -1148,6 +1299,8 @@ enum class RenderPassClosureReason
     DeviceLocalBufferMap,
 
     // UtilsVk
+    PrepareForBlit,
+    PrepareForImageCopy,
     TemporaryForImageClear,
     TemporaryForImageCopy,
 

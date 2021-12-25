@@ -545,6 +545,10 @@ class QueryHelper final : public Resource
                         CommandBuffer *resetCommandBuffer,
                         CommandBuffer *commandBuffer);
     void endQueryImpl(ContextVk *contextVk, CommandBuffer *commandBuffer);
+    template <typename CommandBufferT>
+    void resetQueryPoolImpl(ContextVk *contextVk,
+                            const QueryPool &queryPool,
+                            CommandBufferT *commandBuffer);
     VkResult getResultImpl(ContextVk *contextVk,
                            const VkQueryResultFlags flags,
                            QueryResult *resultOut);
@@ -837,7 +841,7 @@ using PipelineBarrierArray = angle::PackedEnumMap<PipelineStage, PipelineBarrier
 
 class FramebufferHelper;
 
-class BufferHelper final : public ReadWriteResource
+class BufferHelper : public ReadWriteResource
 {
   public:
     BufferHelper();
@@ -850,29 +854,33 @@ class BufferHelper final : public ReadWriteResource
                                VkMemoryPropertyFlags memoryProperties,
                                const VkBufferCreateInfo &requestedCreateInfo,
                                GLeglClientBufferEXT clientBuffer);
-    void destroy(RendererVk *renderer);
+    angle::Result initSubAllocation(ContextVk *contextVk,
+                                    uint32_t memoryTypeIndex,
+                                    size_t size,
+                                    size_t alignment);
 
+    void destroy(RendererVk *renderer);
     void release(RendererVk *renderer);
 
     BufferSerial getBufferSerial() const { return mSerial; }
-    bool valid() const { return mBuffer.valid(); }
-    const Buffer &getBuffer() const { return mBuffer; }
-    VkDeviceSize getSize() const { return mSize; }
+    bool valid() const { return mSubAllocation.valid(); }
+    const Buffer &getBuffer() const { return mSubAllocation.getBuffer(); }
+    const BufferBlock *getBufferBlock() const { return mSubAllocation.getBlock(); }
+    VkDeviceSize getOffset() const { return mSubAllocation.getOffset(); }
+    VkDeviceSize getSize() const { return mSubAllocation.getSize(); }
+    VkMemoryMapFlags getMemoryPropertyFlags() const
+    {
+        return mSubAllocation.getMemoryPropertyFlags();
+    }
     uint8_t *getMappedMemory() const
     {
         ASSERT(isMapped());
-        return mMemory.getMappedMemory();
+        return isExternalBuffer() ? mMemory.getMappedMemory() : mSubAllocation.getMappedMemory();
     }
-    bool isHostVisible() const
-    {
-        return (mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
-    }
-    bool isCoherent() const
-    {
-        return (mMemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
-    }
+    bool isHostVisible() const { return mSubAllocation.isHostVisible(); }
+    bool isCoherent() const { return mSubAllocation.isCoherent(); }
 
-    bool isMapped() const { return mMemory.getMappedMemory() != nullptr; }
+    bool isMapped() const { return isExternalBuffer() ? true : mSubAllocation.isMapped(); }
     bool isExternalBuffer() const { return mMemory.isExternalBuffer(); }
 
     // Also implicitly sets up the correct barriers.
@@ -881,25 +889,14 @@ class BufferHelper final : public ReadWriteResource
                                  uint32_t regionCount,
                                  const VkBufferCopy *copyRegions);
 
-    angle::Result map(ContextVk *contextVk, uint8_t **ptrOut)
-    {
-        return mMemory.map(contextVk, mSize, ptrOut);
-    }
-
-    angle::Result mapWithOffset(ContextVk *contextVk, uint8_t **ptrOut, size_t offset)
-    {
-        uint8_t *mapBufPointer;
-        ANGLE_TRY(mMemory.map(contextVk, mSize, &mapBufPointer));
-        *ptrOut = mapBufPointer + offset;
-        return angle::Result::Continue;
-    }
-
+    angle::Result map(ContextVk *contextVk, uint8_t **ptrOut);
+    angle::Result mapWithOffset(ContextVk *contextVk, uint8_t **ptrOut, size_t offset);
     void unmap(RendererVk *renderer);
-
     // After a sequence of writes, call flush to ensure the data is visible to the device.
+    angle::Result flush(RendererVk *renderer);
     angle::Result flush(RendererVk *renderer, VkDeviceSize offset, VkDeviceSize size);
-
     // After a sequence of writes, call invalidate to ensure the data is visible to the host.
+    angle::Result invalidate(RendererVk *renderer);
     angle::Result invalidate(RendererVk *renderer, VkDeviceSize offset, VkDeviceSize size);
 
     void changeQueue(uint32_t newQueueFamilyIndex, CommandBuffer *commandBuffer);
@@ -928,18 +925,18 @@ class BufferHelper final : public ReadWriteResource
                             PipelineBarrier *barrier);
 
   private:
-    angle::Result initializeNonZeroMemory(Context *context, VkDeviceSize size);
+    angle::Result initializeNonZeroMemory(Context *context,
+                                          VkBufferUsageFlags usage,
+                                          VkDeviceSize size);
 
-    // Vulkan objects.
-    Buffer mBuffer;
+    // For external memory only
     BufferMemory mMemory;
 
-    // Cached properties.
-    VkMemoryPropertyFlags mMemoryPropertyFlags;
-    VkDeviceSize mSize;
-    uint32_t mCurrentQueueFamilyIndex;
+    // SubAllocation object.
+    BufferSubAllocation mSubAllocation;
 
     // For memory barriers.
+    uint32_t mCurrentQueueFamilyIndex;
     VkFlags mCurrentWriteAccess;
     VkFlags mCurrentReadAccess;
     VkPipelineStageFlags mCurrentWriteStages;
@@ -947,6 +944,50 @@ class BufferHelper final : public ReadWriteResource
 
     BufferSerial mSerial;
 };
+
+class BufferPool : angle::NonCopyable
+{
+  public:
+    BufferPool();
+    BufferPool(BufferPool &&other);
+    ~BufferPool();
+
+    // Init that gives the ability to pass in specified memory property flags for the buffer.
+    void initWithFlags(RendererVk *renderer,
+                       vma::VirtualBlockCreateFlags flags,
+                       VkBufferUsageFlags usage,
+                       VkDeviceSize initialSize,
+                       uint32_t memoryTypeIndex,
+                       VkMemoryPropertyFlags memoryProperty);
+
+    angle::Result allocateBuffer(ContextVk *contextVk,
+                                 VkDeviceSize sizeInBytes,
+                                 VkDeviceSize alignment,
+                                 BufferSubAllocation *suballocation);
+
+    // This frees resources immediately.
+    void destroy(RendererVk *renderer);
+
+    void pruneEmptyBuffers(RendererVk *renderer);
+
+    bool valid() const { return mSize != 0; }
+
+  private:
+    angle::Result allocateNewBuffer(ContextVk *contextVk, VkDeviceSize sizeInBytes);
+
+    vma::VirtualBlockCreateFlags mVirtualBlockCreateFlags;
+    VkBufferUsageFlags mUsage;
+    bool mHostVisible;
+    VkDeviceSize mSize;
+    uint32_t mMemoryTypeIndex;
+    BufferBlockPointerVector mBufferBlocks;
+    // When pruneDefaultBufferPools gets called, we do not immediately free all empty buffers. Only
+    // buffers that we found are empty for this number of times consecutively, we will actually free
+    // it. That way we avoid the situation that a buffer just becomes empty and gets freed right
+    // after and then we have to allocate a new one next frame.
+    static constexpr int32_t kMaxCountRemainsEmpty = 4;
+};
+using BufferPoolPointerArray = std::array<std::unique_ptr<BufferPool>, VK_MAX_MEMORY_TYPES>;
 
 enum class BufferAccess
 {
@@ -1402,6 +1443,7 @@ enum class ImageLayout
     DepthStencilAttachment,
     DepthStencilResolveAttachment,
     Present,
+    SharedPresent,
     // The rest of the layouts.
     ExternalPreInitialized,
     ExternalShadersReadOnly,
@@ -1425,6 +1467,10 @@ enum class ImageLayout
 };
 
 VkImageCreateFlags GetImageCreateFlags(gl::TextureType textureType);
+
+ImageLayout GetImageLayoutFromGLImageLayout(GLenum layout);
+
+GLenum ConvertImageLayoutToGLImageLayout(ImageLayout imageLayout);
 
 VkImageLayout ConvertImageLayoutToVkImageLayout(ImageLayout imageLayout);
 
@@ -1510,15 +1556,13 @@ class ImageHelper final : public Resource, public angle::Subject
                              bool hasProtectedContent,
                              const MemoryProperties &memoryProperties,
                              VkMemoryPropertyFlags flags);
-    angle::Result initExternalMemory(
-        Context *context,
-        const MemoryProperties &memoryProperties,
-        const VkMemoryRequirements &memoryRequirements,
-        const VkSamplerYcbcrConversionCreateInfo *samplerYcbcrConversionCreateInfo,
-        uint32_t extraAllocationInfoCount,
-        const void **extraAllocationInfo,
-        uint32_t currentQueueFamilyIndex,
-        VkMemoryPropertyFlags flags);
+    angle::Result initExternalMemory(Context *context,
+                                     const MemoryProperties &memoryProperties,
+                                     const VkMemoryRequirements &memoryRequirements,
+                                     uint32_t extraAllocationInfoCount,
+                                     const void **extraAllocationInfo,
+                                     uint32_t currentQueueFamilyIndex,
+                                     VkMemoryPropertyFlags flags);
     angle::Result initLayerImageView(Context *context,
                                      gl::TextureType textureType,
                                      VkImageAspectFlags aspectMask,
@@ -1637,6 +1681,7 @@ class ImageHelper final : public Resource, public angle::Subject
     const Image &getImage() const { return mImage; }
     const DeviceMemory &getDeviceMemory() const { return mDeviceMemory; }
 
+    const VkImageCreateInfo &getVkImageCreateInfo() const { return mVkImageCreateInfo; }
     void setTilingMode(VkImageTiling tilingMode) { mTilingMode = tilingMode; }
     VkImageTiling getTilingMode() const { return mTilingMode; }
     VkImageCreateFlags getCreateFlags() const { return mCreateFlags; }
@@ -1689,7 +1734,15 @@ class ImageHelper final : public Resource, public angle::Subject
         return mImageSerial;
     }
 
-    void setCurrentImageLayout(ImageLayout newLayout) { mCurrentLayout = newLayout; }
+    void setCurrentImageLayout(ImageLayout newLayout)
+    {
+        // Once you transition to ImageLayout::SharedPresent, you never transition out of it.
+        if (mCurrentLayout == ImageLayout::SharedPresent)
+        {
+            return;
+        }
+        mCurrentLayout = newLayout;
+    }
     ImageLayout getCurrentImageLayout() const { return mCurrentLayout; }
     VkImageLayout getCurrentLayout() const;
 
@@ -1866,6 +1919,13 @@ class ImageHelper final : public Resource, public angle::Subject
         barrierImpl(context, aspectMask, newLayout, mCurrentQueueFamilyIndex, commandBuffer);
     }
 
+    void recordWriteBarrierOneOff(Context *context,
+                                  ImageLayout newLayout,
+                                  PrimaryCommandBuffer *commandBuffer)
+    {
+        barrierImpl(context, getAspectFlags(), newLayout, mCurrentQueueFamilyIndex, commandBuffer);
+    }
+
     // This function can be used to prevent issuing redundant layout transition commands.
     bool isReadBarrierNecessary(ImageLayout newLayout) const;
 
@@ -1981,8 +2041,27 @@ class ImageHelper final : public Resource, public angle::Subject
                  uint32_t layerStart,
                  uint32_t layerCount,
                  VkImageAspectFlags aspectFlags);
-    bool hasImmutableSampler() const;
-    uint64_t getExternalFormat() const { return mExternalFormat; }
+    bool hasImmutableSampler() const { return mYcbcrConversionDesc.valid(); }
+    uint64_t getExternalFormat() const
+    {
+        return mYcbcrConversionDesc.mIsExternalFormat ? mYcbcrConversionDesc.mExternalOrVkFormat
+                                                      : 0;
+    }
+    const YcbcrConversionDesc *getYcbcrConversionDesc() const { return &mYcbcrConversionDesc; }
+    void updateYcbcrConversionDesc(RendererVk *rendererVk,
+                                   uint64_t externalFormat,
+                                   VkSamplerYcbcrModelConversion conversionModel,
+                                   VkSamplerYcbcrRange colorRange,
+                                   VkChromaLocation xChromaOffset,
+                                   VkChromaLocation yChromaOffset,
+                                   VkFilter chromaFilter,
+                                   VkComponentMapping components,
+                                   angle::FormatID intendedFormatID)
+    {
+        mYcbcrConversionDesc.update(rendererVk, externalFormat, conversionModel, colorRange,
+                                    xChromaOffset, yChromaOffset, chromaFilter, components,
+                                    intendedFormatID);
+    }
 
     // Used by framebuffer and render pass functions to decide loadOps and invalidate/un-invalidate
     // render target contents.
@@ -2093,6 +2172,8 @@ class ImageHelper final : public Resource, public angle::Subject
         } data;
         RefCounted<ImageHelper> *image;
     };
+
+    void deriveExternalImageTiling(const void *createInfoChain);
 
     // Called from flushStagedUpdates, removes updates that are later superseded by another.  This
     // cannot be done at the time the updates were staged, as the image is not created (and thus the
@@ -2213,6 +2294,7 @@ class ImageHelper final : public Resource, public angle::Subject
     DeviceMemory mDeviceMemory;
 
     // Image properties.
+    VkImageCreateInfo mVkImageCreateInfo;
     VkImageType mImageType;
     VkImageTiling mTilingMode;
     VkImageCreateFlags mCreateFlags;
@@ -2239,8 +2321,7 @@ class ImageHelper final : public Resource, public angle::Subject
     RenderPassUsageFlags mRenderPassUsageFlags;
 
     // For imported images
-    BindingPointer<SamplerYcbcrConversion> mYuvConversionSampler;
-    uint64_t mExternalFormat;
+    YcbcrConversionDesc mYcbcrConversionDesc;
 
     // The first level that has been allocated. For mutable textures, this should be same as
     // mBaseLevel since we always reallocate VkImage based on mBaseLevel change. But for immutable

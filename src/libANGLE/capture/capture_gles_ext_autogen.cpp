@@ -4391,6 +4391,98 @@ CallCapture CaptureGetTranslatedShaderSourceANGLE(const State &glState,
     return CallCapture(angle::EntryPoint::GLGetTranslatedShaderSourceANGLE, std::move(paramBuffer));
 }
 
+CallCapture CaptureAcquireTexturesANGLE(const State &glState,
+                                        bool isCallValid,
+                                        GLuint numTextures,
+                                        const TextureID *texturesPacked,
+                                        const GLenum *layouts)
+{
+    ParamBuffer paramBuffer;
+
+    paramBuffer.addValueParam("numTextures", ParamType::TGLuint, numTextures);
+
+    if (isCallValid)
+    {
+        ParamCapture texturesPackedParam("texturesPacked", ParamType::TTextureIDConstPointer);
+        InitParamValue(ParamType::TTextureIDConstPointer, texturesPacked,
+                       &texturesPackedParam.value);
+        CaptureAcquireTexturesANGLE_texturesPacked(glState, isCallValid, numTextures,
+                                                   texturesPacked, layouts, &texturesPackedParam);
+        paramBuffer.addParam(std::move(texturesPackedParam));
+    }
+    else
+    {
+        ParamCapture texturesPackedParam("texturesPacked", ParamType::TTextureIDConstPointer);
+        InitParamValue(ParamType::TTextureIDConstPointer, static_cast<const TextureID *>(nullptr),
+                       &texturesPackedParam.value);
+        paramBuffer.addParam(std::move(texturesPackedParam));
+    }
+
+    if (isCallValid)
+    {
+        ParamCapture layoutsParam("layouts", ParamType::TGLenumConstPointer);
+        InitParamValue(ParamType::TGLenumConstPointer, layouts, &layoutsParam.value);
+        CaptureAcquireTexturesANGLE_layouts(glState, isCallValid, numTextures, texturesPacked,
+                                            layouts, &layoutsParam);
+        paramBuffer.addParam(std::move(layoutsParam));
+    }
+    else
+    {
+        ParamCapture layoutsParam("layouts", ParamType::TGLenumConstPointer);
+        InitParamValue(ParamType::TGLenumConstPointer, static_cast<const GLenum *>(nullptr),
+                       &layoutsParam.value);
+        paramBuffer.addParam(std::move(layoutsParam));
+    }
+
+    return CallCapture(angle::EntryPoint::GLAcquireTexturesANGLE, std::move(paramBuffer));
+}
+
+CallCapture CaptureReleaseTexturesANGLE(const State &glState,
+                                        bool isCallValid,
+                                        GLuint numTextures,
+                                        const TextureID *texturesPacked,
+                                        GLenum *layouts)
+{
+    ParamBuffer paramBuffer;
+
+    paramBuffer.addValueParam("numTextures", ParamType::TGLuint, numTextures);
+
+    if (isCallValid)
+    {
+        ParamCapture texturesPackedParam("texturesPacked", ParamType::TTextureIDConstPointer);
+        InitParamValue(ParamType::TTextureIDConstPointer, texturesPacked,
+                       &texturesPackedParam.value);
+        CaptureReleaseTexturesANGLE_texturesPacked(glState, isCallValid, numTextures,
+                                                   texturesPacked, layouts, &texturesPackedParam);
+        paramBuffer.addParam(std::move(texturesPackedParam));
+    }
+    else
+    {
+        ParamCapture texturesPackedParam("texturesPacked", ParamType::TTextureIDConstPointer);
+        InitParamValue(ParamType::TTextureIDConstPointer, static_cast<const TextureID *>(nullptr),
+                       &texturesPackedParam.value);
+        paramBuffer.addParam(std::move(texturesPackedParam));
+    }
+
+    if (isCallValid)
+    {
+        ParamCapture layoutsParam("layouts", ParamType::TGLenumPointer);
+        InitParamValue(ParamType::TGLenumPointer, layouts, &layoutsParam.value);
+        CaptureReleaseTexturesANGLE_layouts(glState, isCallValid, numTextures, texturesPacked,
+                                            layouts, &layoutsParam);
+        paramBuffer.addParam(std::move(layoutsParam));
+    }
+    else
+    {
+        ParamCapture layoutsParam("layouts", ParamType::TGLenumPointer);
+        InitParamValue(ParamType::TGLenumPointer, static_cast<GLenum *>(nullptr),
+                       &layoutsParam.value);
+        paramBuffer.addParam(std::move(layoutsParam));
+    }
+
+    return CallCapture(angle::EntryPoint::GLReleaseTexturesANGLE, std::move(paramBuffer));
+}
+
 CallCapture CaptureBindUniformLocationCHROMIUM(const State &glState,
                                                bool isCallValid,
                                                ShaderProgramID programPacked,
@@ -6094,21 +6186,21 @@ CallCapture CaptureImportMemoryFdEXT(const State &glState,
 
 CallCapture CaptureMultiDrawArraysIndirectEXT(const State &glState,
                                               bool isCallValid,
-                                              GLenum mode,
+                                              PrimitiveMode modePacked,
                                               const void *indirect,
                                               GLsizei drawcount,
                                               GLsizei stride)
 {
     ParamBuffer paramBuffer;
 
-    paramBuffer.addEnumParam("mode", GLenumGroup::PrimitiveType, ParamType::TGLenum, mode);
+    paramBuffer.addValueParam("modePacked", ParamType::TPrimitiveMode, modePacked);
 
     if (isCallValid)
     {
         ParamCapture indirectParam("indirect", ParamType::TvoidConstPointer);
         InitParamValue(ParamType::TvoidConstPointer, indirect, &indirectParam.value);
-        CaptureMultiDrawArraysIndirectEXT_indirect(glState, isCallValid, mode, indirect, drawcount,
-                                                   stride, &indirectParam);
+        CaptureMultiDrawArraysIndirectEXT_indirect(glState, isCallValid, modePacked, indirect,
+                                                   drawcount, stride, &indirectParam);
         paramBuffer.addParam(std::move(indirectParam));
     }
     else
@@ -6127,23 +6219,23 @@ CallCapture CaptureMultiDrawArraysIndirectEXT(const State &glState,
 
 CallCapture CaptureMultiDrawElementsIndirectEXT(const State &glState,
                                                 bool isCallValid,
-                                                GLenum mode,
-                                                GLenum type,
+                                                PrimitiveMode modePacked,
+                                                DrawElementsType typePacked,
                                                 const void *indirect,
                                                 GLsizei drawcount,
                                                 GLsizei stride)
 {
     ParamBuffer paramBuffer;
 
-    paramBuffer.addEnumParam("mode", GLenumGroup::PrimitiveType, ParamType::TGLenum, mode);
-    paramBuffer.addEnumParam("type", GLenumGroup::DrawElementsType, ParamType::TGLenum, type);
+    paramBuffer.addValueParam("modePacked", ParamType::TPrimitiveMode, modePacked);
+    paramBuffer.addValueParam("typePacked", ParamType::TDrawElementsType, typePacked);
 
     if (isCallValid)
     {
         ParamCapture indirectParam("indirect", ParamType::TvoidConstPointer);
         InitParamValue(ParamType::TvoidConstPointer, indirect, &indirectParam.value);
-        CaptureMultiDrawElementsIndirectEXT_indirect(glState, isCallValid, mode, type, indirect,
-                                                     drawcount, stride, &indirectParam);
+        CaptureMultiDrawElementsIndirectEXT_indirect(glState, isCallValid, modePacked, typePacked,
+                                                     indirect, drawcount, stride, &indirectParam);
         paramBuffer.addParam(std::move(indirectParam));
     }
     else
@@ -8649,6 +8741,52 @@ CallCapture CaptureMaxShaderCompilerThreadsKHR(const State &glState, bool isCall
     paramBuffer.addValueParam("count", ParamType::TGLuint, count);
 
     return CallCapture(angle::EntryPoint::GLMaxShaderCompilerThreadsKHR, std::move(paramBuffer));
+}
+
+CallCapture CaptureFramebufferParameteriMESA(const State &glState,
+                                             bool isCallValid,
+                                             GLenum target,
+                                             GLenum pname,
+                                             GLint param)
+{
+    ParamBuffer paramBuffer;
+
+    paramBuffer.addEnumParam("target", GLenumGroup::FramebufferTarget, ParamType::TGLenum, target);
+    paramBuffer.addEnumParam("pname", GLenumGroup::FramebufferParameterName, ParamType::TGLenum,
+                             pname);
+    paramBuffer.addValueParam("param", ParamType::TGLint, param);
+
+    return CallCapture(angle::EntryPoint::GLFramebufferParameteriMESA, std::move(paramBuffer));
+}
+
+CallCapture CaptureGetFramebufferParameterivMESA(const State &glState,
+                                                 bool isCallValid,
+                                                 GLenum target,
+                                                 GLenum pname,
+                                                 GLint *params)
+{
+    ParamBuffer paramBuffer;
+
+    paramBuffer.addEnumParam("target", GLenumGroup::FramebufferTarget, ParamType::TGLenum, target);
+    paramBuffer.addEnumParam("pname", GLenumGroup::FramebufferAttachmentParameterName,
+                             ParamType::TGLenum, pname);
+
+    if (isCallValid)
+    {
+        ParamCapture paramsParam("params", ParamType::TGLintPointer);
+        InitParamValue(ParamType::TGLintPointer, params, &paramsParam.value);
+        CaptureGetFramebufferParameterivMESA_params(glState, isCallValid, target, pname, params,
+                                                    &paramsParam);
+        paramBuffer.addParam(std::move(paramsParam));
+    }
+    else
+    {
+        ParamCapture paramsParam("params", ParamType::TGLintPointer);
+        InitParamValue(ParamType::TGLintPointer, static_cast<GLint *>(nullptr), &paramsParam.value);
+        paramBuffer.addParam(std::move(paramsParam));
+    }
+
+    return CallCapture(angle::EntryPoint::GLGetFramebufferParameterivMESA, std::move(paramBuffer));
 }
 
 CallCapture CaptureDeleteFencesNV(const State &glState,

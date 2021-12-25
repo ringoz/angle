@@ -304,6 +304,13 @@ bool ValidateGetMscRateANGLE(const ValidationContext *val,
                              const EGLint *numerator,
                              const EGLint *denominator);
 
+// EGL_ANGLE_vulkan_image
+bool ValidateExportVkImageANGLE(const ValidationContext *val,
+                                const egl::Display *dpyPacked,
+                                const Image *imagePacked,
+                                const void *vk_image,
+                                const void *vk_image_create_info);
+
 // EGL_CHROMIUM_sync_control
 bool ValidateGetSyncValuesCHROMIUM(const ValidationContext *val,
                                    const egl::Display *dpyPacked,
@@ -386,7 +393,7 @@ bool ValidateDestroyImageKHR(const ValidationContext *val,
 bool ValidateLockSurfaceKHR(const ValidationContext *val,
                             const egl::Display *dpyPacked,
                             const Surface *surfacePacked,
-                            const EGLint *attrib_list);
+                            const AttributeMap &attrib_listPacked);
 bool ValidateQuerySurface64KHR(const ValidationContext *val,
                                const egl::Display *dpyPacked,
                                const Surface *surfacePacked,

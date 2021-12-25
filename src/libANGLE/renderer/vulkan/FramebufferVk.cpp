@@ -283,13 +283,11 @@ vk::FramebufferNonResolveAttachmentMask MakeUnresolveAttachmentMask(const vk::Re
 {
     vk::FramebufferNonResolveAttachmentMask unresolveMask(
         desc.getColorUnresolveAttachmentMask().bits());
-    if (desc.hasDepthUnresolveAttachment())
+    if (desc.hasDepthUnresolveAttachment() || desc.hasStencilUnresolveAttachment())
     {
+        // This mask only needs to know if the depth/stencil attachment needs to be unresolved, and
+        // is agnostic of the aspect.
         unresolveMask.set(vk::kUnpackedDepthIndex);
-    }
-    if (desc.hasStencilUnresolveAttachment())
-    {
-        unresolveMask.set(vk::kUnpackedStencilIndex);
     }
     return unresolveMask;
 }
@@ -562,7 +560,8 @@ angle::Result FramebufferVk::clearImpl(const gl::Context *context,
             ANGLE_VK_PERF_WARNING(
                 contextVk, GL_DEBUG_SEVERITY_LOW,
                 "Clear effectively discarding previous draw call results. Suggest earlier Clear "
-                "followed by masked color or depth/stencil draw calls instead");
+                "followed by masked color or depth/stencil draw calls instead, or "
+                "glInvalidateFramebuffer to discard data instead");
 
             ASSERT(!preferDrawOverClearAttachments);
 
@@ -1216,6 +1215,12 @@ angle::Result FramebufferVk::blit(const gl::Context *context,
         // Otherwise use a shader to do blit or resolve.
         else
         {
+            // Flush the render pass, which may incur a vkQueueSubmit, before taking any views.
+            // Otherwise the view serials would not reflect the render pass they are really used in.
+            // http://crbug.com/1272266#c22
+            ANGLE_TRY(
+                contextVk->flushCommandsAndEndRenderPass(RenderPassClosureReason::PrepareForBlit));
+
             const vk::ImageView *copyImageView = nullptr;
             ANGLE_TRY(readRenderTarget->getAndRetainCopyImageView(contextVk, &copyImageView));
             ANGLE_TRY(utilsVk.colorBlitResolve(

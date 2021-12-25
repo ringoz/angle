@@ -312,6 +312,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "eglDestroySyncKHR";
         case EntryPoint::EGLDupNativeFenceFDANDROID:
             return "eglDupNativeFenceFDANDROID";
+        case EntryPoint::EGLExportVkImageANGLE:
+            return "eglExportVkImageANGLE";
         case EntryPoint::EGLGetCompositorTimingANDROID:
             return "eglGetCompositorTimingANDROID";
         case EntryPoint::EGLGetCompositorTimingSupportedANDROID:
@@ -454,6 +456,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "eglWaitSyncKHR";
         case EntryPoint::GLAccum:
             return "glAccum";
+        case EntryPoint::GLAcquireTexturesANGLE:
+            return "glAcquireTexturesANGLE";
         case EntryPoint::GLActiveShaderProgram:
             return "glActiveShaderProgram";
         case EntryPoint::GLActiveShaderProgramEXT:
@@ -1146,6 +1150,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glFramebufferFetchBarrierEXT";
         case EntryPoint::GLFramebufferParameteri:
             return "glFramebufferParameteri";
+        case EntryPoint::GLFramebufferParameteriMESA:
+            return "glFramebufferParameteriMESA";
         case EntryPoint::GLFramebufferRenderbuffer:
             return "glFramebufferRenderbuffer";
         case EntryPoint::GLFramebufferRenderbufferOES:
@@ -1318,6 +1324,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glGetFramebufferAttachmentParameterivRobustANGLE";
         case EntryPoint::GLGetFramebufferParameteriv:
             return "glGetFramebufferParameteriv";
+        case EntryPoint::GLGetFramebufferParameterivMESA:
+            return "glGetFramebufferParameterivMESA";
         case EntryPoint::GLGetFramebufferParameterivRobustANGLE:
             return "glGetFramebufferParameterivRobustANGLE";
         case EntryPoint::GLGetGraphicsResetStatus:
@@ -2498,6 +2506,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glRectsv";
         case EntryPoint::GLReleaseShaderCompiler:
             return "glReleaseShaderCompiler";
+        case EntryPoint::GLReleaseTexturesANGLE:
+            return "glReleaseTexturesANGLE";
         case EntryPoint::GLRenderMode:
             return "glRenderMode";
         case EntryPoint::GLRenderbufferStorage:

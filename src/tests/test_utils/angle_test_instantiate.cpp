@@ -367,6 +367,11 @@ bool IsAMD()
     return HasSystemVendorID(kVendorID_AMD);
 }
 
+bool IsApple()
+{
+    return HasSystemVendorID(kVendorID_Apple);
+}
+
 bool IsARM()
 {
     return HasSystemVendorID(kVendorID_ARM);
@@ -393,6 +398,15 @@ bool IsQualcomm()
 {
     return IsNexus5X() || IsNexus9() || IsPixelXL() || IsPixel2() || IsPixel2XL() || IsPixel4() ||
            IsPixel4XL();
+}
+
+bool Is64Bit()
+{
+#if defined(ANGLE_IS_64_BIT_CPU)
+    return true;
+#else
+    return false;
+#endif  // defined(ANGLE_IS_64_BIT_CPU)
 }
 
 bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters &param)

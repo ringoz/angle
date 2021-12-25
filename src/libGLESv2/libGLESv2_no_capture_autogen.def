@@ -605,6 +605,10 @@ EXPORTS
     ; GL_ANGLE_translated_shader_source
     glGetTranslatedShaderSourceANGLE
 
+    ; GL_ANGLE_vulkan_image
+    glAcquireTexturesANGLE
+    glReleaseTexturesANGLE
+
     ; GL_APPLE_clip_distance
 
     ; GL_ARB_sync
@@ -923,6 +927,10 @@ EXPORTS
 
     ; GL_KHR_texture_compression_astc_sliced_3d
 
+    ; GL_MESA_framebuffer_flip_y
+    glFramebufferParameteriMESA
+    glGetFramebufferParameterivMESA
+
     ; GL_NV_fence
     glDeleteFencesNV
     glFinishFenceNV
@@ -1229,6 +1237,9 @@ EXPORTS
 
     ; EGL_ANGLE_sync_control_rate
     EGL_GetMscRateANGLE
+
+    ; EGL_ANGLE_vulkan_image
+    EGL_ExportVkImageANGLE
 
     ; EGL_CHROMIUM_sync_control
     EGL_GetSyncValuesCHROMIUM

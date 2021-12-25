@@ -3728,6 +3728,19 @@ void GL_APIENTRY glGetTranslatedShaderSourceANGLE(GLuint shader,
     return GL_GetTranslatedShaderSourceANGLE(shader, bufsize, length, source);
 }
 
+// GL_ANGLE_vulkan_image
+void GL_APIENTRY glAcquireTexturesANGLE(GLuint numTextures,
+                                        const GLuint *textures,
+                                        const GLenum *layouts)
+{
+    return GL_AcquireTexturesANGLE(numTextures, textures, layouts);
+}
+
+void GL_APIENTRY glReleaseTexturesANGLE(GLuint numTextures, const GLuint *textures, GLenum *layouts)
+{
+    return GL_ReleaseTexturesANGLE(numTextures, textures, layouts);
+}
+
 // GL_APPLE_clip_distance
 
 // GL_ARB_sync
@@ -4943,6 +4956,17 @@ void GL_APIENTRY glMaxShaderCompilerThreadsKHR(GLuint count)
 // GL_KHR_texture_compression_astc_ldr
 
 // GL_KHR_texture_compression_astc_sliced_3d
+
+// GL_MESA_framebuffer_flip_y
+void GL_APIENTRY glFramebufferParameteriMESA(GLenum target, GLenum pname, GLint param)
+{
+    return GL_FramebufferParameteriMESA(target, pname, param);
+}
+
+void GL_APIENTRY glGetFramebufferParameterivMESA(GLenum target, GLenum pname, GLint *params)
+{
+    return GL_GetFramebufferParameterivMESA(target, pname, params);
+}
 
 // GL_NV_fence
 void GL_APIENTRY glDeleteFencesNV(GLsizei n, const GLuint *fences)

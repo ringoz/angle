@@ -60,6 +60,7 @@ struct SurfaceState final : private angle::NonCopyable
     SupportedCompositorTiming supportedCompositorTimings;
     SupportedTimestamps supportedTimestamps;
     bool directComposition;
+    EGLenum swapBehavior;
 };
 
 class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
@@ -203,7 +204,7 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
 
     Error getBufferAge(const gl::Context *context, EGLint *age) const;
 
-    void setRenderBuffer(EGLint value);
+    Error setRenderBuffer(EGLint renderBuffer);
 
   protected:
     Surface(EGLint surfaceType,
@@ -251,7 +252,6 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
 
     EGLint mPixelAspectRatio;  // Display aspect ratio
     EGLenum mRenderBuffer;     // Render buffer
-    EGLenum mSwapBehavior;     // Buffer swap behavior
 
     EGLint mOrientation;
 

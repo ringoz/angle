@@ -442,25 +442,70 @@ bool ValidateMultiDrawElementsBaseVertexEXT(const Context *context,
 
 bool ValidateMultiDrawArraysIndirectEXT(const Context *context,
                                         angle::EntryPoint entryPoint,
-                                        GLenum mode,
+                                        PrimitiveMode modePacked,
                                         const void *indirect,
                                         GLsizei drawcount,
                                         GLsizei stride)
 {
-    UNIMPLEMENTED();
-    return false;
+    if (!ValidateMultiDrawIndirectBase(context, entryPoint, drawcount, stride))
+    {
+        return false;
+    }
+
+    if (!ValidateDrawArraysIndirect(context, entryPoint, modePacked, indirect))
+    {
+        return false;
+    }
+
+    return true;
 }
 
 bool ValidateMultiDrawElementsIndirectEXT(const Context *context,
                                           angle::EntryPoint entryPoint,
-                                          GLenum mode,
-                                          GLenum type,
+                                          PrimitiveMode modePacked,
+                                          DrawElementsType typePacked,
                                           const void *indirect,
                                           GLsizei drawcount,
                                           GLsizei stride)
 {
-    UNIMPLEMENTED();
-    return false;
+    if (!ValidateMultiDrawIndirectBase(context, entryPoint, drawcount, stride))
+    {
+        return false;
+    }
+
+    const State &state                      = context->getState();
+    TransformFeedback *curTransformFeedback = state.getCurrentTransformFeedback();
+    if (!ValidateDrawElementsIndirect(context, entryPoint, modePacked, typePacked, indirect))
+    {
+        return false;
+    }
+
+    if (curTransformFeedback && curTransformFeedback->isActive() &&
+        !curTransformFeedback->isPaused())
+    {
+        // EXT_geometry_shader allows transform feedback to work with all draw commands.
+        // [EXT_geometry_shader] Section 12.1, "Transform Feedback"
+        if (context->getExtensions().geometryShaderAny() || context->getClientVersion() >= ES_3_2)
+        {
+            if (!ValidateTransformFeedbackPrimitiveMode(
+                    context, entryPoint, curTransformFeedback->getPrimitiveMode(), modePacked))
+            {
+                context->validationError(entryPoint, GL_INVALID_OPERATION,
+                                         kInvalidDrawModeTransformFeedback);
+                return false;
+            }
+        }
+        else
+        {
+            // An INVALID_OPERATION error is generated if transform feedback is active and not
+            // paused.
+            context->validationError(entryPoint, GL_INVALID_OPERATION,
+                                     kUnsupportedDrawModeForTransformFeedback);
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool ValidateDrawElementsBaseVertexOES(const Context *context,
@@ -1208,8 +1253,22 @@ bool ValidateSignalSemaphoreEXT(const Context *context,
         return false;
     }
 
+    for (GLuint i = 0; i < numBufferBarriers; ++i)
+    {
+        if (!context->getBuffer(buffers[i]))
+        {
+            context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidBufferName);
+            return false;
+        }
+    }
+
     for (GLuint i = 0; i < numTextureBarriers; ++i)
     {
+        if (!context->getTexture(textures[i]))
+        {
+            context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidTextureName);
+            return false;
+        }
         if (!IsValidImageLayout(FromGLenum<ImageLayout>(dstLayouts[i])))
         {
             context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidImageLayout);
@@ -1235,8 +1294,22 @@ bool ValidateWaitSemaphoreEXT(const Context *context,
         return false;
     }
 
+    for (GLuint i = 0; i < numBufferBarriers; ++i)
+    {
+        if (!context->getBuffer(buffers[i]))
+        {
+            context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidBufferName);
+            return false;
+        }
+    }
+
     for (GLuint i = 0; i < numTextureBarriers; ++i)
     {
+        if (!context->getTexture(textures[i]))
+        {
+            context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidTextureName);
+            return false;
+        }
         if (!IsValidImageLayout(FromGLenum<ImageLayout>(srcLayouts[i])))
         {
             context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidImageLayout);
@@ -2481,6 +2554,78 @@ bool ValidateEGLImageTargetTexStorageEXT(const Context *context,
                                          const GLint *attrib_list)
 {
     UNREACHABLE();
+    return false;
+}
+
+bool ValidateAcquireTexturesANGLE(const Context *context,
+                                  angle::EntryPoint entryPoint,
+                                  GLuint numTextures,
+                                  const TextureID *textures,
+                                  const GLenum *layouts)
+{
+    if (!context->getExtensions().vulkanImageANGLE)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    for (GLuint i = 0; i < numTextures; ++i)
+    {
+        if (!context->getTexture(textures[i]))
+        {
+            context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidTextureName);
+            return false;
+        }
+        if (!IsValidImageLayout(FromGLenum<ImageLayout>(layouts[i])))
+        {
+            context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidImageLayout);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ValidateReleaseTexturesANGLE(const Context *context,
+                                  angle::EntryPoint entryPoint,
+                                  GLuint numTextures,
+                                  const TextureID *textures,
+                                  const GLenum *layouts)
+{
+    if (!context->getExtensions().vulkanImageANGLE)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+    for (GLuint i = 0; i < numTextures; ++i)
+    {
+        if (!context->getTexture(textures[i]))
+        {
+            context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidTextureName);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ValidateFramebufferParameteriMESA(const Context *context,
+                                       angle::EntryPoint entryPoint,
+                                       GLenum target,
+                                       GLenum pname,
+                                       GLint param)
+{
+    UNIMPLEMENTED();
+    return false;
+}
+
+bool ValidateGetFramebufferParameterivMESA(const Context *context,
+                                           angle::EntryPoint entryPoint,
+                                           GLenum target,
+                                           GLenum pname,
+                                           const GLint *params)
+{
+    UNIMPLEMENTED();
     return false;
 }
 

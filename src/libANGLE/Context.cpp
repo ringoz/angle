@@ -401,7 +401,8 @@ Context::Context(egl::Display *display,
       mDrawFramebufferObserverBinding(this, kDrawFramebufferSubjectIndex),
       mReadFramebufferObserverBinding(this, kReadFramebufferSubjectIndex),
       mProgramPipelineObserverBinding(this, kProgramPipelineSubjectIndex),
-      mThreadPool(nullptr),
+      mSingleThreadPool(nullptr),
+      mMultiThreadPool(nullptr),
       mFrameCapture(new angle::FrameCapture),
       mRefCount(0),
       mOverlay(mImplementation.get()),
@@ -737,7 +738,8 @@ egl::Error Context::onDestroy(const egl::Display *display)
     mState.mMemoryObjectManager->release(this);
     mState.mSemaphoreManager->release(this);
 
-    mThreadPool.reset();
+    mSingleThreadPool.reset();
+    mMultiThreadPool.reset();
 
     mImplementation->onDestroy(this);
 
@@ -916,14 +918,7 @@ GLuint Context::createShaderProgramv(ShaderType type, GLsizei count, const GLcha
                     return 0u;
                 }
 
-                // If frame capture is enabled, don't detach the shader since we need the following
-                // to recreate the Shader and Program during MEC setup:
-                // 1.) Shader ID
-                // 2.) Shader source
-                if (!getShareGroup()->getFrameCaptureShared()->enabled())
-                {
-                    programObject->detachShader(this, shaderObject);
-                }
+                programObject->detachShader(this, shaderObject);
             }
 
             InfoLog &programInfoLog = programObject->getExecutable().getInfoLog();
@@ -3440,9 +3435,6 @@ Extensions Context::generateSupportedExtensions() const
 {
     Extensions supportedExtensions = mImplementation->getNativeExtensions();
 
-    // Explicitly enable GL_KHR_parallel_shader_compile
-    supportedExtensions.parallelShaderCompileKHR = true;
-
     if (getClientVersion() < ES_2_0)
     {
         // Default extensions for GLES1
@@ -3913,6 +3905,20 @@ void Context::initCaps()
         INFO() << "Disabling GL_OES_depth32 during capture, which is not widely supported on "
                   "mobile";
         mState.mExtensions.depth32OES = false;
+
+        // Pixel 4 (Qualcomm) only supports 6 atomic counter buffer bindings.
+        constexpr GLint maxAtomicCounterBufferBindings = 6;
+        INFO() << "Limiting max atomic counter buffer bindings to "
+               << maxAtomicCounterBufferBindings;
+        ANGLE_LIMIT_CAP(mState.mCaps.maxAtomicCounterBufferBindings,
+                        maxAtomicCounterBufferBindings);
+
+        // SwiftShader only supports 12 shader storage buffer bindings.
+        constexpr GLint maxShaderStorageBufferBindings = 12;
+        INFO() << "Limiting max shader storage buffer bindings to "
+               << maxShaderStorageBufferBindings;
+        ANGLE_LIMIT_CAP(mState.mCaps.maxShaderStorageBufferBindings,
+                        maxShaderStorageBufferBindings);
     }
 
     // Disable support for OES_get_program_binary
@@ -4060,7 +4066,11 @@ void Context::updateCaps()
         mValidBufferBindings.set(BufferBinding::Texture);
     }
 
-    mThreadPool = angle::WorkerThreadPool::Create(
+    if (!mState.mExtensions.parallelShaderCompileKHR)
+    {
+        mSingleThreadPool = angle::WorkerThreadPool::Create(false);
+    }
+    mMultiThreadPool = angle::WorkerThreadPool::Create(
         mState.mExtensions.parallelShaderCompileKHR ||
         getFrontendFeatures().enableCompressingPipelineCacheInThreadPool.enabled);
 
@@ -8358,6 +8368,17 @@ void Context::getnUniformiv(ShaderProgramID program,
     programObject->getUniformiv(this, location, params);
 }
 
+void Context::getnUniformuiv(ShaderProgramID program,
+                             UniformLocation location,
+                             GLsizei bufSize,
+                             GLuint *params)
+{
+    Program *programObject = getProgramResolveLink(program);
+    ASSERT(programObject);
+
+    programObject->getUniformuiv(this, location, params);
+}
+
 void Context::getnUniformivRobust(ShaderProgramID program,
                                   UniformLocation location,
                                   GLsizei bufSize,
@@ -8939,20 +8960,20 @@ void Context::maxShaderCompilerThreads(GLuint count)
     // A count of zero specifies a request for no parallel compiling or linking.
     if ((oldCount == 0 || count == 0) && (oldCount != 0 || count != 0))
     {
-        mThreadPool = angle::WorkerThreadPool::Create(count > 0);
+        mMultiThreadPool = angle::WorkerThreadPool::Create(count > 0);
     }
-    mThreadPool->setMaxThreads(count);
+    mMultiThreadPool->setMaxThreads(count);
     mImplementation->setMaxShaderCompilerThreads(count);
 }
 
 void Context::framebufferParameteriMESA(GLenum target, GLenum pname, GLint param)
 {
-    UNIMPLEMENTED();
+    framebufferParameteri(target, pname, param);
 }
 
 void Context::getFramebufferParameterivMESA(GLenum target, GLenum pname, GLint *params)
 {
-    UNIMPLEMENTED();
+    getFramebufferParameteriv(target, pname, params);
 }
 
 bool Context::isGLES1() const

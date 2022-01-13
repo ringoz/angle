@@ -4,6 +4,12 @@
 
 // See deqp_support/README.md for format.
 
+// Thread sanitizer skips.
+6718 TSAN : MultithreadingTestES3.MultithreadFenceDraw/* = SKIP
+6718 TSAN : MultithreadingTestES3.MultithreadFenceTexImage/* = SKIP
+6746 TSAN : *AsyncQueue = SKIP
+6804 LINUX VULKAN TSAN : MultithreadingTest.MultiContextDrawWithSwapBuffers/* = SKIP
+
 // Generic
 // Fails in the flush thread when calling eglMakeCurrent.
 6063 OPENGL : SimpleStateChangeTestES31.DrawThenChangeFBOThenDrawThenFlushInAnotherThreadThenDrawIndexed/* = SKIP
@@ -68,7 +74,6 @@
 1252169 LINUX AMD OPENGL : ComputeShaderTest.ImageBufferMapWrite/* = SKIP
 1252169 LINUX AMD OPENGL : ComputeShaderTest.BufferImageBufferMapWrite/* = SKIP
 6585 LINUX AMD VULKAN : EXTBlendFuncExtendedDrawTest.FragData/* = SKIP
-6845 LINUX AMD VULKAN : MultisampledRenderToTextureES3Test.RenderbufferDrawStencilThenUnresolveStencil/* = SKIP
 
 // Nvidia
 6115 NVIDIA OPENGL : GLSLTestLoops.DoWhileContinue/* = SKIP
@@ -100,6 +105,13 @@
 // Fails on older mesa in some sequence of test
 6563 LINUX INTEL VULKAN : TransformFeedbackTest.EndWithDifferentProgram/* = SKIP
 
+// Linux AMD
+6855 LINUX AMD OPENGL : ClearTestES3.ClearMaxAttachmentsAfterDraw/* = SKIP
+6855 LINUX AMD OPENGL : GeometryShaderTest.LayeredFramebufferClear2DArrayColor/* = SKIP
+6855 LINUX AMD OPENGL : GeometryShaderTest.LayeredFramebufferPreRenderClear2DArrayColor/* = SKIP
+6855 LINUX AMD OPENGL : SimpleStateChangeTestES3.DepthInvalidateThenClear/* = SKIP
+6855 LINUX AMD VULKAN : WebGL2ValidationStateChangeTest.MultiAttachmentDrawFramebufferNegativeAPI/* = SKIP
+
 // Mac
 
 6025 MAC AMD OPENGL : IndexBufferOffsetTestES3.UseAsUBOThenUpdateThenUInt8Index/* = SKIP
@@ -126,6 +138,7 @@
 6570 MAC INTEL OPENGL : WebGLCompatibilityTest.RGB32FTextures/* = SKIP
 6603 MAC OPENGL : ProgramBinaryES3Test.SaveAndLoadDetachedShaders/* = SKIP
 6643 MAC AMD OPENGL : TransformFeedbackTest.TransformFeedbackQueryPausedDrawThenResume/* = SKIP
+6643 MAC AMD OPENGL : TransformFeedbackTest.TransformFeedbackPausedDrawThenResume/* = SKIP
 6738 MAC AMD OPENGL : Texture3DTestES3.PixelUnpackStateTex* = SKIP
 
 // Failures from Transform Feedback Enablement. Passes on BigSur
@@ -345,6 +358,8 @@
 5981 PIXEL4ORXL VULKAN : Texture3DCopy.UnsizedFormats/* = SKIP
 5981 PIXEL4ORXL VULKAN : TransformFeedbackTestIOBlocks.Interleaved/* = SKIP
 6744 PIXEL4ORXL VULKAN : SimpleStateChangeTestES3.OutOfBoundsByteAttribute/* = SKIP
+6843 PIXEL4ORXL VULKAN : ImageTest.SourceYUVAHBTargetExternalRGBSampleInitData/* = SKIP
+6843 PIXEL4ORXL VULKAN : ImageTestES3.SourceYUVAHBTargetExternalYUVSampleLinearFiltering/* = SKIP
 
 6167 NEXUS5X GLES : DepthStencilTestES3.FramebufferClearThenStencilAttachedThenStencilTestState/* = SKIP
 6167 NEXUS5X GLES : DepthStencilTestES3.FramebufferClearThenStencilTestStateThenStencilAttached/* = SKIP
@@ -413,13 +428,15 @@
 6652 WIN AMD VULKAN : DrawTextureTest.ColorArrayDifferentTypes/* = SKIP
 6652 WIN AMD VULKAN : PointSpriteTest.TrianglesNotTreatedAsPointSprites/* = SKIP
 
-6718 TSAN : MultithreadingTestES3.MultithreadFenceDraw/* = SKIP
-6718 TSAN : MultithreadingTestES3.MultithreadFenceTexImage/* = SKIP
-6746 TSAN : *Vulkan_AsyncQueue = SKIP
-6804 LINUX VULKAN TSAN : MultithreadingTest.MultiContextDrawWithSwapBuffers/* = SKIP
-
 // Indexed indirect draw offset bug
 6751 METAL : MultiDrawIndirectTest.MultiDrawElementsIndirect* = SKIP
 6751 D3D11 : MultiDrawIndirectTest.MultiDrawElementsIndirect* = SKIP
 6751 METAL : DrawBaseVertexBaseInstanceTest.MultiDrawElementsInstancedBaseVertexBaseInstance/* = SKIP
 6751 D3D11 : DrawBaseVertexBaseInstanceTest.MultiDrawElementsInstancedBaseVertexBaseInstance/* = SKIP
+
+// ASAN flakes with Vulkan / SwiftShader / AsyncQueue
+6875 ASAN VULKAN SWIFTSHADER : ComputeShaderTest.*/ES3_1_Vulkan_SwiftShader_AsyncQueue = SKIP
+6875 ASAN VULKAN SWIFTSHADER : TransformFeedbackTest.SpanMultipleRenderPasses/ES3_Vulkan_SwiftShader_AsyncQueue = SKIP
+
+// Regression after a buffer change.
+6881 INTEL VULKAN LINUX : Texture2DTest.TexStorageWithPBOMiddlePixelDifferent/* = SKIP

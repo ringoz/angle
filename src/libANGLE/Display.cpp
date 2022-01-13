@@ -1884,7 +1884,8 @@ static ClientExtensions GenerateClientExtensions()
 #endif
 
 #if defined(ANGLE_ENABLE_METAL)
-    extensions.platformANGLEMetal = true;
+    extensions.platformANGLEMetal    = true;
+    extensions.platformANGLEDeviceId = true;
 #endif
 
 #if defined(ANGLE_USE_X11)
@@ -2076,13 +2077,13 @@ void Display::initializeFrontendFeatures()
     // No longer enable this on any Impl - crbug.com/1165751
     ANGLE_FEATURE_CONDITION((&mFrontendFeatures), scalarizeVecAndMatConstructorArgs, false);
 
-    mImplementation->initializeFrontendFeatures(&mFrontendFeatures);
-
-    rx::ApplyFeatureOverrides(&mFrontendFeatures, mState);
-
     // Disabled by default. To reduce the risk, create a feature to enable
     // compressing pipeline cache in multi-thread pool.
     ANGLE_FEATURE_CONDITION(&mFrontendFeatures, enableCompressingPipelineCacheInThreadPool, false);
+
+    mImplementation->initializeFrontendFeatures(&mFrontendFeatures);
+
+    rx::ApplyFeatureOverrides(&mFrontendFeatures, mState);
 }
 
 const DisplayExtensions &Display::getExtensions() const

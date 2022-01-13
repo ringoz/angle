@@ -373,8 +373,8 @@ void RendererVk::ensureCapsInitialized() const
         !IsSwiftshader(mPhysicalDeviceProperties.vendorID, mPhysicalDeviceProperties.deviceID) &&
         !IsARM(mPhysicalDeviceProperties.vendorID);
     mNativeExtensions.discardFramebufferEXT = true;
-    mNativeExtensions.textureBorderClampOES = getFeatures().supportsCustomBorderColorEXT.enabled;
-    mNativeExtensions.textureBorderClampEXT = getFeatures().supportsCustomBorderColorEXT.enabled;
+    mNativeExtensions.textureBorderClampOES = getFeatures().supportsCustomBorderColor.enabled;
+    mNativeExtensions.textureBorderClampEXT = getFeatures().supportsCustomBorderColor.enabled;
     // Enable EXT_texture_type_2_10_10_10_REV
     mNativeExtensions.textureType2101010REVEXT = true;
 
@@ -441,7 +441,8 @@ void RendererVk::ensureCapsInitialized() const
     // We use secondary command buffers almost everywhere and they require a feature to be
     // able to execute in the presence of queries.  As a result, we won't support timestamp queries
     // unless that feature is available.
-    if (vk::CommandBuffer::SupportsQueries(mPhysicalDeviceFeatures))
+    if (vk::OutsideRenderPassCommandBuffer::SupportsQueries(mPhysicalDeviceFeatures) &&
+        vk::RenderPassCommandBuffer::SupportsQueries(mPhysicalDeviceFeatures))
     {
         mNativeExtensions.disjointTimerQueryEXT = queueFamilyProperties.timestampValidBits > 0;
         mNativeCaps.queryCounterBitsTimeElapsed = queueFamilyProperties.timestampValidBits;
@@ -933,6 +934,16 @@ void RendererVk::ensureCapsInitialized() const
             mNativeCaps.maxDrawBuffers >= gl::IMPLEMENTATION_MAX_DRAW_BUFFERS;
     }
 
+    // Per http://anglebug.com/6872
+    // On ARM hardware, framebuffer-fetch-like behavior on Vulkan is already coherent, so we can
+    // expose the coherent version of the GL extension despite unofficial Vulkan support.
+    if (IsARM(mPhysicalDeviceProperties.vendorID))
+    {
+        // gl::IMPLEMENTATION_MAX_DRAW_BUFFERS is used to support the extension.
+        mNativeExtensions.shaderFramebufferFetchEXT =
+            mNativeCaps.maxDrawBuffers >= gl::IMPLEMENTATION_MAX_DRAW_BUFFERS;
+    }
+
     // Enable Program Binary extension.
     mNativeExtensions.getProgramBinaryOES = true;
     mNativeCaps.programBinaryFormats.push_back(GL_PROGRAM_BINARY_ANGLE);
@@ -1112,6 +1123,9 @@ void RendererVk::ensureCapsInitialized() const
 
     // GL_ANGLE_texture_usage
     mNativeExtensions.textureUsageANGLE = true;
+
+    // GL_KHR_parallel_shader_compile
+    mNativeExtensions.parallelShaderCompileKHR = true;
 }
 
 namespace vk

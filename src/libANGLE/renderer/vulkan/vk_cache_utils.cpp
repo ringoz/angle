@@ -2341,6 +2341,7 @@ void GraphicsPipelineDesc::updateBlendFuncs(GraphicsPipelineTransitionBits *tran
 }
 
 void GraphicsPipelineDesc::resetBlendFuncsAndEquations(GraphicsPipelineTransitionBits *transition,
+                                                       const gl::BlendStateExt &blendStateExt,
                                                        gl::DrawBufferMask previousAttachmentsMask,
                                                        gl::DrawBufferMask newAttachmentsMask)
 {
@@ -2348,7 +2349,9 @@ void GraphicsPipelineDesc::resetBlendFuncsAndEquations(GraphicsPipelineTransitio
     // We need to clear blend funcs and equations for attachments in P that are not in N.  That is
     // attachments in P&~N.
     const gl::DrawBufferMask attachmentsToClear = previousAttachmentsMask & ~newAttachmentsMask;
-    constexpr size_t kSizeBits                  = sizeof(PackedColorBlendAttachmentState) * 8;
+    // We also need to restore blend funcs and equations for attachments in N that are not in P.
+    const gl::DrawBufferMask attachmentsToAdd = newAttachmentsMask & ~previousAttachmentsMask;
+    constexpr size_t kSizeBits                = sizeof(PackedColorBlendAttachmentState) * 8;
 
     for (size_t attachmentIndex : attachmentsToClear)
     {
@@ -2364,6 +2367,12 @@ void GraphicsPipelineDesc::resetBlendFuncsAndEquations(GraphicsPipelineTransitio
 
         transition->set(ANGLE_GET_INDEXED_TRANSITION_BIT(mInputAssemblyAndColorBlendStateInfo,
                                                          attachments, attachmentIndex, kSizeBits));
+    }
+
+    if (attachmentsToAdd.any())
+    {
+        updateBlendFuncs(transition, blendStateExt, attachmentsToAdd);
+        updateBlendEquations(transition, blendStateExt, attachmentsToAdd);
     }
 }
 
@@ -3404,16 +3413,6 @@ angle::Result SamplerDesc::init(ContextVk *contextVk, Sampler *sampler) const
         createInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         createInfo.anisotropyEnable        = VK_FALSE;
         createInfo.unnormalizedCoordinates = VK_FALSE;
-        // VUID-VkSamplerCreateInfo-minFilter VkCreateSampler:
-        // VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT
-        // specifies that the format can have different chroma, min, and mag filters. However,
-        // VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT is
-        // not supported for VkSamplerYcbcrConversionCreateInfo.format = VK_FORMAT_UNDEFINED so
-        // minFilter/magFilter needs to be equal to chromaFilter.
-        // HardwareBufferImageSiblingVkAndroid() forces VK_FILTER_NEAREST, so force
-        // VK_FILTER_NEAREST here too.
-        createInfo.magFilter = VK_FILTER_NEAREST;
-        createInfo.minFilter = VK_FILTER_NEAREST;
     }
 
     VkSamplerCustomBorderColorCreateInfoEXT customBorderColorInfo = {};
@@ -3421,7 +3420,7 @@ angle::Result SamplerDesc::init(ContextVk *contextVk, Sampler *sampler) const
         createInfo.addressModeV == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER ||
         createInfo.addressModeW == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER)
     {
-        ASSERT((contextVk->getRenderer()->getFeatures().supportsCustomBorderColorEXT.enabled));
+        ASSERT((contextVk->getRenderer()->getFeatures().supportsCustomBorderColor.enabled));
         customBorderColorInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT;
 
         customBorderColorInfo.customBorderColor.float32[0] = mBorderColor.red;

@@ -324,7 +324,7 @@ void OffscreenSurfaceVk::AttachmentImage::destroy(const egl::Display *display)
     RendererVk *renderer = displayVk->getRenderer();
     // Front end must ensure all usage has been submitted.
     image.releaseImage(renderer);
-    image.releaseStagingBuffer(renderer);
+    image.releaseStagedUpdates(renderer);
     imageViews.release(renderer);
 }
 
@@ -1315,14 +1315,14 @@ void WindowSurfaceVk::releaseSwapchainImages(ContextVk *contextVk)
     if (mDepthStencilImage.valid())
     {
         mDepthStencilImage.releaseImageFromShareContexts(renderer, contextVk);
-        mDepthStencilImage.releaseStagingBuffer(renderer);
+        mDepthStencilImage.releaseStagedUpdates(renderer);
         mDepthStencilImageViews.release(renderer);
     }
 
     if (mColorImageMS.valid())
     {
         mColorImageMS.releaseImageFromShareContexts(renderer, contextVk);
-        mColorImageMS.releaseStagingBuffer(renderer);
+        mColorImageMS.releaseStagedUpdates(renderer);
         mColorImageMSViews.release(renderer);
         contextVk->addGarbage(&mFramebufferMS);
     }
@@ -1389,6 +1389,28 @@ FramebufferImpl *WindowSurfaceVk::createDefaultFramebuffer(const gl::Context *co
 {
     RendererVk *renderer = vk::GetImpl(context)->getRenderer();
     return FramebufferVk::CreateDefaultFBO(renderer, state, this);
+}
+
+egl::Error WindowSurfaceVk::prepareSwap(const gl::Context *context)
+{
+    DisplayVk *displayVk = vk::GetImpl(context->getDisplay());
+    angle::Result result = prepareSwapImpl(context);
+    return angle::ToEGL(result, displayVk, EGL_BAD_SURFACE);
+}
+
+angle::Result WindowSurfaceVk::prepareSwapImpl(const gl::Context *context)
+{
+    ANGLE_TRACE_EVENT0("gpu.angle", "WindowSurfaceVk::prepareSwap");
+    ContextVk *contextVk = vk::GetImpl(context);
+    if (mNeedToAcquireNextSwapchainImage)
+    {
+        // Acquire the next image (previously deferred). The image may not have been already
+        // acquired if there was no rendering done at all to the default framebuffer in this frame,
+        // for example if all rendering was done to FBOs.
+        ANGLE_VK_TRACE_EVENT_AND_MARKER(contextVk, "Acquire Swap Image Before Swap");
+        ANGLE_TRY(doDeferredAcquireNextImage(context, false));
+    }
+    return angle::Result::Continue;
 }
 
 egl::Error WindowSurfaceVk::swapWithDamage(const gl::Context *context,
@@ -1477,7 +1499,7 @@ angle::Result WindowSurfaceVk::present(ContextVk *contextVk,
     // ImageLayout::Present bellow.
     contextVk->finalizeImageLayout(&image.image);
 
-    vk::CommandBuffer *commandBuffer;
+    vk::OutsideRenderPassCommandBuffer *commandBuffer;
     ANGLE_TRY(contextVk->getOutsideRenderPassCommandBuffer({}, &commandBuffer));
 
     if (mColorImageMS.valid())
@@ -1601,15 +1623,6 @@ angle::Result WindowSurfaceVk::swapImpl(const gl::Context *context,
 
     ContextVk *contextVk = vk::GetImpl(context);
 
-    if (mNeedToAcquireNextSwapchainImage)
-    {
-        // Acquire the next image (previously deferred). The image may not have been already
-        // acquired if there was no rendering done at all to the default framebuffer in this frame,
-        // for example if all rendering was done to FBOs.
-        ANGLE_VK_TRACE_EVENT_AND_MARKER(contextVk, "Acquire Swap Image Before Swap");
-        ANGLE_TRY(doDeferredAcquireNextImage(context, false));
-    }
-
     bool presentOutOfDate = false;
     ANGLE_TRY(present(contextVk, rects, n_rects, pNextChain, &presentOutOfDate));
 
@@ -1625,6 +1638,10 @@ angle::Result WindowSurfaceVk::swapImpl(const gl::Context *context,
         ANGLE_VK_TRACE_EVENT_AND_MARKER(contextVk, "Out-of-Date Swapbuffer");
         ANGLE_TRY(doDeferredAcquireNextImage(context, presentOutOfDate));
     }
+
+    RendererVk *renderer = contextVk->getRenderer();
+    DisplayVk *displayVk = vk::GetImpl(context->getDisplay());
+    ANGLE_TRY(renderer->syncPipelineCacheVk(displayVk, context));
 
     return angle::Result::Continue;
 }
@@ -1647,7 +1664,6 @@ angle::Result WindowSurfaceVk::doDeferredAcquireNextImage(const gl::Context *con
                                                           bool presentOutOfDate)
 {
     ContextVk *contextVk = vk::GetImpl(context);
-    DisplayVk *displayVk = vk::GetImpl(context->getDisplay());
 
     // TODO(jmadill): Expose in CommandQueueInterface, or manage in CommandQueue. b/172704839
     if (contextVk->getRenderer()->isAsyncCommandQueueEnabled())
@@ -1690,9 +1706,6 @@ angle::Result WindowSurfaceVk::doDeferredAcquireNextImage(const gl::Context *con
             contextVk, gl::LevelIndex(0), 0, 1);
     }
     mColorImageMS.invalidateSubresourceContent(contextVk, gl::LevelIndex(0), 0, 1);
-
-    RendererVk *renderer = contextVk->getRenderer();
-    ANGLE_TRY(renderer->syncPipelineCacheVk(displayVk, context));
 
     return angle::Result::Continue;
 }

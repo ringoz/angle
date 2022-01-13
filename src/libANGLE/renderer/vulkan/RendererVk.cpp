@@ -176,6 +176,15 @@ constexpr const char *kSkippedMessages[] = {
     "UNASSIGNED-CoreValidation-Shader-InterfaceTypeMismatch",
     // http://anglebug.com/6514
     "vkEnumeratePhysicalDevices: One or more layers modified physical devices",
+    // When using Vulkan secondary command buffers, the command buffer is begun with the current
+    // framebuffer specified in pInheritanceInfo::framebuffer.  If the framebuffer is multisampled
+    // and is resolved, an optimization would change the framebuffer to add the resolve target and
+    // use a subpass resolve operation instead.  The following error complains that the framebuffer
+    // used to start the render pass and the one specified in pInheritanceInfo::framebuffer must be
+    // equal, which is not true in that case.  In practice, this is benign, as the part of the
+    // framebuffer that's accessed by the command buffer is identically laid out.
+    // http://anglebug.com/6811
+    "VUID-vkCmdExecuteCommands-pCommandBuffers-00099",
 };
 
 struct SkippedSyncvalMessage
@@ -398,8 +407,7 @@ constexpr SkippedSyncvalMessage kSkippedSyncvalMessages[] = {
      "SYNC_IMAGE_LAYOUT_TRANSITION",
      "", false},
     // From various tests. The validation layer does not calculate the exact vertexCounts that's
-    // been
-    // accessed. http://anglebug.com/6725
+    // been accessed. http://anglebug.com/6725
     {"SYNC-HAZARD-READ_AFTER_WRITE", "vkCmdDrawIndexed: Hazard READ_AFTER_WRITE for vertex",
      "usage: SYNC_VERTEX_ATTRIBUTE_INPUT_VERTEX_ATTRIBUTE_READ", false},
     {"SYNC-HAZARD-READ_AFTER_WRITE", "vkCmdDrawIndexedIndirect: Hazard READ_AFTER_WRITE for vertex",
@@ -410,6 +418,11 @@ constexpr SkippedSyncvalMessage kSkippedSyncvalMessages[] = {
      "usage: SYNC_INDEX_INPUT_INDEX_READ", false},
     {"SYNC-HAZARD-WRITE_AFTER_READ", "vkCmdDraw: Hazard WRITE_AFTER_READ for VkBuffer",
      "Access info (usage: SYNC_VERTEX_SHADER_SHADER_STORAGE_WRITE, prior_usage: "
+     "SYNC_VERTEX_ATTRIBUTE_INPUT_VERTEX_ATTRIBUTE_READ",
+     false},
+    {"SYNC-HAZARD-WRITE_AFTER_READ",
+     "vkCmdCopyImageToBuffer(): Hazard WRITE_AFTER_READ for dstBuffer VkBuffer",
+     "Access info (usage: SYNC_COPY_TRANSFER_WRITE, prior_usage: "
      "SYNC_VERTEX_ATTRIBUTE_INPUT_VERTEX_ATTRIBUTE_READ",
      false},
     {"SYNC-HAZARD-WRITE_AFTER_READ", "vkCmdDispatch: Hazard WRITE_AFTER_READ for VkBuffer",
@@ -998,6 +1011,12 @@ RendererVk::RendererVk()
       mDefaultUniformBufferSize(kPreferredDefaultUniformBufferSize),
       mDevice(VK_NULL_HANDLE),
       mDeviceLost(false),
+      mCoherentStagingBufferMemoryTypeIndex(kInvalidMemoryTypeIndex),
+      mNonCoherentStagingBufferMemoryTypeIndex(kInvalidMemoryTypeIndex),
+      mStagingBufferAlignment(1),
+      mHostVisibleVertexConversionBufferMemoryTypeIndex(kInvalidMemoryTypeIndex),
+      mDeviceLocalVertexConversionBufferMemoryTypeIndex(kInvalidMemoryTypeIndex),
+      mVertexConversionBufferAlignment(1),
       mPipelineCacheVkUpdateTimeout(kPipelineCacheVkUpdatePeriod),
       mPipelineCacheDirty(false),
       mPipelineCacheInitialized(false),
@@ -1065,7 +1084,8 @@ void RendererVk::onDestroy(vk::Context *context)
     mYuvConversionCache.destroy(this);
     mVkFormatDescriptorCountMap.clear();
 
-    mCommandBufferRecycler.onDestroy();
+    mOutsideRenderPassCommandBufferRecycler.onDestroy();
+    mRenderPassCommandBufferRecycler.onDestroy();
 
     mBufferMemoryAllocator.destroy(this);
     mAllocator.destroy();
@@ -1288,7 +1308,7 @@ angle::Result RendererVk::initialize(DisplayVk *displayVk,
     applicationInfo.engineVersion      = 1;
 
     auto enumerateInstanceVersion = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(
-        vkGetInstanceProcAddr(mInstance, "vkEnumerateInstanceVersion"));
+        vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion"));
     if (!enumerateInstanceVersion)
     {
         mApiVersion = VK_API_VERSION_1_0;
@@ -1469,6 +1489,70 @@ angle::Result RendererVk::initialize(DisplayVk *displayVk,
 
     // Create buffer memory allocator
     ANGLE_VK_TRY(displayVk, mBufferMemoryAllocator.initialize(this, preferredLargeHeapBlockSize));
+
+    ANGLE_VK_CHECK(displayVk, mMemoryProperties.getMemoryTypeCount() > 0,
+                   VK_ERROR_INITIALIZATION_FAILED);
+    // Initialize staging buffer memory type index and alignment.
+    // These buffers will only be used as transfer sources or transfer targets.
+    constexpr VkImageUsageFlags kUsageFlags =
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VkBufferCreateInfo createInfo    = {};
+    createInfo.sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    createInfo.flags                 = 0;
+    createInfo.size                  = 4096;
+    createInfo.usage                 = kUsageFlags;
+    createInfo.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.queueFamilyIndexCount = 0;
+    createInfo.pQueueFamilyIndices   = nullptr;
+
+    VkMemoryPropertyFlags requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    bool persistentlyMapped             = mFeatures.persistentlyMappedBuffers.enabled;
+
+    // Coherent staging buffer
+    VkMemoryPropertyFlags preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    ANGLE_VK_TRY(displayVk, mBufferMemoryAllocator.findMemoryTypeIndexForBufferInfo(
+                                this, createInfo, requiredFlags, preferredFlags, persistentlyMapped,
+                                &mCoherentStagingBufferMemoryTypeIndex));
+    ASSERT(mCoherentStagingBufferMemoryTypeIndex != kInvalidMemoryTypeIndex);
+
+    // Non-coherent staging buffer
+    ANGLE_VK_TRY(displayVk, mBufferMemoryAllocator.findMemoryTypeIndexForBufferInfo(
+                                this, createInfo, requiredFlags, 0, persistentlyMapped,
+                                &mNonCoherentStagingBufferMemoryTypeIndex));
+    ASSERT(mNonCoherentStagingBufferMemoryTypeIndex != kInvalidMemoryTypeIndex);
+
+    // Alignment
+    mStagingBufferAlignment =
+        static_cast<size_t>(mPhysicalDeviceProperties.limits.minMemoryMapAlignment);
+    ASSERT(gl::isPow2(mPhysicalDeviceProperties.limits.nonCoherentAtomSize));
+    ASSERT(gl::isPow2(mPhysicalDeviceProperties.limits.optimalBufferCopyOffsetAlignment));
+    mStagingBufferAlignment = std::max(
+        mStagingBufferAlignment,
+        static_cast<size_t>(mPhysicalDeviceProperties.limits.optimalBufferCopyOffsetAlignment));
+    mStagingBufferAlignment =
+        std::max(mStagingBufferAlignment,
+                 static_cast<size_t>(mPhysicalDeviceProperties.limits.nonCoherentAtomSize));
+    ASSERT(gl::isPow2(mStagingBufferAlignment));
+
+    // Device local vertex conversion buffer
+    createInfo.usage = vk::kVertexBufferUsageFlags;
+    requiredFlags    = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    preferredFlags   = 0;
+    ANGLE_VK_TRY(displayVk, mBufferMemoryAllocator.findMemoryTypeIndexForBufferInfo(
+                                this, createInfo, requiredFlags, preferredFlags, persistentlyMapped,
+                                &mDeviceLocalVertexConversionBufferMemoryTypeIndex));
+    ASSERT(mDeviceLocalVertexConversionBufferMemoryTypeIndex != kInvalidMemoryTypeIndex);
+
+    // Host visible and non-coherent vertex conversion buffer, which is the same as non-coherent
+    // staging buffer
+    mHostVisibleVertexConversionBufferMemoryTypeIndex = mNonCoherentStagingBufferMemoryTypeIndex;
+    // We may use compute shader to do conversion, so we must meet
+    // minStorageBufferOffsetAlignment requirement as well.
+    mVertexConversionBufferAlignment = std::max(
+        vk::kVertexBufferAlignment,
+        static_cast<size_t>(mPhysicalDeviceProperties.limits.minStorageBufferOffsetAlignment));
+    ASSERT(gl::isPow2(mVertexConversionBufferAlignment));
 
     {
         ANGLE_TRACE_EVENT0("gpu.angle,startup", "GlslangWarmup");
@@ -2023,7 +2107,8 @@ angle::Result RendererVk::initializeDevice(DisplayVk *displayVk, uint32_t queueF
     // Used to support EXT_blend_func_extended
     mEnabledFeatures.features.dualSrcBlend = mPhysicalDeviceFeatures.dualSrcBlend;
 
-    if (!vk::CommandBuffer::ExecutesInline())
+    if (!vk::OutsideRenderPassCommandBuffer::ExecutesInline() ||
+        !vk::RenderPassCommandBuffer::ExecutesInline())
     {
         mEnabledFeatures.features.inheritedQueries = mPhysicalDeviceFeatures.inheritedQueries;
     }
@@ -2063,7 +2148,7 @@ angle::Result RendererVk::initializeDevice(DisplayVk *displayVk, uint32_t queueF
         vk::AddToPNextChain(&mEnabledFeatures, &mTransformFeedbackFeatures);
     }
 
-    if (getFeatures().supportsCustomBorderColorEXT.enabled)
+    if (getFeatures().supportsCustomBorderColor.enabled)
     {
         mEnabledDeviceExtensions.push_back(VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
         vk::AddToPNextChain(&mEnabledFeatures, &mCustomBorderColorFeatures);
@@ -2542,11 +2627,12 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     constexpr uint32_t kPixel4DriverWithWorkingSpecConstSupport = 0x80201000;
 
     bool isAMD      = IsAMD(mPhysicalDeviceProperties.vendorID);
+    bool isARM      = IsARM(mPhysicalDeviceProperties.vendorID);
     bool isIntel    = IsIntel(mPhysicalDeviceProperties.vendorID);
     bool isNvidia   = IsNvidia(mPhysicalDeviceProperties.vendorID);
-    bool isQualcomm = IsQualcomm(mPhysicalDeviceProperties.vendorID);
-    bool isARM      = IsARM(mPhysicalDeviceProperties.vendorID);
     bool isPowerVR  = IsPowerVR(mPhysicalDeviceProperties.vendorID);
+    bool isQualcomm = IsQualcomm(mPhysicalDeviceProperties.vendorID);
+    bool isSamsung  = IsSamsung(mPhysicalDeviceProperties.vendorID);
     bool isSwiftShader =
         IsSwiftshader(mPhysicalDeviceProperties.vendorID, mPhysicalDeviceProperties.deviceID);
 
@@ -2728,7 +2814,7 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // TODO: http://anglebug.com/5927 - drop dependency on customBorderColorWithoutFormat.
     // TODO: http://anglebug.com/6200 - re-enable on SwS when possible
     ANGLE_FEATURE_CONDITION(
-        &mFeatures, supportsCustomBorderColorEXT,
+        &mFeatures, supportsCustomBorderColor,
         mCustomBorderColorFeatures.customBorderColors == VK_TRUE &&
             mCustomBorderColorFeatures.customBorderColorWithoutFormat == VK_TRUE && !isSwiftShader);
 
@@ -2746,7 +2832,7 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // Disabled on AMD/windows due to buggy behavior.
     ANGLE_FEATURE_CONDITION(&mFeatures, disallowSeamfulCubeMapEmulation, IsWindows() && isAMD);
 
-    ANGLE_FEATURE_CONDITION(&mFeatures, padBuffersToMaxVertexAttribStride, isAMD);
+    ANGLE_FEATURE_CONDITION(&mFeatures, padBuffersToMaxVertexAttribStride, isAMD || isSamsung);
     mMaxVertexAttribStride = std::min(static_cast<uint32_t>(gl::limits::kMaxVertexAttribStride),
                                       mPhysicalDeviceProperties.limits.maxVertexInputBindingStride);
 
@@ -2803,7 +2889,7 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // - Desktop GPUs
     // - SwiftShader
     ANGLE_FEATURE_CONDITION(&mFeatures, preferAggregateBarrierCalls,
-                            isNvidia || isAMD || isIntel || isSwiftShader);
+                            isNvidia || isAMD || isIntel || isSwiftShader || isSamsung);
 
     // Currently disabled by default: http://anglebug.com/4324
     ANGLE_FEATURE_CONDITION(&mFeatures, asyncCommandQueue, false);
@@ -2833,9 +2919,9 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // - AMD/Windows: Unfortunately the trybots use ancient AMD cards and drivers.
     const uint32_t maxComputeWorkGroupInvocations =
         mPhysicalDeviceProperties.limits.maxComputeWorkGroupInvocations;
-    ANGLE_FEATURE_CONDITION(
-        &mFeatures, allowGenerateMipmapWithCompute,
-        maxComputeWorkGroupInvocations >= 256 && (isNvidia || (isAMD && !IsWindows())));
+    ANGLE_FEATURE_CONDITION(&mFeatures, allowGenerateMipmapWithCompute,
+                            maxComputeWorkGroupInvocations >= 256 &&
+                                (isNvidia || ((isAMD || isSamsung) && !IsWindows())));
 
     bool isAdreno540 = mPhysicalDeviceProperties.deviceID == angle::kDeviceID_Adreno540;
     ANGLE_FEATURE_CONDITION(&mFeatures, forceMaxUniformBufferSize16KB, isQualcomm && isAdreno540);
@@ -2854,9 +2940,13 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     //
     // Note that emulation of GL_EXT_multisampled_render_to_texture is only really useful on tiling
     // hardware, but is exposed on desktop platforms purely to increase testing coverage.
+    const bool supportsIndependentDepthStencilResolve =
+        mFeatures.supportsDepthStencilResolve.enabled &&
+        mDepthStencilResolveProperties.independentResolveNone == VK_TRUE;
     ANGLE_FEATURE_CONDITION(&mFeatures, enableMultisampledRenderToTexture,
                             mFeatures.supportsMultisampledRenderToSingleSampled.enabled ||
-                                (!isSwiftShader && !(IsWindows() && (isIntel || isAMD))));
+                                (supportsIndependentDepthStencilResolve && !isSwiftShader &&
+                                 !(IsWindows() && (isIntel || isAMD))));
 
     // Currently we enable cube map arrays based on the imageCubeArray Vk feature.
     // TODO: Check device caps for full cube map array support. http://anglebug.com/5143
@@ -2928,11 +3018,12 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     ApplyFeatureOverrides(&mFeatures, displayVk->getState());
 
     // Disable async command queue when using Vulkan secondary command buffers temporarily to avoid
-    // threading hazards with ContextVk::mCommandPool.  Note that this is done even if the feature
+    // threading hazards with ContextVk::mCommandPools.  Note that this is done even if the feature
     // is enabled through an override.
     // TODO: Investigate whether async command queue is useful with Vulkan secondary command buffers
     // and enable the feature.  http://anglebug.com/6811
-    if (!vk::CommandBuffer::ExecutesInline())
+    if (!vk::OutsideRenderPassCommandBuffer::ExecutesInline() ||
+        !vk::RenderPassCommandBuffer::ExecutesInline())
     {
         mFeatures.asyncCommandQueue.enabled = false;
     }
@@ -3437,10 +3528,15 @@ angle::Result RendererVk::submitFrame(vk::Context *context,
                                       const vk::Semaphore *signalSemaphore,
                                       std::vector<vk::ResourceUseList> &&resourceUseLists,
                                       vk::GarbageList &&currentGarbage,
-                                      vk::CommandPool *commandPool,
+                                      vk::SecondaryCommandPools *commandPools,
                                       Serial *submitSerialOut)
 {
     std::lock_guard<std::mutex> commandQueueLock(mCommandQueueMutex);
+
+    vk::SecondaryCommandBufferList commandBuffersToReset = {
+        std::move(mOutsideRenderPassCommandBufferRecycler.releaseCommandBuffersToReset()),
+        std::move(mRenderPassCommandBufferRecycler.releaseCommandBuffersToReset()),
+    };
 
     if (isAsyncCommandQueueEnabled())
     {
@@ -3448,9 +3544,8 @@ angle::Result RendererVk::submitFrame(vk::Context *context,
 
         ANGLE_TRY(mCommandProcessor.submitFrame(
             context, hasProtectedContent, contextPriority, waitSemaphores, waitSemaphoreStageMasks,
-            signalSemaphore, std::move(currentGarbage),
-            std::move(mCommandBufferRecycler.getCommandBuffersToReset()), commandPool,
-            *submitSerialOut));
+            signalSemaphore, std::move(currentGarbage), std::move(commandBuffersToReset),
+            commandPools, *submitSerialOut));
     }
     else
     {
@@ -3458,9 +3553,8 @@ angle::Result RendererVk::submitFrame(vk::Context *context,
 
         ANGLE_TRY(mCommandQueue.submitFrame(
             context, hasProtectedContent, contextPriority, waitSemaphores, waitSemaphoreStageMasks,
-            signalSemaphore, std::move(currentGarbage),
-            std::move(mCommandBufferRecycler.getCommandBuffersToReset()), commandPool,
-            *submitSerialOut));
+            signalSemaphore, std::move(currentGarbage), std::move(commandBuffersToReset),
+            commandPools, *submitSerialOut));
     }
 
     waitSemaphores.clear();
@@ -3558,10 +3652,11 @@ angle::Result RendererVk::checkCompletedCommands(vk::Context *context)
     return angle::Result::Continue;
 }
 
-angle::Result RendererVk::flushRenderPassCommands(vk::Context *context,
-                                                  bool hasProtectedContent,
-                                                  const vk::RenderPass &renderPass,
-                                                  vk::CommandBufferHelper **renderPassCommands)
+angle::Result RendererVk::flushRenderPassCommands(
+    vk::Context *context,
+    bool hasProtectedContent,
+    const vk::RenderPass &renderPass,
+    vk::RenderPassCommandBufferHelper **renderPassCommands)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::flushRenderPassCommands");
 
@@ -3580,9 +3675,10 @@ angle::Result RendererVk::flushRenderPassCommands(vk::Context *context,
     return angle::Result::Continue;
 }
 
-angle::Result RendererVk::flushOutsideRPCommands(vk::Context *context,
-                                                 bool hasProtectedContent,
-                                                 vk::CommandBufferHelper **outsideRPCommands)
+angle::Result RendererVk::flushOutsideRPCommands(
+    vk::Context *context,
+    bool hasProtectedContent,
+    vk::OutsideRenderPassCommandBufferHelper **outsideRPCommands)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::flushOutsideRPCommands");
 
@@ -3625,23 +3721,44 @@ VkResult RendererVk::queuePresent(vk::Context *context,
     return result;
 }
 
-angle::Result RendererVk::getCommandBufferHelper(vk::Context *context,
-                                                 bool hasRenderPass,
-                                                 vk::CommandPool *commandPool,
-                                                 vk::CommandBufferHelper **commandBufferHelperOut)
+angle::Result RendererVk::getOutsideRenderPassCommandBufferHelper(
+    vk::Context *context,
+    vk::CommandPool *commandPool,
+    vk::OutsideRenderPassCommandBufferHelper **commandBufferHelperOut)
 {
-    ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::getCommandBufferHelper");
+    ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::getOutsideRenderPassCommandBufferHelper");
     std::unique_lock<std::mutex> lock(mCommandBufferRecyclerMutex);
-    return mCommandBufferRecycler.getCommandBufferHelper(context, hasRenderPass, commandPool,
-                                                         commandBufferHelperOut);
+    return mOutsideRenderPassCommandBufferRecycler.getCommandBufferHelper(context, commandPool,
+                                                                          commandBufferHelperOut);
 }
 
-void RendererVk::recycleCommandBufferHelper(VkDevice device,
-                                            vk::CommandBufferHelper **commandBuffer)
+angle::Result RendererVk::getRenderPassCommandBufferHelper(
+    vk::Context *context,
+    vk::CommandPool *commandPool,
+    vk::RenderPassCommandBufferHelper **commandBufferHelperOut)
 {
-    ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::recycleCommandBufferHelper");
+    ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::getRenderPassCommandBufferHelper");
+    std::unique_lock<std::mutex> lock(mCommandBufferRecyclerMutex);
+    return mRenderPassCommandBufferRecycler.getCommandBufferHelper(context, commandPool,
+                                                                   commandBufferHelperOut);
+}
+
+void RendererVk::recycleOutsideRenderPassCommandBufferHelper(
+    VkDevice device,
+    vk::OutsideRenderPassCommandBufferHelper **commandBuffer)
+{
+    ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::recycleOutsideRenderPassCommandBufferHelper");
     std::lock_guard<std::mutex> lock(mCommandBufferRecyclerMutex);
-    mCommandBufferRecycler.recycleCommandBufferHelper(device, commandBuffer);
+    mOutsideRenderPassCommandBufferRecycler.recycleCommandBufferHelper(device, commandBuffer);
+}
+
+void RendererVk::recycleRenderPassCommandBufferHelper(
+    VkDevice device,
+    vk::RenderPassCommandBufferHelper **commandBuffer)
+{
+    ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::recycleRenderPassCommandBufferHelper");
+    std::lock_guard<std::mutex> lock(mCommandBufferRecyclerMutex);
+    mRenderPassCommandBufferRecycler.recycleCommandBufferHelper(device, commandBuffer);
 }
 
 void RendererVk::logCacheStats() const

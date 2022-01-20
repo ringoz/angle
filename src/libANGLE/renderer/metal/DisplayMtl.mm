@@ -946,6 +946,8 @@ void DisplayMtl::initializeExtensions() const
 
     mNativeExtensions.texture3DOES = true;
 
+    mNativeExtensions.shaderTextureLodEXT = true;
+
     mNativeExtensions.standardDerivativesOES = true;
 
     mNativeExtensions.elementIndexUintOES = true;
@@ -1015,7 +1017,6 @@ void DisplayMtl::initializeTextureCaps() const
     mNativeExtensions.readDepthNV         = false;
     mNativeExtensions.readStencilNV       = false;
     mNativeExtensions.depthBufferFloat2NV = false;
-    mNativeExtensions.textureCompressionAstcLdrKHR &= supportsAppleGPUFamily(2);
 }
 
 void DisplayMtl::initializeLimitations()
@@ -1236,6 +1237,11 @@ bool DisplayMtl::isIntel() const
 bool DisplayMtl::isNVIDIA() const
 {
     return angle::IsNVIDIA(mMetalDeviceVendorId);
+}
+
+bool DisplayMtl::isSimulator() const
+{
+    return TARGET_OS_SIMULATOR;
 }
 
 #if ANGLE_MTL_EVENT_AVAILABLE

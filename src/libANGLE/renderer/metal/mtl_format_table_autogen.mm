@@ -161,7 +161,7 @@ angle::FormatID Format::MetalToAngleFormatID(MTLPixelFormat formatMtl)
         case MTLPixelFormatDepth24Unorm_Stencil8:
             return angle::FormatID::D24_UNORM_S8_UINT;
 #endif  // TARGET_OS_OSX || TARGET_OS_MACCATALYST
-#if TARGET_OS_IOS || TARGET_OS_TV || (TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 110000))
+#if TARGET_OS_IPHONE || (TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 110000))
         case MTLPixelFormatASTC_10x10_sRGB:
             return angle::FormatID::ASTC_10x10_SRGB_BLOCK;
         case MTLPixelFormatASTC_10x5_sRGB:
@@ -238,61 +238,63 @@ angle::FormatID Format::MetalToAngleFormatID(MTLPixelFormat formatMtl)
             return angle::FormatID::R8_UNORM_SRGB;
         case MTLPixelFormatASTC_10x10_LDR:
             return angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-        case MTLPixelFormatASTC_10x10_HDR:
-            return angle::FormatID::ASTC_10x10_UNORM_BLOCK;
         case MTLPixelFormatASTC_10x5_LDR:
-            return angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-        case MTLPixelFormatASTC_10x5_HDR:
             return angle::FormatID::ASTC_10x5_UNORM_BLOCK;
         case MTLPixelFormatASTC_10x6_LDR:
             return angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-        case MTLPixelFormatASTC_10x6_HDR:
-            return angle::FormatID::ASTC_10x6_UNORM_BLOCK;
         case MTLPixelFormatASTC_10x8_LDR:
-            return angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-        case MTLPixelFormatASTC_10x8_HDR:
             return angle::FormatID::ASTC_10x8_UNORM_BLOCK;
         case MTLPixelFormatASTC_12x10_LDR:
             return angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-        case MTLPixelFormatASTC_12x10_HDR:
-            return angle::FormatID::ASTC_12x10_UNORM_BLOCK;
         case MTLPixelFormatASTC_12x12_LDR:
-            return angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-        case MTLPixelFormatASTC_12x12_HDR:
             return angle::FormatID::ASTC_12x12_UNORM_BLOCK;
         case MTLPixelFormatASTC_4x4_LDR:
             return angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-        case MTLPixelFormatASTC_4x4_HDR:
-            return angle::FormatID::ASTC_4x4_UNORM_BLOCK;
         case MTLPixelFormatASTC_5x4_LDR:
-            return angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-        case MTLPixelFormatASTC_5x4_HDR:
             return angle::FormatID::ASTC_5x4_UNORM_BLOCK;
         case MTLPixelFormatASTC_5x5_LDR:
             return angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-        case MTLPixelFormatASTC_5x5_HDR:
-            return angle::FormatID::ASTC_5x5_UNORM_BLOCK;
         case MTLPixelFormatASTC_6x5_LDR:
-            return angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-        case MTLPixelFormatASTC_6x5_HDR:
             return angle::FormatID::ASTC_6x5_UNORM_BLOCK;
         case MTLPixelFormatASTC_6x6_LDR:
             return angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-        case MTLPixelFormatASTC_6x6_HDR:
-            return angle::FormatID::ASTC_6x6_UNORM_BLOCK;
         case MTLPixelFormatASTC_8x5_LDR:
-            return angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-        case MTLPixelFormatASTC_8x5_HDR:
             return angle::FormatID::ASTC_8x5_UNORM_BLOCK;
         case MTLPixelFormatASTC_8x6_LDR:
             return angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-        case MTLPixelFormatASTC_8x6_HDR:
-            return angle::FormatID::ASTC_8x6_UNORM_BLOCK;
         case MTLPixelFormatASTC_8x8_LDR:
             return angle::FormatID::ASTC_8x8_UNORM_BLOCK;
+#    if TARGET_OS_IOS || TARGET_OS_OSX
+        case MTLPixelFormatASTC_10x10_HDR:
+            return angle::FormatID::ASTC_10x10_UNORM_BLOCK;
+        case MTLPixelFormatASTC_10x5_HDR:
+            return angle::FormatID::ASTC_10x5_UNORM_BLOCK;
+        case MTLPixelFormatASTC_10x6_HDR:
+            return angle::FormatID::ASTC_10x6_UNORM_BLOCK;
+        case MTLPixelFormatASTC_10x8_HDR:
+            return angle::FormatID::ASTC_10x8_UNORM_BLOCK;
+        case MTLPixelFormatASTC_12x10_HDR:
+            return angle::FormatID::ASTC_12x10_UNORM_BLOCK;
+        case MTLPixelFormatASTC_12x12_HDR:
+            return angle::FormatID::ASTC_12x12_UNORM_BLOCK;
+        case MTLPixelFormatASTC_4x4_HDR:
+            return angle::FormatID::ASTC_4x4_UNORM_BLOCK;
+        case MTLPixelFormatASTC_5x4_HDR:
+            return angle::FormatID::ASTC_5x4_UNORM_BLOCK;
+        case MTLPixelFormatASTC_5x5_HDR:
+            return angle::FormatID::ASTC_5x5_UNORM_BLOCK;
+        case MTLPixelFormatASTC_6x5_HDR:
+            return angle::FormatID::ASTC_6x5_UNORM_BLOCK;
+        case MTLPixelFormatASTC_6x6_HDR:
+            return angle::FormatID::ASTC_6x6_UNORM_BLOCK;
+        case MTLPixelFormatASTC_8x5_HDR:
+            return angle::FormatID::ASTC_8x5_UNORM_BLOCK;
+        case MTLPixelFormatASTC_8x6_HDR:
+            return angle::FormatID::ASTC_8x6_UNORM_BLOCK;
         case MTLPixelFormatASTC_8x8_HDR:
             return angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-#endif  // TARGET_OS_IOS || TARGET_OS_TV || mac 11.0+
+#    endif  // TARGET_OS_IOS || TARGET_OS_OSX
+#endif      // TARGET_OS_IPHONE || mac 11.0+
         default:
             return angle::FormatID::NONE;
     }
@@ -312,486 +314,324 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
             this->metalFormat    = MTLPixelFormatA8Unorm;
             this->actualFormatId = angle::FormatID::A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::B10G10R10A2_UNORM:
 
             this->metalFormat    = MTLPixelFormatBGR10A2Unorm;
             this->actualFormatId = angle::FormatID::B10G10R10A2_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::B8G8R8A8_UNORM:
 
             this->metalFormat    = MTLPixelFormatBGRA8Unorm;
             this->actualFormatId = angle::FormatID::B8G8R8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::B8G8R8A8_UNORM_SRGB:
 
             this->metalFormat    = MTLPixelFormatBGRA8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::B8G8R8A8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D32_FLOAT:
 
             this->metalFormat    = MTLPixelFormatDepth32Float;
             this->actualFormatId = angle::FormatID::D32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D32_FLOAT_S8X24_UINT:
 
             this->metalFormat    = MTLPixelFormatDepth32Float_Stencil8;
             this->actualFormatId = angle::FormatID::D32_FLOAT_S8X24_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::NONE:
 
             this->metalFormat    = MTLPixelFormatInvalid;
             this->actualFormatId = angle::FormatID::NONE;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R10G10B10A2_UINT:
 
             this->metalFormat    = MTLPixelFormatRGB10A2Uint;
             this->actualFormatId = angle::FormatID::R10G10B10A2_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R10G10B10A2_UNORM:
 
             this->metalFormat    = MTLPixelFormatRGB10A2Unorm;
             this->actualFormatId = angle::FormatID::R10G10B10A2_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R11G11B10_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRG11B10Float;
             this->actualFormatId = angle::FormatID::R11G11B10_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16A16_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRGBA16Float;
             this->actualFormatId = angle::FormatID::R16G16B16A16_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16A16_SINT:
 
             this->metalFormat    = MTLPixelFormatRGBA16Sint;
             this->actualFormatId = angle::FormatID::R16G16B16A16_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16A16_SNORM:
 
             this->metalFormat    = MTLPixelFormatRGBA16Snorm;
             this->actualFormatId = angle::FormatID::R16G16B16A16_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16A16_UINT:
 
             this->metalFormat    = MTLPixelFormatRGBA16Uint;
             this->actualFormatId = angle::FormatID::R16G16B16A16_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16A16_UNORM:
 
             this->metalFormat    = MTLPixelFormatRGBA16Unorm;
             this->actualFormatId = angle::FormatID::R16G16B16A16_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRG16Float;
             this->actualFormatId = angle::FormatID::R16G16_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16_SINT:
 
             this->metalFormat    = MTLPixelFormatRG16Sint;
             this->actualFormatId = angle::FormatID::R16G16_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16_SNORM:
 
             this->metalFormat    = MTLPixelFormatRG16Snorm;
             this->actualFormatId = angle::FormatID::R16G16_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16_UINT:
 
             this->metalFormat    = MTLPixelFormatRG16Uint;
             this->actualFormatId = angle::FormatID::R16G16_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16_UNORM:
 
             this->metalFormat    = MTLPixelFormatRG16Unorm;
             this->actualFormatId = angle::FormatID::R16G16_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16_FLOAT:
 
             this->metalFormat    = MTLPixelFormatR16Float;
             this->actualFormatId = angle::FormatID::R16_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16_SINT:
 
             this->metalFormat    = MTLPixelFormatR16Sint;
             this->actualFormatId = angle::FormatID::R16_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16_SNORM:
 
             this->metalFormat    = MTLPixelFormatR16Snorm;
             this->actualFormatId = angle::FormatID::R16_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16_UINT:
 
             this->metalFormat    = MTLPixelFormatR16Uint;
             this->actualFormatId = angle::FormatID::R16_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16_UNORM:
 
             this->metalFormat    = MTLPixelFormatR16Unorm;
             this->actualFormatId = angle::FormatID::R16_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32B32A32_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRGBA32Float;
             this->actualFormatId = angle::FormatID::R32G32B32A32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32B32A32_SINT:
 
             this->metalFormat    = MTLPixelFormatRGBA32Sint;
             this->actualFormatId = angle::FormatID::R32G32B32A32_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32B32A32_UINT:
 
             this->metalFormat    = MTLPixelFormatRGBA32Uint;
             this->actualFormatId = angle::FormatID::R32G32B32A32_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRG32Float;
             this->actualFormatId = angle::FormatID::R32G32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32_SINT:
 
             this->metalFormat    = MTLPixelFormatRG32Sint;
             this->actualFormatId = angle::FormatID::R32G32_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32_UINT:
 
             this->metalFormat    = MTLPixelFormatRG32Uint;
             this->actualFormatId = angle::FormatID::R32G32_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32_FLOAT:
 
             this->metalFormat    = MTLPixelFormatR32Float;
             this->actualFormatId = angle::FormatID::R32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32_SINT:
 
             this->metalFormat    = MTLPixelFormatR32Sint;
             this->actualFormatId = angle::FormatID::R32_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32_UINT:
 
             this->metalFormat    = MTLPixelFormatR32Uint;
             this->actualFormatId = angle::FormatID::R32_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8A8_SINT:
 
             this->metalFormat    = MTLPixelFormatRGBA8Sint;
             this->actualFormatId = angle::FormatID::R8G8B8A8_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8A8_SNORM:
 
             this->metalFormat    = MTLPixelFormatRGBA8Snorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8A8_UINT:
 
             this->metalFormat    = MTLPixelFormatRGBA8Uint;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8A8_UNORM:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8A8_UNORM_SRGB:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8_SINT:
 
             this->metalFormat    = MTLPixelFormatRG8Sint;
             this->actualFormatId = angle::FormatID::R8G8_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8_SNORM:
 
             this->metalFormat    = MTLPixelFormatRG8Snorm;
             this->actualFormatId = angle::FormatID::R8G8_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8_UINT:
 
             this->metalFormat    = MTLPixelFormatRG8Uint;
             this->actualFormatId = angle::FormatID::R8G8_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8_UNORM:
 
             this->metalFormat    = MTLPixelFormatRG8Unorm;
             this->actualFormatId = angle::FormatID::R8G8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8_SINT:
 
             this->metalFormat    = MTLPixelFormatR8Sint;
             this->actualFormatId = angle::FormatID::R8_SINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8_SNORM:
 
             this->metalFormat    = MTLPixelFormatR8Snorm;
             this->actualFormatId = angle::FormatID::R8_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8_UINT:
 
             this->metalFormat    = MTLPixelFormatR8Uint;
             this->actualFormatId = angle::FormatID::R8_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8_UNORM:
 
             this->metalFormat    = MTLPixelFormatR8Unorm;
             this->actualFormatId = angle::FormatID::R8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R9G9B9E5_SHAREDEXP:
 
             this->metalFormat    = MTLPixelFormatRGB9E5Float;
             this->actualFormatId = angle::FormatID::R9G9B9E5_SHAREDEXP;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::S8_UINT:
 
             this->metalFormat    = MTLPixelFormatStencil8;
             this->actualFormatId = angle::FormatID::S8_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::A16_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRGBA16Float;
             this->actualFormatId = angle::FormatID::R16G16B16A16_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::A32_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRGBA32Float;
             this->actualFormatId = angle::FormatID::R32G32B32A32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D24_UNORM_X8_UINT:
 
             this->metalFormat    = MTLPixelFormatDepth32Float;
             this->actualFormatId = angle::FormatID::D32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D32_UNORM:
 
             this->metalFormat    = MTLPixelFormatDepth32Float;
             this->actualFormatId = angle::FormatID::D32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::L16A16_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRGBA16Float;
             this->actualFormatId = angle::FormatID::R16G16B16A16_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::L16_FLOAT:
@@ -800,17 +640,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->actualFormatId = angle::FormatID::R16G16B16A16_FLOAT;
             this->initFunction =
                 Initialize4ComponentData<GLhalf, 0x0000, 0x0000, 0x0000, gl::Float16One>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::L32A32_FLOAT:
 
             this->metalFormat    = MTLPixelFormatRGBA32Float;
             this->actualFormatId = angle::FormatID::R32G32B32A32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::L32_FLOAT:
@@ -819,17 +654,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->actualFormatId = angle::FormatID::R32G32B32A32_FLOAT;
             this->initFunction   = Initialize4ComponentData<GLfloat, 0x00000000, 0x00000000,
                                                           0x00000000, gl::Float32One>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::L8A8_UNORM:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::L8_UNORM:
@@ -837,8 +667,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16_FLOAT:
@@ -847,8 +675,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->actualFormatId = angle::FormatID::R16G16B16A16_FLOAT;
             this->initFunction =
                 Initialize4ComponentData<GLhalf, 0x0000, 0x0000, 0x0000, gl::Float16One>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16_SINT:
@@ -856,8 +682,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA16Sint;
             this->actualFormatId = angle::FormatID::R16G16B16A16_SINT;
             this->initFunction = Initialize4ComponentData<GLshort, 0x0000, 0x0000, 0x0000, 0x0001>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16_SNORM:
@@ -865,8 +689,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA16Snorm;
             this->actualFormatId = angle::FormatID::R16G16B16A16_SNORM;
             this->initFunction = Initialize4ComponentData<GLushort, 0x0000, 0x0000, 0x0000, 0x7FFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16_UINT:
@@ -874,8 +696,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA16Uint;
             this->actualFormatId = angle::FormatID::R16G16B16A16_UINT;
             this->initFunction = Initialize4ComponentData<GLushort, 0x0000, 0x0000, 0x0000, 0x0001>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R16G16B16_UNORM:
@@ -883,8 +703,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA16Unorm;
             this->actualFormatId = angle::FormatID::R16G16B16A16_UNORM;
             this->initFunction = Initialize4ComponentData<GLubyte, 0x0000, 0x0000, 0x0000, 0xFFFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32B32_FLOAT:
@@ -893,8 +711,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->actualFormatId = angle::FormatID::R32G32B32A32_FLOAT;
             this->initFunction   = Initialize4ComponentData<GLfloat, 0x00000000, 0x00000000,
                                                           0x00000000, gl::Float32One>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32B32_SINT:
@@ -903,8 +719,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->actualFormatId = angle::FormatID::R32G32B32A32_SINT;
             this->initFunction =
                 Initialize4ComponentData<GLint, 0x00000000, 0x00000000, 0x00000000, 0x00000001>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R32G32B32_UINT:
@@ -913,8 +727,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->actualFormatId = angle::FormatID::R32G32B32A32_UINT;
             this->initFunction =
                 Initialize4ComponentData<GLuint, 0x00000000, 0x00000000, 0x00000000, 0x00000001>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8_SINT:
@@ -922,8 +734,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Sint;
             this->actualFormatId = angle::FormatID::R8G8B8A8_SINT;
             this->initFunction   = Initialize4ComponentData<GLbyte, 0x00, 0x00, 0x00, 0x01>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8_SNORM:
@@ -931,8 +741,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Snorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_SNORM;
             this->initFunction   = Initialize4ComponentData<GLbyte, 0x00, 0x00, 0x00, 0x7F>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8_UINT:
@@ -940,8 +748,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Uint;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UINT;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0x01>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8_UNORM:
@@ -949,8 +755,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8B8_UNORM_SRGB:
@@ -958,8 +762,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
@@ -967,126 +769,84 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
             this->metalFormat    = MTLPixelFormatBC1_RGBA;
             this->actualFormatId = angle::FormatID::BC1_RGBA_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC1_RGBA_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC1_RGBA_sRGB;
             this->actualFormatId = angle::FormatID::BC1_RGBA_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC2_RGBA_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC2_RGBA;
             this->actualFormatId = angle::FormatID::BC2_RGBA_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC2_RGBA_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC2_RGBA_sRGB;
             this->actualFormatId = angle::FormatID::BC2_RGBA_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC3_RGBA_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC3_RGBA;
             this->actualFormatId = angle::FormatID::BC3_RGBA_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC3_RGBA_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC3_RGBA_sRGB;
             this->actualFormatId = angle::FormatID::BC3_RGBA_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC4_RED_SNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC4_RSnorm;
             this->actualFormatId = angle::FormatID::BC4_RED_SNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC4_RED_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC4_RUnorm;
             this->actualFormatId = angle::FormatID::BC4_RED_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC5_RG_SNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC5_RGSnorm;
             this->actualFormatId = angle::FormatID::BC5_RG_SNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC5_RG_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC5_RGUnorm;
             this->actualFormatId = angle::FormatID::BC5_RG_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC6H_RGB_SFLOAT_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC6H_RGBFloat;
             this->actualFormatId = angle::FormatID::BC6H_RGB_SFLOAT_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC6H_RGB_UFLOAT_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC6H_RGBUfloat;
             this->actualFormatId = angle::FormatID::BC6H_RGB_UFLOAT_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC7_RGBA_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC7_RGBAUnorm;
             this->actualFormatId = angle::FormatID::BC7_RGBA_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC7_RGBA_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatBC7_RGBAUnorm_sRGB;
             this->actualFormatId = angle::FormatID::BC7_RGBA_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D24_UNORM_S8_UINT:
@@ -1096,25 +856,18 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatDepth24Unorm_Stencil8;
                 this->actualFormatId = angle::FormatID::D24_UNORM_S8_UINT;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatDepth32Float_Stencil8;
                 this->actualFormatId = angle::FormatID::D32_FLOAT_S8X24_UINT;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D16_UNORM:
 
             this->metalFormat    = MTLPixelFormatDepth32Float;
             this->actualFormatId = angle::FormatID::D32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::BC1_RGB_UNORM_BLOCK:
@@ -1124,10 +877,8 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
                 this->metalFormat    = MTLPixelFormatBC1_RGBA;
                 this->actualFormatId = angle::FormatID::BC1_RGBA_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-
-                this->swizzled = true;
-                this->swizzle  = {GL_RED, GL_GREEN, GL_BLUE, GL_ONE};
+                this->swizzled       = true;
+                this->swizzle        = {GL_RED, GL_GREEN, GL_BLUE, GL_ONE};
             }
             else
 #    endif  // #if defined(__IPHONE_13_0) || defined(__MAC_10_15)
@@ -1135,9 +886,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
                 this->metalFormat    = MTLPixelFormatBC1_RGBA;
                 this->actualFormatId = angle::FormatID::BC1_RGBA_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-
-                this->swizzled = false;
             }
             break;
 
@@ -1148,10 +896,8 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
                 this->metalFormat    = MTLPixelFormatBC1_RGBA_sRGB;
                 this->actualFormatId = angle::FormatID::BC1_RGBA_UNORM_SRGB_BLOCK;
-                this->initFunction   = nullptr;
-
-                this->swizzled = true;
-                this->swizzle  = {GL_RED, GL_GREEN, GL_BLUE, GL_ONE};
+                this->swizzled       = true;
+                this->swizzle        = {GL_RED, GL_GREEN, GL_BLUE, GL_ONE};
             }
             else
 #    endif  // #if defined(__IPHONE_13_0) || defined(__MAC_10_15)
@@ -1159,9 +905,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
                 this->metalFormat    = MTLPixelFormatBC1_RGBA_sRGB;
                 this->actualFormatId = angle::FormatID::BC1_RGBA_UNORM_SRGB_BLOCK;
-                this->initFunction   = nullptr;
-
-                this->swizzled = false;
             }
             break;
 
@@ -1171,36 +914,24 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
             this->metalFormat    = MTLPixelFormatRG16Snorm;
             this->actualFormatId = angle::FormatID::R16G16_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11G11_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatRG16Unorm;
             this->actualFormatId = angle::FormatID::R16G16_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11_SNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatR16Snorm;
             this->actualFormatId = angle::FormatID::R16_SNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatR16Unorm;
             this->actualFormatId = angle::FormatID::R16_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK:
@@ -1208,17 +939,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK:
@@ -1226,26 +952,18 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK:
@@ -1253,8 +971,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK:
@@ -1262,26 +978,18 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R4G4B4A4_UNORM:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R5G5B5A1_UNORM:
 
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R5G6B5_UNORM:
@@ -1289,8 +997,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatRGBA8Unorm;
             this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
 #endif
@@ -1299,820 +1005,120 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
 
             this->metalFormat    = MTLPixelFormatASTC_10x10_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x10_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x10_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x10_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_10x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x5_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x5_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x6_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_10x6_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x6_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x6_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x8_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_10x8_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x8_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x8_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x10_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_12x10_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_12x10_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_12x10_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_12x10_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x12_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_12x12_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_12x12_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_12x12_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_12x12_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_4x4_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_4x4_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_4x4_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_4x4_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_4x4_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x4_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_5x4_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_5x4_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_5x4_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_5x4_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_5x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_5x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_5x5_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_5x5_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_6x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_6x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_6x5_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_6x5_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x6_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_6x6_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_6x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_6x6_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_6x6_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_8x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_8x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x5_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_8x5_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x6_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_8x6_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_8x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x6_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_8x6_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x8_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_8x8_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_8x8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x8_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_8x8_LDR;
-            this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11G11_SNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatEAC_RG11Snorm;
             this->actualFormatId = angle::FormatID::EAC_R11G11_SNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::EAC_R11G11_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatEAC_R11Unorm;
-            this->actualFormatId = angle::FormatID::EAC_R11G11_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::EAC_R11_SNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatEAC_R11Snorm;
-            this->actualFormatId = angle::FormatID::EAC_R11_SNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::EAC_R11_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatEAC_R11Unorm;
-            this->actualFormatId = angle::FormatID::EAC_R11_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatETC2_RGB8;
-            this->actualFormatId = angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatETC2_RGB8A1_sRGB;
-            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatETC2_RGB8A1;
-            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK;
-            this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatEAC_RGBA8_sRGB;
-            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatEAC_RGBA8;
-            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatETC2_RGB8_sRGB;
-            this->actualFormatId = angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatETC2_RGB8;
-            this->actualFormatId = angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::D24_UNORM_S8_UINT:
-
-            this->metalFormat    = MTLPixelFormatDepth32Float_Stencil8;
-            this->actualFormatId = angle::FormatID::D32_FLOAT_S8X24_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R4G4B4A4_UNORM:
-
-            this->metalFormat    = MTLPixelFormatRGBA8Unorm;
-            this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R5G5B5A1_UNORM:
-
-            this->metalFormat    = MTLPixelFormatRGBA8Unorm;
-            this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R5G6B5_UNORM:
-
-            this->metalFormat    = MTLPixelFormatRGBA8Unorm;
-            this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-            this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x10_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x10_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x10_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x5_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x5_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x5_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x6_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x6_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x6_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x8_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x8_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_10x8_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_12x10_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_12x10_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_12x10_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_12x12_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_12x12_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_12x12_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_4x4_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_4x4_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_4x4_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_5x4_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_5x4_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_5x4_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_5x5_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_5x5_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_5x5_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_6x5_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_6x5_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_6x5_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_6x6_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_6x6_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_6x6_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x5_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_8x5_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_8x5_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x6_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_8x6_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_8x6_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x8_UNORM_BLOCK:
-
-            if (display->supportsAppleGPUFamily(6))
-            {
-                this->metalFormat    = MTLPixelFormatASTC_8x8_HDR;
-                this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-            else
-            {
-                this->metalFormat    = MTLPixelFormatASTC_8x8_LDR;
-                this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
-            }
-
-            this->swizzled = false;
-            break;
-
-#elif TARGET_OS_IOS || TARGET_OS_TV
-        case angle::FormatID::ASTC_10x10_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x10_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_10x10_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x5_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x5_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_10x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x6_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x6_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_10x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_10x8_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_10x8_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_10x8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_12x10_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_12x10_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_12x10_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_12x12_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_12x12_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_12x12_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_4x4_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_4x4_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_4x4_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_5x4_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_5x4_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_5x4_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_5x5_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_5x5_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_5x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_6x5_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_6x5_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_6x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_6x6_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_6x6_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_6x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x5_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_8x5_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_8x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x6_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_8x6_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_8x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::ASTC_8x8_SRGB_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatASTC_8x8_sRGB;
-            this->actualFormatId = angle::FormatID::ASTC_8x8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::EAC_R11G11_SNORM_BLOCK:
-
-            this->metalFormat    = MTLPixelFormatEAC_RG11Snorm;
-            this->actualFormatId = angle::FormatID::EAC_R11G11_SNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11G11_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatEAC_RG11Unorm;
             this->actualFormatId = angle::FormatID::EAC_R11G11_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11_SNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatEAC_R11Snorm;
             this->actualFormatId = angle::FormatID::EAC_R11_SNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatEAC_R11Unorm;
             this->actualFormatId = angle::FormatID::EAC_R11_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatETC2_RGB8;
             this->actualFormatId = angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatETC2_RGB8A1_sRGB;
             this->actualFormatId = angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK:
@@ -2120,197 +1126,124 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             this->metalFormat    = MTLPixelFormatETC2_RGB8A1;
             this->actualFormatId = angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK;
             this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatEAC_RGBA8_sRGB;
             this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatEAC_RGBA8;
             this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatETC2_RGB8_sRGB;
             this->actualFormatId = angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatETC2_RGB8;
             this->actualFormatId = angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_2BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_2BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_4BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_4BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_2BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_2BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_2BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_2BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_2BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_2BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_4BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_4BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_4BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_4BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_4BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_4BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R4G4B4A4_UNORM:
-
-            this->metalFormat    = MTLPixelFormatABGR4Unorm;
-            this->actualFormatId = angle::FormatID::R4G4B4A4_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R5G5B5A1_UNORM:
-
-            this->metalFormat    = MTLPixelFormatA1BGR5Unorm;
-            this->actualFormatId = angle::FormatID::R5G5B5A1_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R5G6B5_UNORM:
-
-            this->metalFormat    = MTLPixelFormatB5G6R5Unorm;
-            this->actualFormatId = angle::FormatID::R5G6B5_UNORM;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R8G8_UNORM_SRGB:
-
-            this->metalFormat    = MTLPixelFormatRG8Unorm_sRGB;
-            this->actualFormatId = angle::FormatID::R8G8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
-            break;
-
-        case angle::FormatID::R8_UNORM_SRGB:
-
-            this->metalFormat    = MTLPixelFormatR8Unorm_sRGB;
-            this->actualFormatId = angle::FormatID::R8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D16_UNORM:
 
             this->metalFormat    = MTLPixelFormatDepth32Float;
             this->actualFormatId = angle::FormatID::D32_FLOAT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::D24_UNORM_S8_UINT:
 
             this->metalFormat    = MTLPixelFormatDepth32Float_Stencil8;
             this->actualFormatId = angle::FormatID::D32_FLOAT_S8X24_UINT;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
+        case angle::FormatID::R4G4B4A4_UNORM:
+
+            this->metalFormat    = MTLPixelFormatRGBA8Unorm;
+            this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
+            break;
+
+        case angle::FormatID::R5G5B5A1_UNORM:
+
+            this->metalFormat    = MTLPixelFormatRGBA8Unorm;
+            this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
+            break;
+
+        case angle::FormatID::R5G6B5_UNORM:
+
+            this->metalFormat    = MTLPixelFormatRGBA8Unorm;
+            this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
+            this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
+            break;
+
+#    if TARGET_OS_IOS
         case angle::FormatID::ASTC_10x10_UNORM_BLOCK:
 
             if (display->supportsAppleGPUFamily(6))
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x10_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x10_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x5_UNORM_BLOCK:
@@ -2319,16 +1252,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x6_UNORM_BLOCK:
@@ -2337,16 +1266,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x6_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x6_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x8_UNORM_BLOCK:
@@ -2355,16 +1280,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x8_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x8_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x10_UNORM_BLOCK:
@@ -2373,16 +1294,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x10_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x10_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x12_UNORM_BLOCK:
@@ -2391,16 +1308,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x12_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x12_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_4x4_UNORM_BLOCK:
@@ -2409,16 +1322,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_4x4_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_4x4_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x4_UNORM_BLOCK:
@@ -2427,16 +1336,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x4_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x4_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x5_UNORM_BLOCK:
@@ -2445,16 +1350,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x5_UNORM_BLOCK:
@@ -2463,16 +1364,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x6_UNORM_BLOCK:
@@ -2481,16 +1378,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x6_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x6_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x5_UNORM_BLOCK:
@@ -2499,16 +1392,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x6_UNORM_BLOCK:
@@ -2517,16 +1406,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x6_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x6_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x8_UNORM_BLOCK:
@@ -2535,144 +1420,709 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x8_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x8_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
-#endif
-#if (TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 110000))
+#    elif TARGET_OS_TV || TARGET_OS_WATCH
+        case angle::FormatID::ASTC_10x10_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x10_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x6_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x6_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x8_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x8_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_12x10_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_12x10_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_12x12_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_12x12_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_4x4_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_4x4_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_5x4_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_5x4_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_5x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_5x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_6x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_6x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_6x6_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_6x6_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x6_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x6_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x8_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x8_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
+            break;
+
+#    endif  // TARGET_OS_IOS
+#elif TARGET_OS_IPHONE && !TARGET_OS_MACCATALYST
         case angle::FormatID::ASTC_10x10_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_10x10_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x10_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_10x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x6_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_10x6_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x8_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_10x8_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_10x8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x10_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_12x10_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_12x10_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x12_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_12x12_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_12x12_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_4x4_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_4x4_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_4x4_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x4_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_5x4_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_5x4_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_5x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_5x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_6x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_6x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x6_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_6x6_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_6x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x5_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_8x5_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_8x5_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x6_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_8x6_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_8x6_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x8_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatASTC_8x8_sRGB;
             this->actualFormatId = angle::FormatID::ASTC_8x8_SRGB_BLOCK;
-            this->initFunction   = nullptr;
+            break;
 
-            this->swizzled = false;
+        case angle::FormatID::EAC_R11G11_SNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatEAC_RG11Snorm;
+            this->actualFormatId = angle::FormatID::EAC_R11G11_SNORM_BLOCK;
+            break;
+
+        case angle::FormatID::EAC_R11G11_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatEAC_RG11Unorm;
+            this->actualFormatId = angle::FormatID::EAC_R11G11_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::EAC_R11_SNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatEAC_R11Snorm;
+            this->actualFormatId = angle::FormatID::EAC_R11_SNORM_BLOCK;
+            break;
+
+        case angle::FormatID::EAC_R11_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatEAC_R11Unorm;
+            this->actualFormatId = angle::FormatID::EAC_R11_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatETC2_RGB8;
+            this->actualFormatId = angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatETC2_RGB8A1_sRGB;
+            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatETC2_RGB8A1;
+            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK;
+            this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
+            break;
+
+        case angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatEAC_RGBA8_sRGB;
+            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatEAC_RGBA8;
+            this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatETC2_RGB8_sRGB;
+            this->actualFormatId = angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatETC2_RGB8;
+            this->actualFormatId = angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGBA_2BPP;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGBA_2BPP_sRGB;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGBA_4BPP;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGBA_4BPP_sRGB;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGB_2BPP_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGB_2BPP;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGB_2BPP_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGB_2BPP_UNORM_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGB_2BPP_sRGB;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGB_2BPP_UNORM_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGB_4BPP_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGB_4BPP;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGB_4BPP_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::PVRTC1_RGB_4BPP_UNORM_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatPVRTC_RGB_4BPP_sRGB;
+            this->actualFormatId = angle::FormatID::PVRTC1_RGB_4BPP_UNORM_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::R4G4B4A4_UNORM:
+
+            this->metalFormat    = MTLPixelFormatABGR4Unorm;
+            this->actualFormatId = angle::FormatID::R4G4B4A4_UNORM;
+            break;
+
+        case angle::FormatID::R5G5B5A1_UNORM:
+
+            this->metalFormat    = MTLPixelFormatA1BGR5Unorm;
+            this->actualFormatId = angle::FormatID::R5G5B5A1_UNORM;
+            break;
+
+        case angle::FormatID::R5G6B5_UNORM:
+
+            this->metalFormat    = MTLPixelFormatB5G6R5Unorm;
+            this->actualFormatId = angle::FormatID::R5G6B5_UNORM;
+            break;
+
+        case angle::FormatID::R8G8_UNORM_SRGB:
+
+            this->metalFormat    = MTLPixelFormatRG8Unorm_sRGB;
+            this->actualFormatId = angle::FormatID::R8G8_UNORM_SRGB;
+            break;
+
+        case angle::FormatID::R8_UNORM_SRGB:
+
+            this->metalFormat    = MTLPixelFormatR8Unorm_sRGB;
+            this->actualFormatId = angle::FormatID::R8_UNORM_SRGB;
+            break;
+
+        case angle::FormatID::D16_UNORM:
+
+            this->metalFormat    = MTLPixelFormatDepth32Float;
+            this->actualFormatId = angle::FormatID::D32_FLOAT;
+            break;
+
+        case angle::FormatID::D24_UNORM_S8_UINT:
+
+            this->metalFormat    = MTLPixelFormatDepth32Float_Stencil8;
+            this->actualFormatId = angle::FormatID::D32_FLOAT_S8X24_UINT;
+            break;
+
+#    if TARGET_OS_IOS
+        case angle::FormatID::ASTC_10x10_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x10_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x10_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_10x5_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x5_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x5_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_10x6_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x6_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x6_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_10x8_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x8_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_10x8_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_12x10_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_12x10_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_12x10_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_12x12_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_12x12_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_12x12_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_4x4_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_4x4_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_4x4_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_5x4_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_5x4_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_5x4_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_5x5_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_5x5_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_5x5_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_6x5_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_6x5_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_6x5_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_6x6_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_6x6_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_6x6_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_8x5_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_8x5_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_8x5_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_8x6_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_8x6_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_8x6_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
+            }
+            break;
+
+        case angle::FormatID::ASTC_8x8_UNORM_BLOCK:
+
+            if (display->supportsAppleGPUFamily(6))
+            {
+                this->metalFormat    = MTLPixelFormatASTC_8x8_HDR;
+                this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
+            }
+            else
+            {
+                this->metalFormat    = MTLPixelFormatASTC_8x8_LDR;
+                this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
+            }
+            break;
+
+#    elif TARGET_OS_TV || TARGET_OS_WATCH
+        case angle::FormatID::ASTC_10x10_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x10_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x6_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x6_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x8_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x8_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_12x10_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_12x10_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_12x12_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_12x12_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_4x4_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_4x4_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_5x4_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_5x4_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_5x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_5x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_6x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_6x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_6x6_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_6x6_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x5_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x5_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x6_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x6_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x8_UNORM_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x8_LDR;
+            this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
+            break;
+
+#    endif  // TARGET_OS_IOS || TARGET_OS_TV
+#endif      // TARGET_OS_IPHONE
+#if (TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 110000))
+        case angle::FormatID::ASTC_10x10_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x10_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_10x10_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x5_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x5_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_10x5_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x6_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x6_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_10x6_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_10x8_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_10x8_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_10x8_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_12x10_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_12x10_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_12x10_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_12x12_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_12x12_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_12x12_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_4x4_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_4x4_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_4x4_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_5x4_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_5x4_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_5x4_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_5x5_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_5x5_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_5x5_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_6x5_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_6x5_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_6x5_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_6x6_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_6x6_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_6x6_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x5_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x5_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_8x5_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x6_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x6_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_8x6_SRGB_BLOCK;
+            break;
+
+        case angle::FormatID::ASTC_8x8_SRGB_BLOCK:
+
+            this->metalFormat    = MTLPixelFormatASTC_8x8_sRGB;
+            this->actualFormatId = angle::FormatID::ASTC_8x8_SRGB_BLOCK;
             break;
 
         case angle::FormatID::EAC_R11G11_SNORM_BLOCK:
@@ -2681,16 +2131,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatEAC_RG11Snorm;
                 this->actualFormatId = angle::FormatID::EAC_R11G11_SNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatRG16Snorm;
                 this->actualFormatId = angle::FormatID::R16G16_SNORM;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11G11_UNORM_BLOCK:
@@ -2699,16 +2145,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatEAC_RG11Unorm;
                 this->actualFormatId = angle::FormatID::EAC_R11G11_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatRG16Unorm;
                 this->actualFormatId = angle::FormatID::R16G16_UNORM;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11_SNORM_BLOCK:
@@ -2717,16 +2159,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatEAC_R11Snorm;
                 this->actualFormatId = angle::FormatID::EAC_R11_SNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatR16Snorm;
                 this->actualFormatId = angle::FormatID::R16_SNORM;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::EAC_R11_UNORM_BLOCK:
@@ -2735,16 +2173,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatEAC_R11Unorm;
                 this->actualFormatId = angle::FormatID::EAC_R11_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatR16Unorm;
                 this->actualFormatId = angle::FormatID::R16_UNORM;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK:
@@ -2753,7 +2187,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatETC2_RGB8;
                 this->actualFormatId = angle::FormatID::ETC1_R8G8B8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
@@ -2761,8 +2194,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
                 this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK:
@@ -2771,16 +2202,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatETC2_RGB8A1_sRGB;
                 this->actualFormatId = angle::FormatID::ETC2_R8G8B8A1_SRGB_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatRGBA8Unorm_sRGB;
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A1_UNORM_BLOCK:
@@ -2797,8 +2224,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
                 this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK:
@@ -2807,16 +2232,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatEAC_RGBA8_sRGB;
                 this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_SRGB_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatRGBA8Unorm_sRGB;
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK:
@@ -2825,16 +2246,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatEAC_RGBA8;
                 this->actualFormatId = angle::FormatID::ETC2_R8G8B8A8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatRGBA8Unorm;
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK:
@@ -2843,7 +2260,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatETC2_RGB8_sRGB;
                 this->actualFormatId = angle::FormatID::ETC2_R8G8B8_SRGB_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
@@ -2851,8 +2267,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM_SRGB;
                 this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK:
@@ -2861,7 +2275,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatETC2_RGB8;
                 this->actualFormatId = angle::FormatID::ETC2_R8G8B8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
@@ -2869,80 +2282,54 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
                 this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_2BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_2BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_2BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_4BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGBA_4BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGBA_4BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_2BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_2BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_2BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_2BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_2BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_2BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_4BPP_UNORM_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_4BPP;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_4BPP_UNORM_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::PVRTC1_RGB_4BPP_UNORM_SRGB_BLOCK:
 
             this->metalFormat    = MTLPixelFormatPVRTC_RGB_4BPP_sRGB;
             this->actualFormatId = angle::FormatID::PVRTC1_RGB_4BPP_UNORM_SRGB_BLOCK;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R4G4B4A4_UNORM:
@@ -2951,16 +2338,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatABGR4Unorm;
                 this->actualFormatId = angle::FormatID::R4G4B4A4_UNORM;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatRGBA8Unorm;
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R5G5B5A1_UNORM:
@@ -2969,16 +2352,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatA1BGR5Unorm;
                 this->actualFormatId = angle::FormatID::R5G5B5A1_UNORM;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatRGBA8Unorm;
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R5G6B5_UNORM:
@@ -2987,7 +2366,6 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatB5G6R5Unorm;
                 this->actualFormatId = angle::FormatID::R5G6B5_UNORM;
-                this->initFunction   = nullptr;
             }
             else
             {
@@ -2995,26 +2373,18 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
                 this->initFunction   = Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8G8_UNORM_SRGB:
 
             this->metalFormat    = MTLPixelFormatRG8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::R8G8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::R8_UNORM_SRGB:
 
             this->metalFormat    = MTLPixelFormatR8Unorm_sRGB;
             this->actualFormatId = angle::FormatID::R8_UNORM_SRGB;
-            this->initFunction   = nullptr;
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x10_UNORM_BLOCK:
@@ -3023,16 +2393,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x10_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x10_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x5_UNORM_BLOCK:
@@ -3041,16 +2407,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x6_UNORM_BLOCK:
@@ -3059,16 +2421,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x6_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x6_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_10x8_UNORM_BLOCK:
@@ -3077,16 +2435,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x8_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_10x8_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_10x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x10_UNORM_BLOCK:
@@ -3095,16 +2449,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x10_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x10_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x10_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_12x12_UNORM_BLOCK:
@@ -3113,16 +2463,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x12_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_12x12_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_12x12_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_4x4_UNORM_BLOCK:
@@ -3131,16 +2477,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_4x4_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_4x4_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_4x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x4_UNORM_BLOCK:
@@ -3149,16 +2491,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x4_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x4_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x4_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_5x5_UNORM_BLOCK:
@@ -3167,16 +2505,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_5x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_5x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x5_UNORM_BLOCK:
@@ -3185,16 +2519,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_6x6_UNORM_BLOCK:
@@ -3203,16 +2533,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x6_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_6x6_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_6x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x5_UNORM_BLOCK:
@@ -3221,16 +2547,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x5_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x5_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x5_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x6_UNORM_BLOCK:
@@ -3239,16 +2561,12 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x6_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x6_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x6_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
         case angle::FormatID::ASTC_8x8_UNORM_BLOCK:
@@ -3257,19 +2575,15 @@ void Format::init(const DisplayMtl *display, angle::FormatID intendedFormatId_)
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x8_HDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
             else
             {
                 this->metalFormat    = MTLPixelFormatASTC_8x8_LDR;
                 this->actualFormatId = angle::FormatID::ASTC_8x8_UNORM_BLOCK;
-                this->initFunction   = nullptr;
             }
-
-            this->swizzled = false;
             break;
 
-#endif
+#endif  // TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 110000))
         default:
             this->metalFormat    = MTLPixelFormatInvalid;
             this->actualFormatId = angle::FormatID::NONE;
@@ -3296,7 +2610,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R10G10B10A2_SNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLuint, 1, 1, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R10G10B10A2_UNORM:
@@ -3304,7 +2617,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R10G10B10A2_UNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLuint, 1, 1, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16A16_FLOAT:
@@ -3312,7 +2624,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16B16A16_FLOAT;
             this->vertexLoadFunction = CopyNativeVertexData<GLhalf, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16A16_SINT:
@@ -3320,7 +2631,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16B16A16_SINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLshort, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16A16_SNORM:
@@ -3328,7 +2638,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16B16A16_SNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLshort, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16A16_SSCALED:
@@ -3336,7 +2645,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16B16A16_SSCALED;
             this->vertexLoadFunction = CopyNativeVertexData<GLshort, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16A16_UINT:
@@ -3344,7 +2652,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16B16A16_UINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLushort, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16A16_UNORM:
@@ -3352,7 +2659,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16B16A16_UNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLushort, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16A16_USCALED:
@@ -3360,7 +2666,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16B16A16_USCALED;
             this->vertexLoadFunction = CopyNativeVertexData<GLushort, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16B16_FLOAT:
@@ -3370,7 +2675,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16A16_FLOAT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLhalf, 3, 4, gl::Float16One>;
                 this->defaultAlpha       = gl::Float16One;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3378,7 +2682,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16_FLOAT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLhalf, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3389,7 +2692,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16A16_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3397,7 +2699,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3408,8 +2709,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R16G16B16A16_SNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLshort, 3, 4, std::numeric_limits<GLshort>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLshort>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLshort>::max();
             }
             else
             {
@@ -3417,7 +2717,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16_SNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3428,7 +2727,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16A16_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3436,7 +2734,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16_SSCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3447,7 +2744,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16A16_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3455,7 +2751,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3466,8 +2761,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R16G16B16A16_UNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLushort, 3, 4, std::numeric_limits<GLushort>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLushort>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLushort>::max();
             }
             else
             {
@@ -3475,7 +2769,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16_UNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3486,7 +2779,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16A16_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3494,7 +2786,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16B16_USCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3503,7 +2794,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16_FLOAT;
             this->vertexLoadFunction = CopyNativeVertexData<GLhalf, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16_SINT:
@@ -3511,7 +2801,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16_SINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLshort, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16_SNORM:
@@ -3519,7 +2808,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16_SNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLshort, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16_SSCALED:
@@ -3527,7 +2815,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16_SSCALED;
             this->vertexLoadFunction = CopyNativeVertexData<GLshort, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16_UINT:
@@ -3535,7 +2822,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16_UINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLushort, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16_UNORM:
@@ -3543,7 +2829,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16_UNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLushort, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16G16_USCALED:
@@ -3551,7 +2836,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R16G16_USCALED;
             this->vertexLoadFunction = CopyNativeVertexData<GLushort, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R16_FLOAT:
@@ -3561,7 +2845,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16_FLOAT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLhalf, 1, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3569,7 +2852,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16_FLOAT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLhalf, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3580,7 +2862,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 1, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3588,7 +2869,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3599,7 +2879,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16_SNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 1, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3607,7 +2886,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16_SNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3618,7 +2896,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 1, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3626,7 +2903,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16_SSCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLshort, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3637,7 +2913,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 1, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3645,7 +2920,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3656,7 +2930,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16_UNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 1, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3664,7 +2937,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16_UNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3675,7 +2947,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16G16_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 1, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3683,7 +2954,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R16_USCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLushort, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3692,7 +2962,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32B32A32_FLOAT;
             this->vertexLoadFunction = CopyNativeVertexData<GLfloat, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32B32A32_SINT:
@@ -3700,7 +2969,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32B32A32_SINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLint, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32B32A32_UINT:
@@ -3708,7 +2976,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32B32A32_UINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLuint, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32B32_FLOAT:
@@ -3716,7 +2983,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32B32_FLOAT;
             this->vertexLoadFunction = CopyNativeVertexData<GLfloat, 3, 3, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32B32_SINT:
@@ -3724,7 +2990,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32B32_SINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLint, 3, 3, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32B32_UINT:
@@ -3732,7 +2997,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32B32_UINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLuint, 3, 3, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32_FLOAT:
@@ -3740,7 +3004,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32_FLOAT;
             this->vertexLoadFunction = CopyNativeVertexData<GLfloat, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32_SINT:
@@ -3748,7 +3011,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32_SINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLint, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32G32_UINT:
@@ -3756,7 +3018,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32G32_UINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLuint, 2, 2, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32_FLOAT:
@@ -3764,7 +3025,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32_FLOAT;
             this->vertexLoadFunction = CopyNativeVertexData<GLfloat, 1, 1, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32_SINT:
@@ -3772,7 +3032,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32_SINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLint, 1, 1, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R32_UINT:
@@ -3780,7 +3039,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R32_UINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLuint, 1, 1, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R8G8B8A8_SINT:
@@ -3788,7 +3046,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R8G8B8A8_SINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R8G8B8A8_SNORM:
@@ -3796,7 +3053,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R8G8B8A8_SNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R8G8B8A8_SSCALED:
@@ -3804,7 +3060,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R8G8B8A8_SSCALED;
             this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R8G8B8A8_UINT:
@@ -3812,7 +3067,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R8G8B8A8_UINT;
             this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R8G8B8A8_UNORM:
@@ -3820,7 +3074,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R8G8B8A8_UNORM;
             this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R8G8B8A8_USCALED:
@@ -3828,7 +3081,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
             this->actualFormatId     = angle::FormatID::R8G8B8A8_USCALED;
             this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 4, 4, 0>;
             this->defaultAlpha       = 0;
-            this->actualSameGLType   = true;
             break;
 
         case angle::FormatID::R8G8B8_SINT:
@@ -3838,7 +3090,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3846,7 +3097,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3857,8 +3107,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_SNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLbyte, 3, 4, std::numeric_limits<GLbyte>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLbyte>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLbyte>::max();
             }
             else
             {
@@ -3866,7 +3115,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8_SNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3877,7 +3125,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3885,7 +3132,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8_SSCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3896,7 +3142,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3904,7 +3149,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3915,8 +3159,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLubyte, 3, 4, std::numeric_limits<GLubyte>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLubyte>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLubyte>::max();
             }
             else
             {
@@ -3924,7 +3167,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8_UNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3935,7 +3177,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 3, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3943,7 +3184,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8_USCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 3, 3, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3954,7 +3194,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 2, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -3962,7 +3201,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 2, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3973,8 +3211,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_SNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLbyte, 2, 4, std::numeric_limits<GLbyte>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLbyte>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLbyte>::max();
             }
             else
             {
@@ -3982,7 +3219,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8_SNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 2, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -3993,7 +3229,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 2, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -4001,7 +3236,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8_SSCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 2, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4012,7 +3246,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 2, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -4020,7 +3253,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 2, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4031,8 +3263,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLubyte, 2, 4, std::numeric_limits<GLubyte>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLubyte>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLubyte>::max();
             }
             else
             {
@@ -4040,7 +3271,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8_UNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 2, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4051,7 +3281,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 2, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -4059,7 +3288,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8_USCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 2, 2, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4070,7 +3298,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 1, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -4078,7 +3305,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4089,8 +3315,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_SNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLbyte, 1, 4, std::numeric_limits<GLbyte>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLbyte>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLbyte>::max();
             }
             else
             {
@@ -4098,7 +3323,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8_SNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4109,7 +3333,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_SINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 1, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -4117,7 +3340,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8_SSCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLbyte, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4128,7 +3350,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 1, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -4136,7 +3357,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4147,8 +3367,7 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId = angle::FormatID::R8G8B8A8_UNORM;
                 this->vertexLoadFunction =
                     CopyNativeVertexData<GLubyte, 1, 4, std::numeric_limits<GLubyte>::max()>;
-                this->defaultAlpha     = std::numeric_limits<GLubyte>::max();
-                this->actualSameGLType = true;
+                this->defaultAlpha = std::numeric_limits<GLubyte>::max();
             }
             else
             {
@@ -4156,7 +3375,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8_UNORM;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4167,7 +3385,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8G8B8A8_UINT;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 1, 4, 1>;
                 this->defaultAlpha       = 1;
-                this->actualSameGLType   = true;
             }
             else
             {
@@ -4175,7 +3392,6 @@ void VertexFormat::init(angle::FormatID angleFormatId, bool tightlyPacked)
                 this->actualFormatId     = angle::FormatID::R8_USCALED;
                 this->vertexLoadFunction = CopyNativeVertexData<GLubyte, 1, 1, 0>;
                 this->defaultAlpha       = 0;
-                this->actualSameGLType   = true;
             }
             break;
 
@@ -4406,9 +3622,9 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** colorRenderable*/ true, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatBGRA8Unorm_sRGB, /** filterable*/ true,
-                  /** writable*/ display->supportsAppleGPUFamily(2), /** blendable*/ true,
-                  /** multisample*/ true, /** resolve*/ true, /** colorRenderable*/ true,
-                  /** depthRenderable*/ false);
+                  /** writable*/ display->supportsAppleGPUFamily(2) && !display->isSimulator(),
+                  /** blendable*/ true, /** multisample*/ true, /** resolve*/ true,
+                  /** colorRenderable*/ true, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatDepth32Float,
                   /** filterable*/ display->supports32BitFloatFiltering(), /** writable*/ false,
@@ -4605,9 +3821,9 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** colorRenderable*/ true, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatRGBA8Unorm_sRGB, /** filterable*/ true,
-                  /** writable*/ display->supportsAppleGPUFamily(2), /** blendable*/ true,
-                  /** multisample*/ true, /** resolve*/ true, /** colorRenderable*/ true,
-                  /** depthRenderable*/ false);
+                  /** writable*/ display->supportsAppleGPUFamily(2) && !display->isSimulator(),
+                  /** blendable*/ true, /** multisample*/ true, /** resolve*/ true,
+                  /** colorRenderable*/ true, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatStencil8, /** filterable*/ false, /** writable*/ false,
                   /** blendable*/ false, /** multisample*/ true, /** resolve*/ false,
@@ -4684,7 +3900,7 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                       display->supportsDepth24Stencil8PixelFormat());
 
 #endif  // TARGET_OS_OSX || TARGET_OS_MACCATALYST
-#if (TARGET_OS_IOS && !TARGET_OS_MACCATALYST) || TARGET_OS_TV || \
+#if (TARGET_OS_IPHONE && !TARGET_OS_MACCATALYST) || \
     (TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 110000))
     setFormatCaps(MTLPixelFormatA1BGR5Unorm, /** filterable*/ display->supportsAppleGPUFamily(1),
                   /** writable*/ false, /** blendable*/ display->supportsAppleGPUFamily(1),
@@ -4700,10 +3916,6 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** colorRenderable*/ display->supportsAppleGPUFamily(1),
                   /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_10x10_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_10x10_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
@@ -4713,19 +3925,11 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** blendable*/ false, /** multisample*/ false, /** resolve*/ false,
                   /** colorRenderable*/ false, /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_10x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_10x5_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatASTC_10x5_sRGB, /** filterable*/ display->supportsAppleGPUFamily(2),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
-    setFormatCaps(MTLPixelFormatASTC_10x6_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
@@ -4737,19 +3941,11 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_10x8_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_10x8_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatASTC_10x8_sRGB, /** filterable*/ display->supportsAppleGPUFamily(2),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
-    setFormatCaps(MTLPixelFormatASTC_12x10_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
@@ -4762,10 +3958,6 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** blendable*/ false, /** multisample*/ false, /** resolve*/ false,
                   /** colorRenderable*/ false, /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_12x12_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_12x12_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
@@ -4775,19 +3967,11 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** blendable*/ false, /** multisample*/ false, /** resolve*/ false,
                   /** colorRenderable*/ false, /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_4x4_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_4x4_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatASTC_4x4_sRGB, /** filterable*/ display->supportsAppleGPUFamily(2),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
-    setFormatCaps(MTLPixelFormatASTC_5x4_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
@@ -4799,19 +3983,11 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_5x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_5x5_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatASTC_5x5_sRGB, /** filterable*/ display->supportsAppleGPUFamily(2),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
-    setFormatCaps(MTLPixelFormatASTC_6x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
@@ -4823,19 +3999,11 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_6x6_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_6x6_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatASTC_6x6_sRGB, /** filterable*/ display->supportsAppleGPUFamily(2),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
-    setFormatCaps(MTLPixelFormatASTC_8x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
@@ -4847,19 +4015,11 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
-    setFormatCaps(MTLPixelFormatASTC_8x6_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
     setFormatCaps(MTLPixelFormatASTC_8x6_LDR, /** filterable*/ display->supportsAppleGPUFamily(2),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
     setFormatCaps(MTLPixelFormatASTC_8x6_sRGB, /** filterable*/ display->supportsAppleGPUFamily(2),
-                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
-                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
-
-    setFormatCaps(MTLPixelFormatASTC_8x8_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
                   /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
                   /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
 
@@ -4980,7 +4140,65 @@ void FormatTable::initNativeFormatCapsAutogen(const DisplayMtl *display)
                   /** colorRenderable*/ display->supportsAppleGPUFamily(1),
                   /** depthRenderable*/ false);
 
-#endif
+#    if TARGET_OS_IOS || TARGET_OS_OSX
+    setFormatCaps(MTLPixelFormatASTC_10x10_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_10x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_10x6_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_10x8_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_12x10_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_12x12_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_4x4_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_5x4_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_5x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_6x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_6x6_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_8x5_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_8x6_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+    setFormatCaps(MTLPixelFormatASTC_8x8_HDR, /** filterable*/ display->supportsAppleGPUFamily(6),
+                  /** writable*/ false, /** blendable*/ false, /** multisample*/ false,
+                  /** resolve*/ false, /** colorRenderable*/ false, /** depthRenderable*/ false);
+
+#    endif  // TARGET_OS_IOS || mac 11.0+
+#endif      // TARGET_OS_IPHONE && !TARGET_OS_MACCATALYST || mac 11.0+
 }
 
 }  // namespace mtl

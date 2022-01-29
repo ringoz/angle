@@ -1156,6 +1156,25 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
         addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
     }
 
+    if (traceNameIs("pubg_mobile_launch"))
+    {
+        // http://anglebug.com/6850 - Crashing in Nvidia GLES driver.
+        if (IsLinux() && IsNVIDIA() && mParams.driver != GLESDriverType::AngleEGL)
+        {
+            mSkipTest = true;
+        }
+    }
+
+    if (traceNameIs("dead_by_daylight"))
+    {
+        addExtensionPrerequisite("GL_EXT_shader_framebuffer_fetch");
+    }
+
+    if (traceNameIs("war_planet_online"))
+    {
+        addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
+    }
+
     ASSERT(mParams.surfaceType == SurfaceType::Window || gEnableAllTraceTests);
     ASSERT(mParams.eglParameters.deviceType == EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE ||
            gEnableAllTraceTests);

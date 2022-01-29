@@ -448,6 +448,14 @@ constexpr SkippedSyncvalMessage kSkippedSyncvalMessages[] = {
     {"SYNC-HAZARD-READ_AFTER_WRITE", "usage: SYNC_VERTEX_SHADER_UNIFORM_READ", "", false},
     {"SYNC-HAZARD-WRITE_AFTER_READ", "type: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC", "", false},
     {"SYNC-HAZARD-READ_AFTER_WRITE", "type: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC", "", false},
+    // http://anglebug.com/6870
+    // From: TracePerfTest.Run/vulkan_dead_by_daylight
+    {"SYNC-HAZARD-READ_AFTER_WRITE",
+     "vkCmdBeginRenderPass: Hazard READ_AFTER_WRITE in subpass 0 for attachment 0 aspect color "
+     "during load with loadOp VK_ATTACHMENT_LOAD_OP_LOAD. Access info (usage: "
+     "SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_READ, prior_usage: "
+     "SYNC_IMAGE_LAYOUT_TRANSITION, write_barriers: 0, command: vkCmdEndRenderPass",
+     "", false},
 };
 
 enum class DebugMessageReport
@@ -2828,7 +2836,7 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
                             IsAndroid() && isQualcomm);
 
     ANGLE_FEATURE_CONDITION(&mFeatures, perFrameWindowSizeQuery,
-                            isIntel || (IsWindows() && isAMD) || IsFuchsia());
+                            isIntel || (IsWindows() && isAMD) || IsFuchsia() || isSamsung);
 
     // Disabled on AMD/windows due to buggy behavior.
     ANGLE_FEATURE_CONDITION(&mFeatures, disallowSeamfulCubeMapEmulation, IsWindows() && isAMD);
@@ -3024,6 +3032,9 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // https://issuetracker.google.com/issues/186643966
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsShaderFramebufferFetchNonCoherent,
                             IsAndroid() && !(isARM || isQualcomm));
+
+    // Support EGL_KHR_lock_surface3 extension.
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsLockSurfaceExtension, IsAndroid());
 
     angle::PlatformMethods *platform = ANGLEPlatformCurrent();
     platform->overrideFeaturesVk(platform, &mFeatures);
@@ -3385,20 +3396,21 @@ bool RendererVk::haveSameFormatFeatureBits(angle::FormatID formatID1,
 
 angle::Result RendererVk::cleanupGarbage(Serial lastCompletedQueueSerial)
 {
+    vk::SharedGarbageList remainingGarbage;
     std::lock_guard<std::mutex> lock(mGarbageMutex);
-
-    for (auto garbageIter = mSharedGarbage.begin(); garbageIter != mSharedGarbage.end();)
+    while (!mSharedGarbage.empty())
     {
-        // Possibly 'counter' should be always zero when we add the object to garbage.
-        vk::SharedGarbage &garbage = *garbageIter;
-        if (garbage.destroyIfComplete(this, lastCompletedQueueSerial))
+        vk::SharedGarbage &garbage = mSharedGarbage.front();
+        if (!garbage.destroyIfComplete(this, lastCompletedQueueSerial))
         {
-            garbageIter = mSharedGarbage.erase(garbageIter);
+            remainingGarbage.push(std::move(garbage));
         }
-        else
-        {
-            garbageIter++;
-        }
+        mSharedGarbage.pop();
+    }
+
+    if (!remainingGarbage.empty())
+    {
+        mSharedGarbage = std::move(remainingGarbage);
     }
 
     return angle::Result::Continue;

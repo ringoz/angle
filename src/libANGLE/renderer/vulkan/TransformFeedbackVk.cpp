@@ -248,6 +248,8 @@ void TransformFeedbackVk::updateDescriptorSetLayout(
         const ShaderInterfaceVariableInfo &info =
             variableInfoMap.get(gl::ShaderType::Vertex, bufferName);
 
+        ASSERT(info.binding != std::numeric_limits<uint32_t>::max());
+
         descSetLayoutOut->update(info.binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1,
                                  VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     }
@@ -279,7 +281,7 @@ void TransformFeedbackVk::initDescriptorSet(ContextVk *contextVk,
 }
 
 void TransformFeedbackVk::updateDescriptorSet(ContextVk *contextVk,
-                                              const gl::ProgramState &programState,
+                                              const gl::ProgramExecutable &executable,
                                               const ShaderInterfaceVariableInfoMap &variableInfoMap,
                                               VkDescriptorSet descSet) const
 {
@@ -288,12 +290,10 @@ void TransformFeedbackVk::updateDescriptorSet(ContextVk *contextVk,
         return;
     }
 
-    const gl::ProgramExecutable *executable = contextVk->getState().getProgramExecutable();
-    ASSERT(executable);
-    size_t xfbBufferCount = executable->getTransformFeedbackBufferCount();
+    size_t xfbBufferCount = executable.getTransformFeedbackBufferCount();
 
     ASSERT(xfbBufferCount > 0);
-    ASSERT(programState.getTransformFeedbackBufferMode() != GL_INTERLEAVED_ATTRIBS ||
+    ASSERT(executable.getTransformFeedbackBufferMode() != GL_INTERLEAVED_ATTRIBS ||
            xfbBufferCount == 1);
 
     VkDescriptorBufferInfo *descriptorBufferInfo =

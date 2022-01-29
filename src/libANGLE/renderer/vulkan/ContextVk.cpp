@@ -1139,23 +1139,12 @@ angle::Result ContextVk::setupDraw(const gl::Context *context,
         mGraphicsDirtyBits.set(DIRTY_BIT_VERTEX_BUFFERS);
     }
 
-    ProgramVk *programVk = getProgram();
-    if (programVk)
+    ProgramExecutableVk *programExecutableVk = getExecutable();
+    if (programExecutableVk->hasDirtyUniforms())
     {
-        if (programVk->hasDirtyUniforms())
-        {
-            ANGLE_TRY(programVk->updateUniforms(this));
-            mGraphicsDirtyBits.set(DIRTY_BIT_DESCRIPTOR_SETS);
-        }
-    }
-    else
-    {
-        ProgramPipelineVk *programPipelineVk = getProgramPipeline();
-        if (programPipelineVk && programPipelineVk->hasDirtyUniforms())
-        {
-            ANGLE_TRY(programPipelineVk->updateUniforms(this));
-            mGraphicsDirtyBits.set(DIRTY_BIT_DESCRIPTOR_SETS);
-        }
+        ANGLE_TRY(programExecutableVk->updateUniforms(this, *mState.getProgramExecutable(),
+                                                      &mDefaultUniformStorage));
+        mGraphicsDirtyBits.set(DIRTY_BIT_DESCRIPTOR_SETS);
     }
 
     // Update transform feedback offsets on every draw call when emulating transform feedback.  This
@@ -1382,20 +1371,12 @@ angle::Result ContextVk::setupDispatch(const gl::Context *context)
     // TODO: Remove this and fix tests.  http://anglebug.com/5070
     ANGLE_TRY(flushOutsideRenderPassCommands());
 
-    ProgramVk *programVk = getProgram();
-    if (programVk && programVk->hasDirtyUniforms())
+    ProgramExecutableVk *programExecutableVk = getExecutable();
+    if (programExecutableVk->hasDirtyUniforms())
     {
-        ANGLE_TRY(programVk->updateUniforms(this));
+        ANGLE_TRY(programExecutableVk->updateUniforms(this, *mState.getProgramExecutable(),
+                                                      &mDefaultUniformStorage));
         mComputeDirtyBits.set(DIRTY_BIT_DESCRIPTOR_SETS);
-    }
-    else
-    {
-        ProgramPipelineVk *programPipelineVk = getProgramPipeline();
-        if (programPipelineVk && programPipelineVk->hasDirtyUniforms())
-        {
-            ANGLE_TRY(programPipelineVk->updateUniforms(this));
-            mComputeDirtyBits.set(DIRTY_BIT_DESCRIPTOR_SETS);
-        }
     }
 
     DirtyBits dirtyBits = mComputeDirtyBits;
@@ -1460,55 +1441,44 @@ bool ContextVk::renderPassUsesStorageResources() const
         }
     }
 
-    gl::ShaderMap<const gl::ProgramState *> programStates;
-    getExecutable()->fillProgramStateMap(this, &programStates);
-
-    for (const gl::ShaderType shaderType : executable->getLinkedShaderStages())
+    // Storage buffers:
+    const std::vector<gl::InterfaceBlock> &blocks = executable->getShaderStorageBlocks();
+    for (uint32_t bufferIndex = 0; bufferIndex < blocks.size(); ++bufferIndex)
     {
-        const gl::ProgramState *programState = programStates[shaderType];
-        ASSERT(programState);
+        uint32_t binding = blocks[bufferIndex].binding;
+        const gl::OffsetBindingPointer<gl::Buffer> &bufferBinding =
+            mState.getIndexedShaderStorageBuffer(binding);
 
-        // Storage buffers:
-        const std::vector<gl::InterfaceBlock> &blocks = programState->getShaderStorageBlocks();
-
-        for (uint32_t bufferIndex = 0; bufferIndex < blocks.size(); ++bufferIndex)
+        if (bufferBinding.get() == nullptr)
         {
-            const gl::InterfaceBlock &block = blocks[bufferIndex];
-            const gl::OffsetBindingPointer<gl::Buffer> &bufferBinding =
-                mState.getIndexedShaderStorageBuffer(block.binding);
-
-            if (!block.isActive(shaderType) || bufferBinding.get() == nullptr)
-            {
-                continue;
-            }
-
-            vk::BufferHelper &buffer = vk::GetImpl(bufferBinding.get())->getBuffer();
-            if (mRenderPassCommands->usesBuffer(buffer))
-            {
-                return true;
-            }
+            continue;
         }
 
-        // Atomic counters:
-        const std::vector<gl::AtomicCounterBuffer> &atomicCounterBuffers =
-            programState->getAtomicCounterBuffers();
-
-        for (uint32_t bufferIndex = 0; bufferIndex < atomicCounterBuffers.size(); ++bufferIndex)
+        vk::BufferHelper &buffer = vk::GetImpl(bufferBinding.get())->getBuffer();
+        if (mRenderPassCommands->usesBuffer(buffer))
         {
-            uint32_t binding = atomicCounterBuffers[bufferIndex].binding;
-            const gl::OffsetBindingPointer<gl::Buffer> &bufferBinding =
-                mState.getIndexedAtomicCounterBuffer(binding);
+            return true;
+        }
+    }
 
-            if (bufferBinding.get() == nullptr)
-            {
-                continue;
-            }
+    // Atomic counters:
+    const std::vector<gl::AtomicCounterBuffer> &atomicCounterBuffers =
+        executable->getAtomicCounterBuffers();
+    for (uint32_t bufferIndex = 0; bufferIndex < atomicCounterBuffers.size(); ++bufferIndex)
+    {
+        uint32_t binding = atomicCounterBuffers[bufferIndex].binding;
+        const gl::OffsetBindingPointer<gl::Buffer> &bufferBinding =
+            mState.getIndexedAtomicCounterBuffer(binding);
 
-            vk::BufferHelper &buffer = vk::GetImpl(bufferBinding.get())->getBuffer();
-            if (mRenderPassCommands->usesBuffer(buffer))
-            {
-                return true;
-            }
+        if (bufferBinding.get() == nullptr)
+        {
+            continue;
+        }
+
+        vk::BufferHelper &buffer = vk::GetImpl(bufferBinding.get())->getBuffer();
+        if (mRenderPassCommands->usesBuffer(buffer))
+        {
+            return true;
         }
     }
 
@@ -1962,13 +1932,9 @@ void ContextVk::handleDirtyShaderBufferResourcesImpl(
     ASSERT(executable);
 
     // Process buffer barriers.
-    ProgramExecutableVk *executableVk = getExecutable();
-    gl::ShaderMap<const gl::ProgramState *> programStates;
-    executableVk->fillProgramStateMap(this, &programStates);
     for (const gl::ShaderType shaderType : executable->getLinkedShaderStages())
     {
-        const gl::ProgramState &programState        = *programStates[shaderType];
-        const std::vector<gl::InterfaceBlock> &ubos = programState.getUniformBlocks();
+        const std::vector<gl::InterfaceBlock> &ubos = executable->getUniformBlocks();
 
         for (const gl::InterfaceBlock &ubo : ubos)
         {
@@ -1992,7 +1958,7 @@ void ContextVk::handleDirtyShaderBufferResourcesImpl(
                                             vk::GetPipelineStage(shaderType), &bufferHelper);
         }
 
-        const std::vector<gl::InterfaceBlock> &ssbos = programState.getShaderStorageBlocks();
+        const std::vector<gl::InterfaceBlock> &ssbos = executable->getShaderStorageBlocks();
         for (const gl::InterfaceBlock &ssbo : ssbos)
         {
             const gl::OffsetBindingPointer<gl::Buffer> &bufferBinding =
@@ -2017,7 +1983,7 @@ void ContextVk::handleDirtyShaderBufferResourcesImpl(
                                              vk::AliasingMode::Allowed, &bufferHelper);
         }
 
-        const std::vector<gl::AtomicCounterBuffer> &acbs = programState.getAtomicCounterBuffers();
+        const std::vector<gl::AtomicCounterBuffer> &acbs = executable->getAtomicCounterBuffers();
         for (const gl::AtomicCounterBuffer &atomicCounterBuffer : acbs)
         {
             uint32_t binding = atomicCounterBuffer.binding;
@@ -2090,8 +2056,7 @@ angle::Result ContextVk::handleDirtyGraphicsTransformFeedbackBuffersEmulation(
 
     ProgramVk *programVk = getProgram();
     return programVk->getExecutable().updateTransformFeedbackDescriptorSet(
-        programVk->getState(), programVk->getDefaultUniformBlocks(), uniformBuffer, this,
-        xfbBufferDesc);
+        this, *executable, uniformBuffer, xfbBufferDesc);
 }
 
 angle::Result ContextVk::handleDirtyGraphicsTransformFeedbackBuffersExtension(
@@ -3698,20 +3663,12 @@ void ContextVk::updateRasterizerDiscardEnabled(bool isPrimitivesGeneratedQueryAc
     }
 }
 
-void ContextVk::invalidateProgramBindingHelper(const gl::State &glState)
+void ContextVk::invalidateProgramBindingHelper()
 {
-    ProgramVk *programVk = getProgram();
-    if (programVk)
+    ProgramExecutableVk *executableVk = getExecutable();
+    if (executableVk)
     {
-        programVk->onProgramBind();
-    }
-    else
-    {
-        ProgramPipelineVk *programPipelineVk = getProgramPipeline();
-        if (programPipelineVk)
-        {
-            programPipelineVk->onProgramBind();
-        }
+        executableVk->onProgramBind(*mState.getProgramExecutable());
     }
 }
 
@@ -3740,7 +3697,7 @@ angle::Result ContextVk::invalidateProgramExecutableHelper(const gl::Context *co
 
         ProgramExecutableVk *executableVk = getExecutable();
         ASSERT(executableVk);
-        executableVk->updateEarlyFragmentTestsOptimization(this);
+        executableVk->updateEarlyFragmentTestsOptimization(this, *executable);
 
         if (mLastProgramUsesFramebufferFetch != executable->usesFramebufferFetch())
         {
@@ -4017,7 +3974,7 @@ angle::Result ContextVk::syncState(const gl::Context *context,
             case gl::State::DIRTY_BIT_DISPATCH_INDIRECT_BUFFER_BINDING:
                 break;
             case gl::State::DIRTY_BIT_PROGRAM_BINDING:
-                invalidateProgramBindingHelper(glState);
+                invalidateProgramBindingHelper();
                 static_assert(
                     gl::State::DIRTY_BIT_PROGRAM_EXECUTABLE > gl::State::DIRTY_BIT_PROGRAM_BINDING,
                     "Dirty bit order");
@@ -5485,19 +5442,7 @@ angle::Result ContextVk::updateActiveTextures(const gl::Context *context, gl::Co
         // dirty to get everything reallocated/rebound before the next draw.
         if (executable->hasDefaultUniforms())
         {
-            ProgramVk *programVk = getProgram();
-            if (programVk)
-            {
-                programVk->setAllDefaultUniformsDirty();
-            }
-            else
-            {
-                ProgramPipelineVk *programPipelineVk = getProgramPipeline();
-                if (programPipelineVk)
-                {
-                    programPipelineVk->setAllDefaultUniformsDirty();
-                }
-            }
+            executableVk->setAllDefaultUniformsDirty(*executable);
         }
     }
 
@@ -6645,35 +6590,24 @@ angle::Result ContextVk::endRenderPassIfComputeReadAfterTransformFeedbackWrite()
     const gl::ProgramExecutable *executable = mState.getProgramExecutable();
     ASSERT(executable && executable->hasLinkedShaderStage(gl::ShaderType::Compute));
 
-    ProgramExecutableVk *executableVk = getExecutable();
-    gl::ShaderMap<const gl::ProgramState *> programStates;
-    executableVk->fillProgramStateMap(this, &programStates);
+    // Uniform buffers:
+    const std::vector<gl::InterfaceBlock> &blocks = executable->getUniformBlocks();
 
-    for (const gl::ShaderType shaderType : executable->getLinkedShaderStages())
+    for (uint32_t bufferIndex = 0; bufferIndex < blocks.size(); ++bufferIndex)
     {
-        const gl::ProgramState *programState = programStates[shaderType];
-        ASSERT(programState);
+        const gl::InterfaceBlock &block = blocks[bufferIndex];
+        const gl::OffsetBindingPointer<gl::Buffer> &bufferBinding =
+            mState.getIndexedUniformBuffer(block.binding);
 
-        // Uniform buffers:
-        const std::vector<gl::InterfaceBlock> &blocks = programState->getUniformBlocks();
-
-        for (uint32_t bufferIndex = 0; bufferIndex < blocks.size(); ++bufferIndex)
+        if (bufferBinding.get() == nullptr)
         {
-            const gl::InterfaceBlock &block = blocks[bufferIndex];
-            const gl::OffsetBindingPointer<gl::Buffer> &bufferBinding =
-                mState.getIndexedUniformBuffer(block.binding);
+            continue;
+        }
 
-            if (!block.isActive(shaderType) || bufferBinding.get() == nullptr)
-            {
-                continue;
-            }
-
-            vk::BufferHelper &buffer = vk::GetImpl(bufferBinding.get())->getBuffer();
-            if (mCurrentTransformFeedbackBuffers.contains(&buffer))
-            {
-                return flushCommandsAndEndRenderPass(
-                    RenderPassClosureReason::XfbWriteThenComputeRead);
-            }
+        vk::BufferHelper &buffer = vk::GetImpl(bufferBinding.get())->getBuffer();
+        if (mCurrentTransformFeedbackBuffers.contains(&buffer))
+        {
+            return flushCommandsAndEndRenderPass(RenderPassClosureReason::XfbWriteThenComputeRead);
         }
     }
 

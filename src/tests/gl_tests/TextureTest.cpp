@@ -468,6 +468,12 @@ class Texture2DTestES3 : public Texture2DTest
     }
 };
 
+class Texture2DTestES3RobustInit : public Texture2DTestES3
+{
+  protected:
+    Texture2DTestES3RobustInit() : Texture2DTestES3() { setRobustResourceInit(true); }
+};
+
 class Texture2DBaseMaxTestES3 : public ANGLETest
 {
   protected:
@@ -1038,31 +1044,37 @@ class SamplerArrayAsFunctionParameterTest : public SamplerArrayTest
 class Texture2DArrayTestES3 : public TexCoordDrawTest
 {
   protected:
-    Texture2DArrayTestES3() : TexCoordDrawTest(), m2DArrayTexture(0), mTextureArrayLocation(-1) {}
+    Texture2DArrayTestES3()
+        : TexCoordDrawTest(),
+          m2DArrayTexture(0),
+          mTextureArrayLocation(-1),
+          mTextureArraySliceUniformLocation(-1)
+    {}
 
     const char *getVertexShaderSource() override
     {
-        return "#version 300 es\n"
-               "out vec2 texcoord;\n"
-               "in vec4 position;\n"
-               "void main()\n"
-               "{\n"
-               "    gl_Position = vec4(position.xy, 0.0, 1.0);\n"
-               "    texcoord = (position.xy * 0.5) + 0.5;\n"
-               "}\n";
+        return R"(#version 300 es
+out vec2 texcoord;
+in vec4 position;
+void main()
+{
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+    texcoord = (position.xy * 0.5) + 0.5;
+})";
     }
 
     const char *getFragmentShaderSource() override
     {
-        return "#version 300 es\n"
-               "precision highp float;\n"
-               "uniform highp sampler2DArray tex2DArray;\n"
-               "in vec2 texcoord;\n"
-               "out vec4 fragColor;\n"
-               "void main()\n"
-               "{\n"
-               "    fragColor = texture(tex2DArray, vec3(texcoord.x, texcoord.y, 0.0));\n"
-               "}\n";
+        return R"(#version 300 es
+precision highp float;
+uniform highp sampler2DArray tex2DArray;
+uniform int slice;
+in vec2 texcoord;
+out vec4 fragColor;
+void main()
+{
+    fragColor = texture(tex2DArray, vec3(texcoord, float(slice)));
+})";
     }
 
     void testSetUp() override
@@ -1073,6 +1085,9 @@ class Texture2DArrayTestES3 : public TexCoordDrawTest
 
         mTextureArrayLocation = glGetUniformLocation(mProgram, "tex2DArray");
         ASSERT_NE(-1, mTextureArrayLocation);
+
+        mTextureArraySliceUniformLocation = glGetUniformLocation(mProgram, "slice");
+        ASSERT_NE(-1, mTextureArraySliceUniformLocation);
 
         glGenTextures(1, &m2DArrayTexture);
         ASSERT_GL_NO_ERROR();
@@ -1086,6 +1101,7 @@ class Texture2DArrayTestES3 : public TexCoordDrawTest
 
     GLuint m2DArrayTexture;
     GLint mTextureArrayLocation;
+    GLint mTextureArraySliceUniformLocation;
 };
 
 class TextureSizeTextureArrayTest : public TexCoordDrawTest
@@ -1728,28 +1744,28 @@ class Texture2DArrayIntegerTestES3 : public Texture2DArrayTestES3
 
     const char *getVertexShaderSource() override
     {
-        return "#version 300 es\n"
-               "out vec2 texcoord;\n"
-               "in vec4 position;\n"
-               "void main()\n"
-               "{\n"
-               "    gl_Position = vec4(position.xy, 0.0, 1.0);\n"
-               "    texcoord = (position.xy * 0.5) + 0.5;\n"
-               "}\n";
+        return R"(#version 300 es
+out vec2 texcoord;
+in vec4 position;
+void main()
+{
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+    texcoord = (position.xy * 0.5) + 0.5;
+})";
     }
 
     const char *getFragmentShaderSource() override
     {
-        return "#version 300 es\n"
-               "precision highp float;\n"
-               "uniform highp usampler2DArray tex2DArray;\n"
-               "in vec2 texcoord;\n"
-               "out vec4 fragColor;\n"
-               "void main()\n"
-               "{\n"
-               "    fragColor = vec4(texture(tex2DArray, vec3(texcoord.x, texcoord.y, "
-               "0.0)))/255.0;\n"
-               "}\n";
+        return R"(#version 300 es
+precision highp float;
+uniform highp usampler2DArray tex2DArray;
+uniform int slice;
+in vec2 texcoord;
+out vec4 fragColor;
+void main()
+{
+    fragColor = vec4(texture(tex2DArray, vec3(texcoord, slice)))/255.0;
+})";
     }
 };
 
@@ -5161,6 +5177,94 @@ TEST_P(Texture2DArrayTestES3, DrawWithLevelsOutsideRangeWithInconsistentDimensio
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::cyan);
 }
 
+// Create a 2D array, then immediately redefine it to have fewer layers.  Regression test for a bug
+// in the Vulkan backend where the old higher-layer-count data upload was not removed.
+TEST_P(Texture2DArrayTestES3, TextureArrayRedefineThenUse)
+{
+    int px = getWindowWidth() / 2;
+    int py = getWindowHeight() / 2;
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, m2DArrayTexture);
+
+    // Fill the whole texture with red, then redefine it and fill with green
+    std::vector<GLColor> pixelsRed(2 * 2 * 4, GLColor::red);
+    std::vector<GLColor> pixelsGreen(2 * 2 * 2, GLColor::green);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 2, 2, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 pixelsRed.data());
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 2, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 pixelsGreen.data());
+
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    EXPECT_GL_NO_ERROR();
+
+    glUseProgram(mProgram);
+    EXPECT_GL_NO_ERROR();
+
+    // Draw the first slice
+    glUniform1i(mTextureArraySliceUniformLocation, 0);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(px, py, GLColor::green);
+
+    // Draw the second slice
+    glUniform1i(mTextureArraySliceUniformLocation, 1);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(px, py, GLColor::green);
+}
+
+// Create a 2D array, use it, then redefine it to have fewer layers.  Regression test for a bug in
+// the Vulkan backend where the old higher-layer-count data upload was not removed.
+TEST_P(Texture2DArrayTestES3, TextureArrayUseThenRedefineThenUse)
+{
+    int px = getWindowWidth() / 2;
+    int py = getWindowHeight() / 2;
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, m2DArrayTexture);
+
+    // Fill the whole texture with red.
+    std::vector<GLColor> pixelsRed(2 * 2 * 4, GLColor::red);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 2, 2, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 pixelsRed.data());
+
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    EXPECT_GL_NO_ERROR();
+
+    glUseProgram(mProgram);
+    EXPECT_GL_NO_ERROR();
+
+    // Draw the first slice
+    glUniform1i(mTextureArraySliceUniformLocation, 0);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(px, py, GLColor::red);
+
+    // Draw the fourth slice
+    glUniform1i(mTextureArraySliceUniformLocation, 3);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(px, py, GLColor::red);
+
+    // Redefine the image and fill with green
+    std::vector<GLColor> pixelsGreen(2 * 2 * 2, GLColor::green);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 2, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 pixelsGreen.data());
+
+    // Draw the first slice
+    glUniform1i(mTextureArraySliceUniformLocation, 0);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(px, py, GLColor::green);
+
+    // Draw the second slice
+    glUniform1i(mTextureArraySliceUniformLocation, 1);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(px, py, GLColor::green);
+}
+
 // Test that texture completeness is updated if texture max level changes.
 // GLES 3.0.4 section 3.8.13 Texture completeness
 TEST_P(Texture2DTestES3, TextureCompletenessChangesWithMaxLevel)
@@ -5935,6 +6039,36 @@ TEST_P(Texture2DTestES3, TextureCOMPRESSEDSRGB8ETC2ImplicitAlpha1)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mTexture2D);
     glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_SRGB8_ETC2, 1, 1, 0, 8, nullptr);
+    EXPECT_GL_NO_ERROR();
+
+    drawQuad(mProgram, "position", 0.5f);
+
+    EXPECT_PIXEL_ALPHA_EQ(0, 0, 255);
+}
+
+// ETC2 punchthrough alpha formats must be initialized to opaque black when emulated
+// http://anglebug.com/6936
+TEST_P(Texture2DTestES3RobustInit, TextureCOMPRESSEDRGB8A1ETC2)
+{
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mTexture2D);
+    glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2, 1, 1, 0,
+                           8, nullptr);
+    EXPECT_GL_NO_ERROR();
+
+    drawQuad(mProgram, "position", 0.5f);
+
+    EXPECT_PIXEL_ALPHA_EQ(0, 0, 255);
+}
+
+// ETC2 punchthrough alpha formats must be initialized to opaque black when emulated
+// http://anglebug.com/6936
+TEST_P(Texture2DTestES3RobustInit, TextureCOMPRESSEDSRGB8A1ETC2)
+{
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mTexture2D);
+    glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2, 1, 1, 0,
+                           8, nullptr);
     EXPECT_GL_NO_ERROR();
 
     drawQuad(mProgram, "position", 0.5f);
@@ -10338,6 +10472,9 @@ ANGLE_INSTANTIATE_TEST_ES2(SamplerArrayAsFunctionParameterTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(Texture2DTestES3);
 ANGLE_INSTANTIATE_TEST_ES3_AND(Texture2DTestES3, WithAllocateNonZeroMemory(ES3_VULKAN()));
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(Texture2DTestES3RobustInit);
+ANGLE_INSTANTIATE_TEST_ES3(Texture2DTestES3RobustInit);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(Texture2DTestES31PPO);
 ANGLE_INSTANTIATE_TEST_ES31(Texture2DTestES31PPO);

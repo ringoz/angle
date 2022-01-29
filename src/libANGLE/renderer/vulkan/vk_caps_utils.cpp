@@ -362,10 +362,8 @@ void RendererVk::ensureCapsInitialized() const
     mNativeExtensions.copyTexture3dANGLE            = true;
     mNativeExtensions.copyCompressedTextureCHROMIUM = true;
     mNativeExtensions.debugMarkerEXT                = true;
-    mNativeExtensions.robustnessEXT =
-        !IsSwiftshader(mPhysicalDeviceProperties.vendorID, mPhysicalDeviceProperties.deviceID) &&
-        !IsARM(mPhysicalDeviceProperties.vendorID);
-    mNativeExtensions.discardFramebufferEXT = true;
+    mNativeExtensions.robustnessEXT                 = !IsARM(mPhysicalDeviceProperties.vendorID);
+    mNativeExtensions.discardFramebufferEXT         = true;
     mNativeExtensions.textureBorderClampOES = getFeatures().supportsCustomBorderColor.enabled;
     mNativeExtensions.textureBorderClampEXT = getFeatures().supportsCustomBorderColor.enabled;
     // Enable EXT_texture_type_2_10_10_10_REV
@@ -608,19 +606,19 @@ void RendererVk::ensureCapsInitialized() const
     // Looks like all floats are IEEE according to the docs here:
     // https://www.khronos.org/registry/vulkan/specs/1.0-wsi_extensions/html/vkspec.html#spirvenv-precision-operation
     mNativeCaps.vertexHighpFloat.setIEEEFloat();
-    mNativeCaps.vertexMediumpFloat.setIEEEFloat();
-    mNativeCaps.vertexLowpFloat.setIEEEFloat();
+    mNativeCaps.vertexMediumpFloat.setIEEEHalfFloat();
+    mNativeCaps.vertexLowpFloat.setIEEEHalfFloat();
     mNativeCaps.fragmentHighpFloat.setIEEEFloat();
-    mNativeCaps.fragmentMediumpFloat.setIEEEFloat();
-    mNativeCaps.fragmentLowpFloat.setIEEEFloat();
+    mNativeCaps.fragmentMediumpFloat.setIEEEHalfFloat();
+    mNativeCaps.fragmentLowpFloat.setIEEEHalfFloat();
 
-    // Can't find documentation on the int precision in Vulkan.
+    // Vulkan doesn't provide such information.  We provide the spec-required minimum here.
     mNativeCaps.vertexHighpInt.setTwosComplementInt(32);
-    mNativeCaps.vertexMediumpInt.setTwosComplementInt(32);
-    mNativeCaps.vertexLowpInt.setTwosComplementInt(32);
+    mNativeCaps.vertexMediumpInt.setTwosComplementInt(16);
+    mNativeCaps.vertexLowpInt.setTwosComplementInt(16);
     mNativeCaps.fragmentHighpInt.setTwosComplementInt(32);
-    mNativeCaps.fragmentMediumpInt.setTwosComplementInt(32);
-    mNativeCaps.fragmentLowpInt.setTwosComplementInt(32);
+    mNativeCaps.fragmentMediumpInt.setTwosComplementInt(16);
+    mNativeCaps.fragmentLowpInt.setTwosComplementInt(16);
 
     // Compute shader limits.
     mNativeCaps.maxComputeWorkGroupCount[0] = LimitToInt(limitsVk.maxComputeWorkGroupCount[0]);
@@ -1160,6 +1158,22 @@ EGLint ComputeMaximumPBufferPixels(const VkPhysicalDeviceProperties &physicalDev
     return static_cast<EGLint>(std::min(maxDimensionsSquared, kMaxValueForEGLint));
 }
 
+EGLint GetMatchFormat(GLenum internalFormat)
+{
+    // Lock Surface match format
+    switch (internalFormat)
+    {
+        case GL_RGBA8:
+            return EGL_FORMAT_RGBA_8888_KHR;
+        case GL_BGRA8_EXT:
+            return EGL_FORMAT_RGBA_8888_EXACT_KHR;
+        case GL_RGB565:
+            return EGL_FORMAT_RGB_565_EXACT_KHR;
+        default:
+            return EGL_NONE;
+    }
+}
+
 // Generates a basic config for a combination of color format, depth stencil format and sample
 // count.
 egl::Config GenerateDefaultConfig(DisplayVk *display,
@@ -1222,6 +1236,12 @@ egl::Config GenerateDefaultConfig(DisplayVk *display,
     config.transparentBlueValue  = 0;
     config.colorComponentType =
         gl_egl::GLComponentTypeToEGLColorComponentType(colorFormat.componentType);
+    // LockSurface matching
+    config.matchFormat = GetMatchFormat(colorFormat.internalFormat);
+    if (config.matchFormat != EGL_NONE)
+    {
+        config.surfaceType |= EGL_LOCK_SURFACE_BIT_KHR;
+    }
 
     // Vulkan always supports off-screen rendering.  Check the config with display to see if it can
     // also have window support.  If not, the following call should automatically remove

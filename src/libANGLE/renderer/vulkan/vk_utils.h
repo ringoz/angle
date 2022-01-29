@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <limits>
+#include <queue>
 
 #include "GLSLANG/ShaderLang.h"
 #include "common/FixedVector.h"
@@ -201,11 +202,14 @@ class Context : angle::NonCopyable
 
 class RenderPassDesc;
 
-#if ANGLE_USE_CUSTOM_VULKAN_CMD_BUFFERS
+#if ANGLE_USE_CUSTOM_VULKAN_OUTSIDE_RENDER_PASS_CMD_BUFFERS
 using OutsideRenderPassCommandBuffer = priv::SecondaryCommandBuffer;
-using RenderPassCommandBuffer        = priv::SecondaryCommandBuffer;
 #else
 using OutsideRenderPassCommandBuffer         = VulkanSecondaryCommandBuffer;
+#endif
+#if ANGLE_USE_CUSTOM_VULKAN_RENDER_PASS_CMD_BUFFERS
+using RenderPassCommandBuffer = priv::SecondaryCommandBuffer;
+#else
 using RenderPassCommandBuffer                = VulkanSecondaryCommandBuffer;
 #endif
 
@@ -363,7 +367,7 @@ using GarbageAndSerial = ObjectAndSerial<GarbageList>;
 
 // Houses multiple lists of garbage objects. Each sub-list has a different lifetime. They should be
 // sorted such that later-living garbage is ordered later in the list.
-using GarbageQueue = std::vector<GarbageAndSerial>;
+using GarbageQueue = std::queue<GarbageAndSerial>;
 
 class MemoryProperties final : angle::NonCopyable
 {
@@ -405,11 +409,11 @@ class BufferMemory : angle::NonCopyable
 
     void destroy(RendererVk *renderer);
 
-    angle::Result map(ContextVk *contextVk, VkDeviceSize size, uint8_t **ptrOut)
+    angle::Result map(Context *context, VkDeviceSize size, uint8_t **ptrOut)
     {
         if (mMappedMemory == nullptr)
         {
-            ANGLE_TRY(mapImpl(contextVk, size));
+            ANGLE_TRY(mapImpl(context, size));
         }
         *ptrOut = mMappedMemory;
         return angle::Result::Continue;
@@ -428,7 +432,7 @@ class BufferMemory : angle::NonCopyable
     Allocation *getMemoryObject() { return &mAllocation; }
 
   private:
-    angle::Result mapImpl(ContextVk *contextVk, VkDeviceSize size);
+    angle::Result mapImpl(Context *context, VkDeviceSize size);
 
     Allocation mAllocation;        // use mAllocation if isExternalBuffer() is false
     DeviceMemory mExternalMemory;  // use mExternalMemory if isExternalBuffer() is true
@@ -949,7 +953,7 @@ class BufferBlock final : angle::NonCopyable
                        Allocation &allocation,
                        VkMemoryPropertyFlags memoryPropertyFlags,
                        VkDeviceSize size);
-    void initWithoutVirtualBlock(ContextVk *contextVk,
+    void initWithoutVirtualBlock(Context *context,
                                  Buffer &buffer,
                                  Allocation &allocation,
                                  VkMemoryPropertyFlags memoryPropertyFlags,
@@ -972,7 +976,7 @@ class BufferBlock final : angle::NonCopyable
     bool isHostVisible() const;
     bool isCoherent() const;
     bool isMapped() const;
-    angle::Result map(ContextVk *contextVk);
+    angle::Result map(Context *context);
     void unmap(const Allocator &allocator);
     uint8_t *getMappedMemory() const;
 
@@ -1043,7 +1047,7 @@ class BufferSuballocation final : public WrappedObject<BufferSuballocation, VmaB
     void destroy(RendererVk *renderer);
 
     VkResult init(VkDevice device, BufferBlock *block, VkDeviceSize offset, VkDeviceSize size);
-    VkResult initWithEntireBuffer(ContextVk *contextVk,
+    VkResult initWithEntireBuffer(Context *context,
                                   Buffer &buffer,
                                   Allocation &allocation,
                                   VkMemoryPropertyFlags memoryPropertyFlags,
@@ -1142,7 +1146,7 @@ ANGLE_INLINE VkResult BufferSuballocation::init(VkDevice device,
 }
 
 ANGLE_INLINE VkResult
-BufferSuballocation::initWithEntireBuffer(ContextVk *contextVk,
+BufferSuballocation::initWithEntireBuffer(Context *context,
                                           Buffer &buffer,
                                           Allocation &allocation,
                                           VkMemoryPropertyFlags memoryPropertyFlags,
@@ -1151,7 +1155,7 @@ BufferSuballocation::initWithEntireBuffer(ContextVk *contextVk,
     ASSERT(!valid());
 
     std::unique_ptr<BufferBlock> block = std::make_unique<BufferBlock>();
-    block->initWithoutVirtualBlock(contextVk, buffer, allocation, memoryPropertyFlags, size);
+    block->initWithoutVirtualBlock(context, buffer, allocation, memoryPropertyFlags, size);
 
     VmaBufferSuballocation vmaBufferSuballocation = new VmaBufferSuballocation_T;
     if (vmaBufferSuballocation == nullptr)

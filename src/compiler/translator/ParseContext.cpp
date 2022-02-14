@@ -760,11 +760,30 @@ bool TParseContext::checkIsNotReserved(const TSourceLoc &line, const ImmutableSt
     }
     if (identifier.contains("__"))
     {
-        error(line,
-              "identifiers containing two consecutive underscores (__) are reserved as "
-              "possible future keywords",
-              identifier);
-        return false;
+        if (sh::IsWebGLBasedSpec(mShaderSpec))
+        {
+            error(line,
+                  "identifiers containing two consecutive underscores (__) are reserved as "
+                  "possible future keywords",
+                  identifier);
+            return false;
+        }
+        else
+        {
+            // Using double underscores is allowed, but may result in unintended behaviors, so a
+            // warning is issued.
+            // OpenGL ES Shader Language 3.2 specification:
+            // > 3.7. Keywords
+            // > ...
+            // > In addition, all identifiers containing two consecutive underscores (__) are
+            // > reserved for use by underlying software layers. Defining such a name in a shader
+            // > does not itself result in an error, but may result in unintended behaviors that
+            // > stem from having multiple definitions of the same name.
+            warning(line,
+                    "all identifiers containing two consecutive underscores (__) are reserved - "
+                    "unintented behaviors are possible",
+                    identifier.data());
+        }
     }
     return true;
 }
@@ -4581,7 +4600,7 @@ TIntermDeclaration *TParseContext::addInterfaceBlock(
     }
     TInterfaceBlock *interfaceBlock = new TInterfaceBlock(&symbolTable, blockName, fieldList,
                                                           blockLayoutQualifier, instanceSymbolType);
-    if (!symbolTable.declare(interfaceBlock))
+    if (!symbolTable.declare(interfaceBlock) && isUniformOrBuffer)
     {
         error(nameLine, "redefinition of an interface block name", blockName);
     }
@@ -5627,6 +5646,16 @@ TStorageQualifierWrapper *TParseContext::parseInOutQualifier(const TSourceLoc &l
 {
     if (!declaringFunction())
     {
+        if (mShaderVersion < 300 && !IsDesktopGLSpec(mShaderSpec))
+        {
+            error(loc, "storage qualifier supported in GLSL ES 3.00 and above only", "inout");
+        }
+
+        if (getShaderType() != GL_FRAGMENT_SHADER)
+        {
+            error(loc, "storage qualifier isn't supported in non-fragment shaders", "inout");
+        }
+
         if (isExtensionEnabled(TExtension::EXT_shader_framebuffer_fetch) ||
             isExtensionEnabled(TExtension::EXT_shader_framebuffer_fetch_non_coherent))
         {

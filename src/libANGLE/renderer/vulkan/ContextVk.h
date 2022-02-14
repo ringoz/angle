@@ -267,8 +267,6 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
                    : isViewportFlipEnabledForDrawFBO();
     }
 
-    void invalidateProgramBindingHelper();
-
     // State sync with dirty bits.
     angle::Result syncState(const gl::Context *context,
                             const gl::State::DirtyBits &dirtyBits,
@@ -553,6 +551,12 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
         return angle::Result::Continue;
     }
 
+    angle::Result submitStagedTextureUpdates()
+    {
+        // Staged updates are recorded in outside RP cammand buffer, submit them.
+        return flushOutsideRenderPassCommands();
+    }
+
     angle::Result beginNewRenderPass(const vk::Framebuffer &framebuffer,
                                      const gl::Rectangle &renderArea,
                                      const vk::RenderPassDesc &renderPassDesc,
@@ -670,6 +674,20 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
         return mShareGroupVk->getDefaultBufferPool(mRenderer, size, memoryTypeIndex);
     }
 
+    angle::Result allocateStreamedVertexBuffer(size_t attribIndex,
+                                               size_t bytesToAllocate,
+                                               vk::BufferHelper **vertexBufferOut)
+    {
+        bool newBufferOut;
+        ANGLE_TRY(mStreamedVertexBuffers[attribIndex].allocate(this, bytesToAllocate,
+                                                               vertexBufferOut, &newBufferOut));
+        if (newBufferOut)
+        {
+            mHasInFlightStreamedVertexBuffers.set(attribIndex);
+        }
+        return angle::Result::Continue;
+    }
+
   private:
     // Dirty bits.
     enum DirtyBitType : size_t
@@ -719,7 +737,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     {
         vk::DynamicBuffer dynamicBuffer;
         VkDescriptorSet descriptorSet;
-        uint32_t dynamicOffset;
+        vk::BufferHelper *currentBuffer;
         vk::BindingPointer<vk::DescriptorSetLayout> descriptorSetLayout;
         vk::RefCountedDescriptorPoolBinding descriptorPoolBinding;
         DriverUniformsDescriptorSetCache descriptorSetCache;
@@ -840,6 +858,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     }
 
     angle::Result invalidateProgramExecutableHelper(const gl::Context *context);
+    angle::Result checkAndUpdateFramebufferFetchStatus(const gl::ProgramExecutable *executable);
 
     void invalidateCurrentDefaultUniforms();
     angle::Result invalidateCurrentTextures(const gl::Context *context, gl::Command command);
@@ -911,7 +930,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     angle::Result handleDirtyTexturesImpl(CommandBufferHelperT *commandBufferHelper,
                                           PipelineType pipelineType);
     template <typename CommandBufferHelperT>
-    angle::Result handleDirtyShaderResourcesImpl(CommandBufferHelperT *commandBufferHelper);
+    angle::Result handleDirtyShaderResourcesImpl(CommandBufferHelperT *commandBufferHelper,
+                                                 PipelineType pipelineType);
     void handleDirtyShaderBufferResourcesImpl(vk::CommandBufferHelperCommon *commandBufferHelper);
     template <typename CommandBufferT>
     void handleDirtyDriverUniformsBindingImpl(CommandBufferT *commandBuffer,
@@ -1008,8 +1028,12 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     void updateRasterizationSamples(const uint32_t rasterizationSamples);
     void updateRasterizerDiscardEnabled(bool isPrimitivesGeneratedQueryActive);
 
+    void updateDither();
+
     SpecConstUsageBits getCurrentProgramSpecConstUsageBits() const;
     void updateGraphicsPipelineDescWithSpecConstUsageBits(SpecConstUsageBits usageBits);
+
+    void updateShaderResourcesDescriptorDesc(PipelineType pipelineType);
 
     ContextVkPerfCounters getAndResetObjectPerfCounters();
 
@@ -1110,15 +1134,20 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     // {VkImage/VkSampler} generates a unique serial. These object ids are combined to form a unique
     // signature for each descriptor set. This allows us to keep a cache of descriptor sets and
     // avoid calling vkAllocateDesctiporSets each texture update.
-    vk::TextureDescriptorDesc mActiveTexturesDesc;
+    vk::DescriptorSetDesc mActiveTexturesDesc;
 
-    vk::ShaderBuffersDescriptorDesc mShaderBuffersDescriptorDesc;
+    vk::DescriptorSetDesc mShaderBuffersDescriptorDesc;
 
     gl::ActiveTextureArray<TextureVk *> mActiveImages;
 
     // "Current Value" aka default vertex attribute state.
     gl::AttributesMask mDirtyDefaultAttribsMask;
-    gl::AttribArray<vk::DynamicBuffer> mDefaultAttribBuffers;
+
+    // DynamicBuffers for streaming vertex data from client memory pointer as well as for default
+    // attributes. mHasInFlightStreamedVertexBuffers indicates if the dynamic buffer has any
+    // inflight buffer or not that we need to release at submission time.
+    gl::AttribArray<vk::DynamicBuffer> mStreamedVertexBuffers;
+    gl::AttributesMask mHasInFlightStreamedVertexBuffers;
 
     // We use a single pool for recording commands. We also keep a free list for pool recycling.
     vk::SecondaryCommandPools mCommandPools;

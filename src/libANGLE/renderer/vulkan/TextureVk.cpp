@@ -423,11 +423,13 @@ bool TextureVk::isFastUnpackPossible(const vk::Format &vkFormat, size_t offset) 
     const bool isDepthXorStencil = (bufferFormat.depthBits > 0 && bufferFormat.stencilBits == 0) ||
                                    (bufferFormat.depthBits == 0 && bufferFormat.stencilBits > 0);
     const bool isCompatibleDepth = vkFormat.getIntendedFormat().depthBits == bufferFormat.depthBits;
+    const VkDeviceSize imageCopyAlignment =
+        vk::GetImageCopyBufferAlignment(mImage->getActualFormatID());
     return mImage->valid() && !isCombinedDepthStencil &&
            (vkFormat.getIntendedFormatID() ==
                 vkFormat.getActualImageFormatID(getRequiredImageAccess()) ||
             (isDepthXorStencil && isCompatibleDepth)) &&
-           (offset & (kBufferOffsetMultiple - 1)) == 0;
+           (offset % imageCopyAlignment) == 0;
 }
 
 bool TextureVk::shouldUpdateBeStaged(gl::LevelIndex textureLevelIndexGL,
@@ -559,6 +561,12 @@ angle::Result TextureVk::setSubImageImpl(const gl::Context *context,
     if (shouldFlush)
     {
         ANGLE_TRY(ensureImageInitialized(contextVk, ImageMipLevels::EnabledLevels));
+
+        // If forceSubmitImmutableTextureUpdates is enabled, submit the staged updates as well
+        if (contextVk->getFeatures().forceSubmitImmutableTextureUpdates.enabled)
+        {
+            ANGLE_TRY(contextVk->submitStagedTextureUpdates());
+        }
     }
 
     return angle::Result::Continue;
@@ -1710,8 +1718,9 @@ angle::Result TextureVk::copyBufferDataToImage(ContextVk *contextVk,
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "TextureVk::copyBufferDataToImage");
 
-    // Vulkan Spec requires the bufferOffset to be a multiple of 4 for vkCmdCopyBufferToImage.
-    ASSERT((offset & (kBufferOffsetMultiple - 1)) == 0);
+    // Vulkan Spec requires the bufferOffset to be a multiple of pixel size for
+    // vkCmdCopyBufferToImage.
+    ASSERT((offset % vk::GetImageCopyBufferAlignment(mImage->getActualFormatID())) == 0);
 
     gl::LevelIndex level = gl::LevelIndex(index.getLevelIndex());
     GLuint layerCount    = index.getLayerCount();
@@ -2003,7 +2012,7 @@ angle::Result TextureVk::maybeUpdateBaseMaxLevels(ContextVk *contextVk, bool *di
 
     if (respecifyImage)
     {
-        return respecifyImageStorage(contextVk);
+        ANGLE_TRY(respecifyImageStorage(contextVk));
     }
     else
     {
@@ -2012,10 +2021,15 @@ angle::Result TextureVk::maybeUpdateBaseMaxLevels(ContextVk *contextVk, bool *di
 
         // Update the current max level in ImageViewHelper
         const gl::ImageDesc &baseLevelDesc = mState.getBaseLevelDesc();
-        return initImageViews(contextVk, mImage->getActualFormat(),
-                              baseLevelDesc.format.info->sized, newMaxLevel - newBaseLevel + 1,
-                              getImageViewLayerCount());
+        ANGLE_TRY(initImageViews(contextVk, mImage->getActualFormat(),
+                                 baseLevelDesc.format.info->sized, newMaxLevel - newBaseLevel + 1,
+                                 getImageViewLayerCount()));
+
+        mCurrentBaseLevel = newBaseLevel;
+        mCurrentMaxLevel  = newMaxLevel;
     }
+
+    return angle::Result::Continue;
 }
 
 angle::Result TextureVk::copyAndStageImageData(ContextVk *contextVk,
@@ -2726,7 +2740,7 @@ angle::Result TextureVk::syncState(const gl::Context *context,
     }
 
     vk::SamplerDesc samplerDesc(contextVk, mState.getSamplerState(), mState.isStencilMode(),
-                                mImage->getYcbcrConversionDesc(), mImage->getIntendedFormatID());
+                                &mImage->getYcbcrConversionDesc(), mImage->getIntendedFormatID());
     ANGLE_TRY(renderer->getSamplerCache().getSampler(contextVk, samplerDesc, &mSampler));
 
     return angle::Result::Continue;

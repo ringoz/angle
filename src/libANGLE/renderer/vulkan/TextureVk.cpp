@@ -1420,6 +1420,7 @@ angle::Result TextureVk::setEGLImageTarget(const gl::Context *context,
 
         vk::OutsideRenderPassCommandBuffer *commandBuffer;
         ANGLE_TRY(contextVk->getOutsideRenderPassCommandBuffer({}, &commandBuffer));
+        mImage->retain(&contextVk->getResourceUseList());
         mImage->changeLayoutAndQueue(contextVk, mImage->getAspectFlags(), newLayout,
                                      rendererQueueFamilyIndex, commandBuffer);
     }
@@ -3248,8 +3249,37 @@ angle::Result TextureVk::getCompressedTexImage(const gl::Context *context,
                                                GLint level,
                                                void *pixels)
 {
-    UNIMPLEMENTED();
-    return angle::Result::Stop;
+    ContextVk *contextVk = vk::GetImpl(context);
+    ANGLE_TRY(ensureImageInitialized(contextVk, ImageMipLevels::EnabledLevels));
+
+    GLint baseLevel = static_cast<int>(mState.getBaseLevel());
+    if (level < baseLevel || level >= baseLevel + static_cast<int>(mState.getEnabledLevelCount()))
+    {
+        // TODO(http://anglebug.com/6336): Handle inconsistent textures.
+        WARN() << "GetCompressedTexImage for inconsistent texture levels is not implemented.";
+        UNIMPLEMENTED();
+        return angle::Result::Continue;
+    }
+
+    uint32_t layer      = 0;
+    uint32_t layerCount = 1;
+
+    switch (target)
+    {
+        case gl::TextureTarget::CubeMapArray:
+        case gl::TextureTarget::_2DArray:
+            layerCount = mImage->getLayerCount();
+            break;
+        default:
+            if (gl::IsCubeMapFaceTarget(target))
+            {
+                layer = static_cast<uint32_t>(gl::CubeMapTextureTargetToFaceIndex(target));
+            }
+            break;
+    }
+
+    return mImage->readPixelsForCompressedGetImage(
+        contextVk, packState, packBuffer, gl::LevelIndex(level), layer, layerCount, pixels);
 }
 
 const vk::Format &TextureVk::getBaseLevelFormat(RendererVk *renderer) const

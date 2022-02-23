@@ -795,23 +795,6 @@ void DestroyBufferList(RendererVk *renderer, BufferHelperPointerVector *buffers)
     buffers->clear();
 }
 
-bool ShouldReleaseFreeBuffer(const vk::BufferHelper &buffer,
-                             size_t dynamicBufferSize,
-                             DynamicBufferPolicy policy,
-                             size_t freeListSize)
-{
-    constexpr size_t kLimitedFreeListMaxSize = 1;
-
-    // If the dynamic buffer was resized we cannot reuse the retained buffer.  Additionally,
-    // only reuse the buffer if specifically requested.
-    const bool sizeMismatch    = buffer.getSize() != dynamicBufferSize;
-    const bool releaseByPolicy = policy == DynamicBufferPolicy::OneShotUse ||
-                                 (policy == DynamicBufferPolicy::SporadicTextureUpload &&
-                                  freeListSize >= kLimitedFreeListMaxSize);
-
-    return sizeMismatch || releaseByPolicy;
-}
-
 // Helper functions used below
 char GetLoadOpShorthand(RenderPassLoadOp loadOp)
 {
@@ -2318,7 +2301,6 @@ void CommandBufferRecycler<CommandBufferT, CommandBufferHelperT>::resetCommandBu
 DynamicBuffer::DynamicBuffer()
     : mUsage(0),
       mHostVisible(false),
-      mPolicy(DynamicBufferPolicy::OneShotUse),
       mInitialSize(0),
       mNextAllocationOffset(0),
       mSize(0),
@@ -2329,7 +2311,6 @@ DynamicBuffer::DynamicBuffer()
 DynamicBuffer::DynamicBuffer(DynamicBuffer &&other)
     : mUsage(other.mUsage),
       mHostVisible(other.mHostVisible),
-      mPolicy(other.mPolicy),
       mInitialSize(other.mInitialSize),
       mBuffer(std::move(other.mBuffer)),
       mNextAllocationOffset(other.mNextAllocationOffset),
@@ -2344,14 +2325,12 @@ void DynamicBuffer::init(RendererVk *renderer,
                          VkBufferUsageFlags usage,
                          size_t alignment,
                          size_t initialSize,
-                         bool hostVisible,
-                         DynamicBufferPolicy policy)
+                         bool hostVisible)
 {
     mUsage       = usage;
     mHostVisible = hostVisible;
     mMemoryPropertyFlags =
         (hostVisible) ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    mPolicy = policy;
 
     // Check that we haven't overriden the initial size of the buffer in setMinimumSizeForTesting.
     if (mInitialSize == 0)
@@ -2406,6 +2385,9 @@ angle::Result DynamicBuffer::allocateNewBuffer(ContextVk *contextVk)
 
 bool DynamicBuffer::allocateFromCurrentBuffer(size_t sizeInBytes, BufferHelper **bufferHelperOut)
 {
+    mNextAllocationOffset =
+        roundUp<uint32_t>(mNextAllocationOffset, static_cast<uint32_t>(mAlignment));
+
     ASSERT(bufferHelperOut);
     size_t sizeToAllocate                                      = roundUp(sizeInBytes, mAlignment);
     angle::base::CheckedNumeric<size_t> checkedNextWriteOffset = mNextAllocationOffset;
@@ -2419,7 +2401,7 @@ bool DynamicBuffer::allocateFromCurrentBuffer(size_t sizeInBytes, BufferHelper *
     ASSERT(mBuffer != nullptr);
     ASSERT(mHostVisible);
     ASSERT(mBuffer->getMappedMemory());
-    mBuffer->getSuballocation().setOffsetSize(mNextAllocationOffset, sizeToAllocate);
+    mBuffer->setSuballocationOffsetAndSize(mNextAllocationOffset, sizeToAllocate);
     *bufferHelperOut = mBuffer.get();
 
     mNextAllocationOffset += static_cast<uint32_t>(sizeToAllocate);
@@ -2431,60 +2413,54 @@ angle::Result DynamicBuffer::allocate(ContextVk *contextVk,
                                       BufferHelper **bufferHelperOut,
                                       bool *newBufferAllocatedOut)
 {
-    mNextAllocationOffset =
-        roundUp<uint32_t>(mNextAllocationOffset, static_cast<uint32_t>(mAlignment));
+    bool newBuffer = !allocateFromCurrentBuffer(sizeInBytes, bufferHelperOut);
+    if (newBufferAllocatedOut)
+    {
+        *newBufferAllocatedOut = newBuffer;
+    }
+
+    if (!newBuffer)
+    {
+        return angle::Result::Continue;
+    }
+
     size_t sizeToAllocate = roundUp(sizeInBytes, mAlignment);
 
-    angle::base::CheckedNumeric<size_t> checkedNextWriteOffset = mNextAllocationOffset;
-    checkedNextWriteOffset += sizeToAllocate;
-
-    if (!checkedNextWriteOffset.IsValid() || checkedNextWriteOffset.ValueOrDie() >= mSize)
+    if (mBuffer)
     {
-        if (mBuffer)
-        {
-            // Make sure the buffer is not released externally.
-            ASSERT(mBuffer->valid());
-            mInFlightBuffers.push_back(std::move(mBuffer));
-            ASSERT(!mBuffer);
-        }
-
-        const size_t sizeIgnoringHistory = std::max(mInitialSize, sizeToAllocate);
-        if (sizeToAllocate > mSize || sizeIgnoringHistory < mSize / 4)
-        {
-            mSize = sizeIgnoringHistory;
-            // Clear the free list since the free buffers are now either too small or too big.
-            ReleaseBufferListToRenderer(contextVk->getRenderer(), &mBufferFreeList);
-        }
-
-        // The front of the free list should be the oldest. Thus if it is in use the rest of the
-        // free list should be in use as well.
-        if (mBufferFreeList.empty() ||
-            mBufferFreeList.front()->isCurrentlyInUse(contextVk->getLastCompletedQueueSerial()))
-        {
-            ANGLE_TRY(allocateNewBuffer(contextVk));
-        }
-        else
-        {
-            mBuffer = std::move(mBufferFreeList.front());
-            mBufferFreeList.erase(mBufferFreeList.begin());
-        }
-
-        ASSERT(mBuffer->getSize() == mSize);
-
-        mNextAllocationOffset = 0;
-
-        if (newBufferAllocatedOut != nullptr)
-        {
-            *newBufferAllocatedOut = true;
-        }
+        // Make sure the buffer is not released externally.
+        ASSERT(mBuffer->valid());
+        mInFlightBuffers.push_back(std::move(mBuffer));
+        ASSERT(!mBuffer);
     }
-    else if (newBufferAllocatedOut != nullptr)
+
+    const size_t sizeIgnoringHistory = std::max(mInitialSize, sizeToAllocate);
+    if (sizeToAllocate > mSize || sizeIgnoringHistory < mSize / 4)
     {
-        *newBufferAllocatedOut = false;
+        mSize = sizeIgnoringHistory;
+        // Clear the free list since the free buffers are now either too small or too big.
+        ReleaseBufferListToRenderer(contextVk->getRenderer(), &mBufferFreeList);
     }
+
+    // The front of the free list should be the oldest. Thus if it is in use the rest of the
+    // free list should be in use as well.
+    if (mBufferFreeList.empty() ||
+        mBufferFreeList.front()->isCurrentlyInUse(contextVk->getLastCompletedQueueSerial()))
+    {
+        ANGLE_TRY(allocateNewBuffer(contextVk));
+    }
+    else
+    {
+        mBuffer = std::move(mBufferFreeList.front());
+        mBufferFreeList.erase(mBufferFreeList.begin());
+    }
+
+    ASSERT(mBuffer->getBlockMemorySize() == mSize);
+
+    mNextAllocationOffset = 0;
 
     ASSERT(mBuffer != nullptr);
-    mBuffer->getSuballocation().setOffsetSize(mNextAllocationOffset, sizeToAllocate);
+    mBuffer->setSuballocationOffsetAndSize(mNextAllocationOffset, sizeToAllocate);
     *bufferHelperOut = mBuffer.get();
 
     mNextAllocationOffset += static_cast<uint32_t>(sizeToAllocate);
@@ -2515,7 +2491,9 @@ void DynamicBuffer::releaseInFlightBuffersToResourceUseList(ContextVk *contextVk
         // unfortunately.
         bufferHelper->retainReadOnly(resourceUseList);
 
-        if (ShouldReleaseFreeBuffer(*bufferHelper, mSize, mPolicy, mBufferFreeList.size()))
+        // We only keep free buffers that have the same size. Note that bufferHelper's size is
+        // suballocation's size. We need to use the whole block memory size here.
+        if (bufferHelper->getBlockMemorySize() != mSize)
         {
             bufferHelper->release(contextVk->getRenderer());
         }
@@ -3882,9 +3860,8 @@ angle::Result BufferHelper::init(vk::Context *context,
                                    &buffer.get(), &deviceMemory.get(), &sizeOut));
     ASSERT(sizeOut >= createInfo->size);
 
-    ANGLE_VK_TRY(context, mSuballocation.initWithEntireBuffer(
-                              context, buffer.get(), deviceMemory.get(), memoryPropertyFlagsOut,
-                              requestedCreateInfo.size));
+    mSuballocation.initWithEntireBuffer(context, buffer.get(), deviceMemory.get(),
+                                        memoryPropertyFlagsOut, requestedCreateInfo.size);
 
     if (isHostVisible())
     {
@@ -3927,9 +3904,8 @@ angle::Result BufferHelper::initExternal(ContextVk *contextVk,
     ANGLE_TRY(InitAndroidExternalMemory(contextVk, clientBuffer, memoryProperties, &buffer.get(),
                                         &memoryPropertyFlagsOut, &deviceMemory.get()));
 
-    ANGLE_VK_TRY(contextVk, mSuballocation.initWithEntireBuffer(
-                                contextVk, buffer.get(), deviceMemory.get(), memoryPropertyFlagsOut,
-                                requestedCreateInfo.size));
+    mSuballocation.initWithEntireBuffer(contextVk, buffer.get(), deviceMemory.get(),
+                                        memoryPropertyFlagsOut, requestedCreateInfo.size);
 
     if (isHostVisible())
     {
@@ -4174,7 +4150,7 @@ angle::Result BufferHelper::map(Context *context, uint8_t **ptrOut)
 {
     if (!mSuballocation.isMapped())
     {
-        ANGLE_VK_TRY(context, mSuballocation.getBlock()->map(context->getDevice()));
+        ANGLE_VK_TRY(context, mSuballocation.map(context));
     }
     *ptrOut = mSuballocation.getMappedMemory();
     return angle::Result::Continue;
@@ -6334,8 +6310,10 @@ angle::Result ImageHelper::reformatStagedBufferUpdates(ContextVk *contextVk,
 
                 // Retrieve source buffer
                 vk::BufferHelper *srcBuffer = update.data.buffer.bufferHelper;
-                uint8_t *srcData =
-                    srcBuffer->getBufferBlock()->getMappedMemory() + copy.bufferOffset;
+                ASSERT(srcBuffer->isMapped());
+                // The bufferOffset is relative to the buffer block. We have to use the buffer
+                // block's memory pointer to get the source data pointer.
+                uint8_t *srcData = srcBuffer->getBlockMemory() + copy.bufferOffset;
 
                 // Allocate memory with dstFormat
                 std::unique_ptr<RefCounted<BufferHelper>> stagingBuffer =

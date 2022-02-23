@@ -340,9 +340,7 @@ void AppendBufferVectorToDesc(vk::DescriptorSetDesc *desc,
 
             // If this is sub-allocated, we always use the buffer block's serial to increase the
             // cache hit rate.
-            const vk::BufferBlock *bufferBlock = bufferHelper.getBufferBlock();
-            vk::BufferSerial bufferSerial = bufferBlock == nullptr ? bufferHelper.getBufferSerial()
-                                                                   : bufferBlock->getBufferSerial();
+            vk::BufferSerial bufferSerial = bufferHelper.getBlockSerial();
             desc->appendBufferSerial(bufferSerial);
 
             ASSERT(static_cast<uint64_t>(binding.getSize()) <=
@@ -668,8 +666,7 @@ void ContextVk::DriverUniformsDescriptorSet::init(RendererVk *rendererVk)
     size_t minAlignment = static_cast<size_t>(
         rendererVk->getPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment);
     dynamicBuffer.init(rendererVk, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, minAlignment,
-                       kDriverUniformsAllocatorPageSize, true,
-                       vk::DynamicBufferPolicy::FrequentSmallAllocations);
+                       kDriverUniformsAllocatorPageSize, true);
     descriptorSetCache.clear();
 }
 
@@ -1017,8 +1014,7 @@ angle::Result ContextVk::initialize()
     // Initialize current value/default attribute buffers.
     for (vk::DynamicBuffer &buffer : mStreamedVertexBuffers)
     {
-        buffer.init(mRenderer, kVertexBufferUsage, 1, kDynamicVertexDataSize, true,
-                    vk::DynamicBufferPolicy::FrequentSmallAllocations);
+        buffer.init(mRenderer, kVertexBufferUsage, 1, kDynamicVertexDataSize, true);
     }
 
 #if ANGLE_ENABLE_VULKAN_GPU_TRACE_EVENTS
@@ -1065,8 +1061,7 @@ angle::Result ContextVk::initialize()
     size_t minAlignment = static_cast<size_t>(
         mRenderer->getPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment);
     mDefaultUniformStorage.init(mRenderer, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, minAlignment,
-                                mRenderer->getDefaultUniformBufferSize(), true,
-                                vk::DynamicBufferPolicy::FrequentSmallAllocations);
+                                mRenderer->getDefaultUniformBufferSize(), true);
 
     // Initialize an "empty" buffer for use with default uniform blocks where there are no uniforms,
     // or atomic counter buffer array indices that are unused.
@@ -2235,6 +2230,7 @@ angle::Result ContextVk::handleDirtyDescriptorSetsImpl(CommandBufferT *commandBu
 void ContextVk::syncObjectPerfCounters()
 {
     mPerfCounters.descriptorSetAllocations                  = 0;
+    mPerfCounters.descriptorSetCacheTotalSize               = 0;
     mPerfCounters.uniformsAndXfbDescriptorSetCacheHits      = 0;
     mPerfCounters.uniformsAndXfbDescriptorSetCacheMisses    = 0;
     mPerfCounters.uniformsAndXfbDescriptorSetCacheTotalSize = 0;
@@ -2293,6 +2289,17 @@ void ContextVk::syncObjectPerfCounters()
             progPerfCounters.descriptorSetCacheMisses[DescriptorSetIndex::ShaderResource];
         mPerfCounters.shaderBuffersDescriptorSetCacheTotalSize +=
             progPerfCounters.descriptorSetCacheSizes[DescriptorSetIndex::ShaderResource];
+    }
+
+    mPerfCounters.descriptorSetCacheTotalSize +=
+        mPerfCounters.uniformsAndXfbDescriptorSetCacheTotalSize;
+    mPerfCounters.descriptorSetCacheTotalSize += mPerfCounters.textureDescriptorSetCacheTotalSize;
+    mPerfCounters.descriptorSetCacheTotalSize +=
+        mPerfCounters.shaderBuffersDescriptorSetCacheTotalSize;
+
+    for (const DriverUniformsDescriptorSet &driverSet : mDriverUniforms)
+    {
+        mPerfCounters.descriptorSetCacheTotalSize += driverSet.descriptorSetCache.getSize();
     }
 }
 
@@ -2372,6 +2379,20 @@ void ContextVk::addOverlayUsedBuffersCount(vk::CommandBufferHelperCommon *comman
             overlay->getRunningGraphWidget(gl::WidgetId::VulkanTextureDescriptorCacheSize);
         textureDescriptorCacheSize->add(mPerfCounters.textureDescriptorSetCacheTotalSize);
         textureDescriptorCacheSize->next();
+    }
+
+    {
+        gl::RunningGraphWidget *uniformDescriptorCacheSize =
+            overlay->getRunningGraphWidget(gl::WidgetId::VulkanUniformDescriptorCacheSize);
+        uniformDescriptorCacheSize->add(mPerfCounters.uniformsAndXfbDescriptorSetCacheTotalSize);
+        uniformDescriptorCacheSize->next();
+    }
+
+    {
+        gl::RunningGraphWidget *descriptorCacheSize =
+            overlay->getRunningGraphWidget(gl::WidgetId::VulkanDescriptorCacheSize);
+        descriptorCacheSize->add(mPerfCounters.descriptorSetCacheTotalSize);
+        descriptorCacheSize->next();
     }
 }
 

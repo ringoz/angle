@@ -63,19 +63,6 @@ struct TextureUnit final
 class BufferHelper;
 using BufferHelperPointerVector = std::vector<std::unique_ptr<BufferHelper>>;
 
-enum class DynamicBufferPolicy
-{
-    // Used where future allocations from the dynamic buffer are unlikely, so it's best to free the
-    // memory when the allocated buffers are no longer in use.
-    OneShotUse,
-    // Used where multiple small allocations are made every frame, so it's worth keeping the free
-    // buffers around to avoid release/reallocation.
-    FrequentSmallAllocations,
-    // Used where bursts of allocation happen occasionally, but the steady state may make
-    // allocations every now and then.  In that case, a limited number of buffers are retained.
-    SporadicTextureUpload,
-};
-
 class DynamicBuffer : angle::NonCopyable
 {
   public:
@@ -87,8 +74,7 @@ class DynamicBuffer : angle::NonCopyable
               VkBufferUsageFlags usage,
               size_t alignment,
               size_t initialSize,
-              bool hostVisible,
-              DynamicBufferPolicy policy);
+              bool hostVisible);
 
     // This call will allocate a new region at the end of the current buffer. If it can't find
     // enough space in the current buffer, it returns false. This gives caller a chance to deal with
@@ -138,7 +124,6 @@ class DynamicBuffer : angle::NonCopyable
 
     VkBufferUsageFlags mUsage;
     bool mHostVisible;
-    DynamicBufferPolicy mPolicy;
     size_t mInitialSize;
     std::unique_ptr<BufferHelper> mBuffer;
     uint32_t mNextAllocationOffset;
@@ -728,9 +713,13 @@ class BufferHelper : public ReadWriteResource
     void release(RendererVk *renderer);
 
     BufferSerial getBufferSerial() const { return mSerial; }
+    BufferSerial getBlockSerial() const
+    {
+        ASSERT(mSuballocation.valid());
+        return mSuballocation.getBlockSerial();
+    }
     bool valid() const { return mSuballocation.valid(); }
     const Buffer &getBuffer() const { return mSuballocation.getBuffer(); }
-    const BufferBlock *getBufferBlock() const { return mSuballocation.getBlock(); }
     VkDeviceSize getOffset() const { return mSuballocation.getOffset(); }
     VkDeviceSize getSize() const { return mSuballocation.getSize(); }
     VkMemoryMapFlags getMemoryPropertyFlags() const
@@ -742,6 +731,9 @@ class BufferHelper : public ReadWriteResource
         ASSERT(isMapped());
         return mSuballocation.getMappedMemory();
     }
+    // Returns the main buffer block's pointer.
+    uint8_t *getBlockMemory() const { return mSuballocation.getBlockMemory(); }
+    VkDeviceSize getBlockMemorySize() const { return mSuballocation.getBlockMemorySize(); }
     bool isHostVisible() const { return mSuballocation.isHostVisible(); }
     bool isCoherent() const { return mSuballocation.isCoherent(); }
 
@@ -790,13 +782,18 @@ class BufferHelper : public ReadWriteResource
     void fillWithColor(const angle::Color<uint8_t> &color,
                        const gl::InternalFormat &internalFormat);
 
-    BufferSuballocation &getSuballocation() { return mSuballocation; }
-
   private:
     void initializeBarrierTracker(Context *context);
     angle::Result initializeNonZeroMemory(Context *context,
                                           VkBufferUsageFlags usage,
                                           VkDeviceSize size);
+
+    // Only called by DynamicBuffer.
+    friend class DynamicBuffer;
+    void setSuballocationOffsetAndSize(VkDeviceSize offset, VkDeviceSize size)
+    {
+        mSuballocation.setOffsetAndSize(offset, size);
+    }
 
     // Suballocation object.
     BufferSuballocation mSuballocation;

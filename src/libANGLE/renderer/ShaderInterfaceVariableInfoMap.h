@@ -23,8 +23,8 @@ namespace rx
 class ShaderInterfaceVariableInfoMap final : angle::NonCopyable
 {
   public:
-    ShaderInterfaceVariableInfoMap();
-    ~ShaderInterfaceVariableInfoMap();
+    ShaderInterfaceVariableInfoMap() = default;
+    ~ShaderInterfaceVariableInfoMap() = default;
 
     void clear();
     bool contains(gl::ShaderType shaderType, const std::string &variableName) const;

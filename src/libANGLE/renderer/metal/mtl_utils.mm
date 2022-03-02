@@ -232,7 +232,7 @@ uint32_t GetDeviceVendorIdFromName(id<MTLDevice> metalDevice)
     }
 }
 
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+#if TARGET_OS_OSX
 uint32_t GetDeviceVendorIdFromIOKit(id<MTLDevice> device)
 {
     return angle::GetVendorIDFromMetalDeviceRegistryID(device.registryID);
@@ -692,7 +692,7 @@ MTLScissorRect GetScissorRect(const gl::Rectangle &rect, NSUInteger screenHeight
 uint32_t GetDeviceVendorId(id<MTLDevice> metalDevice)
 {
     uint32_t vendorId = 0;
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+#if TARGET_OS_OSX
     if (ANGLE_APPLE_AVAILABLE_XC(10.13, 13.0))
     {
         vendorId = GetDeviceVendorIdFromIOKit(metalDevice);

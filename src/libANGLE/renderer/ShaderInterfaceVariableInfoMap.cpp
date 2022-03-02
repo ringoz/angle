@@ -14,10 +14,6 @@ namespace rx
 ShaderInterfaceVariableInfo::ShaderInterfaceVariableInfo() {}
 
 // ShaderInterfaceVariableInfoMap implementation.
-ShaderInterfaceVariableInfoMap::ShaderInterfaceVariableInfoMap() = default;
-
-ShaderInterfaceVariableInfoMap::~ShaderInterfaceVariableInfoMap() = default;
-
 void ShaderInterfaceVariableInfoMap::clear()
 {
     for (VariableNameToInfoMap &shaderMap : mData)

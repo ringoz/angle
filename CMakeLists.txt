@@ -318,6 +318,7 @@ set(angle_translator_hlsl_sources
 set(angle_translator_lib_metal_sources
   "src/compiler/translator/DriverUniformMetal.cpp"
   "src/compiler/translator/DriverUniformMetal.h"
+  "src/compiler/translator/TranslatorMetalConstantNames.cpp"
   "src/compiler/translator/TranslatorMetalDirect.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.h"
@@ -1152,7 +1153,11 @@ elseif(APPLE)
     PRIVATE 
       ANGLE_ENABLE_METAL
     )
-  target_link_libraries(angle PRIVATE "-framework IOSurface")
+  target_link_libraries(angle 
+    PRIVATE
+      "-framework IOSurface"
+      "-framework Metal"
+    )
 endif()
 
 if(MSVC)

@@ -20,6 +20,7 @@
 #include "libANGLE/Texture.h"
 #include "libANGLE/Thread.h"
 #include "libANGLE/formatutils.h"
+#include "libANGLE/renderer/DisplayImpl.h"
 
 #include <EGL/eglext.h>
 
@@ -5058,10 +5059,12 @@ bool ValidateCreatePlatformWindowSurfaceEXT(const ValidationContext *val,
         return false;
     }
 
-    ANGLE_VALIDATION_TRY(ValidateConfig(val, display, configuration));
+    const void *actualNativeWindow = display->getImplementation()->isX11()
+                                         ? *reinterpret_cast<const void *const *>(nativeWindow)
+                                         : nativeWindow;
 
-    val->setError(EGL_BAD_DISPLAY, "ValidateCreatePlatformWindowSurfaceEXT unimplemented.");
-    return false;
+    return ValidateCreatePlatformWindowSurface(val, display, configuration, actualNativeWindow,
+                                               attributes);
 }
 
 bool ValidateCreatePlatformPixmapSurfaceEXT(const ValidationContext *val,
@@ -6512,6 +6515,28 @@ bool ValidateSetDamageRegionKHR(const ValidationContext *val,
     ANGLE_VALIDATION_TRY(ValidateDisplay(val, display));
     ANGLE_VALIDATION_TRY(ValidateSurface(val, display, surface));
 
+    return false;
+}
+
+bool ValidateQueryDmaBufFormatsEXT(ValidationContext const *val,
+                                   Display const *dpy,
+                                   EGLint max_formats,
+                                   const EGLint *formats,
+                                   const EGLint *num_formats)
+{
+    UNIMPLEMENTED();
+    return false;
+}
+
+bool ValidateQueryDmaBufModifiersEXT(ValidationContext const *val,
+                                     Display const *dpy,
+                                     EGLint format,
+                                     EGLint max_modifiers,
+                                     const EGLuint64KHR *modifiers,
+                                     const EGLBoolean *external_only,
+                                     const EGLint *num_modifiers)
+{
+    UNIMPLEMENTED();
     return false;
 }
 

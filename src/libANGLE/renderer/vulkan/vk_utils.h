@@ -773,6 +773,7 @@ class Recycler final : angle::NonCopyable
         {
             object.destroy(device);
         }
+        mObjectFreeList.clear();
     }
 
     bool empty() const { return mObjectFreeList.empty(); }
@@ -1487,9 +1488,6 @@ enum class RenderPassClosureReason
     TemporaryForImageClear,
     TemporaryForImageCopy,
     TemporaryForOverlayDraw,
-
-    // Misc
-    OverlayFontCreation,
 
     InvalidEnum,
     EnumCount = InvalidEnum,

@@ -381,6 +381,8 @@ set(angle_translator_lib_metal_sources
   "src/compiler/translator/TranslatorMetalDirect/TransposeRowMajorMatrices.h"
   "src/compiler/translator/TranslatorMetalDirect/WrapMain.cpp"
   "src/compiler/translator/TranslatorMetalDirect/WrapMain.h"
+  "src/compiler/translator/tree_ops/apple/RewriteRowMajorMatrices.cpp"
+  "src/compiler/translator/tree_ops/apple/RewriteRowMajorMatrices.h"
 )
 
 set(angle_translator_glsl_symbol_table_sources
@@ -1152,6 +1154,7 @@ elseif(APPLE)
   target_compile_definitions(angle 
     PRIVATE 
       ANGLE_ENABLE_METAL
+      ANGLE_ENABLE_APPLE_WORKAROUNDS
     )
   target_link_libraries(angle 
     PRIVATE

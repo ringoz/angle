@@ -524,6 +524,12 @@ set(libangle_image_util_sources
   "src/image_util/loadtextureborder.cpp"
 )
 
+set(libangle_gpu_info_util_sources
+  "src/gpu_info_util/SystemInfo.cpp"
+  "src/gpu_info_util/SystemInfo.h"
+  "src/gpu_info_util/SystemInfo_internal.h"
+)
+
 set(libangle_includes
   "include/angle_gl.h"
   "include/export.h"
@@ -843,6 +849,7 @@ target_sources(angle
     ${xxhash_sources}
     ${libangle_image_util_headers}
     ${libangle_image_util_sources}
+    ${libangle_gpu_info_util_sources}
     ${libangle_common_sources}
     ${libangle_headers}
     ${libangle_sources}
@@ -878,6 +885,7 @@ if(WIN32)
       ${angle_translator_hlsl_sources}
       "src/common/system_utils_win.cpp"
       "src/common/system_utils_winuwp.cpp"
+      "src/gpu_info_util/SystemInfo_win.cpp"
       "src/libANGLE/renderer/dxgi_format_map.h"
       "src/libANGLE/renderer/dxgi_format_map_autogen.cpp"
       "src/libANGLE/renderer/dxgi_support_table.h"
@@ -1080,7 +1088,8 @@ elseif(APPLE)
       "src/common/system_utils_posix.cpp"
       "src/common/system_utils_apple.cpp"
       "src/common/system_utils_ios.cpp"
-      "src/gpu_info_util/SystemInfo.cpp"
+      "src/gpu_info_util/SystemInfo_apple.mm"
+      "src/gpu_info_util/SystemInfo_ios.cpp"
       "src/libANGLE/renderer/metal/BufferMtl.h"
       "src/libANGLE/renderer/metal/BufferMtl.mm"
       "src/libANGLE/renderer/metal/CompilerMtl.h"

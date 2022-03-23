@@ -113,6 +113,9 @@ class ClearTestRGB : public ANGLETest
     }
 };
 
+class ClearTestRGB_ES3 : public ClearTestRGB
+{};
+
 // Each int parameter can have three values: don't clear, clear, or masked clear.  The bool
 // parameter controls scissor.
 using MaskedScissoredClearVariationsTestParams =
@@ -346,7 +349,7 @@ TEST_P(ClearTestRGB, DefaultFramebufferRGB)
 
 // Invalidate the RGB default framebuffer and verify that the alpha channel is not cleared, and
 // stays set after drawing.
-TEST_P(ClearTestRGB, InvalidateDefaultFramebufferRGB)
+TEST_P(ClearTestRGB_ES3, InvalidateDefaultFramebufferRGB)
 {
     ANGLE_GL_PROGRAM(blueProgram, essl1_shaders::vs::Simple(), essl1_shaders::fs::Blue());
 
@@ -358,9 +361,6 @@ TEST_P(ClearTestRGB, InvalidateDefaultFramebufferRGB)
     EGLint backbufferAlphaBits = 0;
     eglGetConfigAttrib(display, config, EGL_ALPHA_SIZE, &backbufferAlphaBits);
     ANGLE_SKIP_TEST_IF(backbufferAlphaBits != 0);
-    // glInvalidateFramebuffer() isn't supported with GLES 2.0
-    ANGLE_SKIP_TEST_IF(getClientMajorVersion() < 3);
-    ANGLE_SKIP_TEST_IF(IsD3D11());
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -381,7 +381,7 @@ TEST_P(ClearTestRGB, InvalidateDefaultFramebufferRGB)
 }
 
 // Draw with a shader that outputs alpha=0.5. Readback and ensure that alpha=1.
-TEST_P(ClearTestRGB, ShaderOutputsAlphaVerifyReadingAlphaIsOne)
+TEST_P(ClearTestRGB_ES3, ShaderOutputsAlphaVerifyReadingAlphaIsOne)
 {
     ANGLE_GL_PROGRAM(blueProgram, essl1_shaders::vs::Simple(), essl1_shaders::fs::UniformColor());
     glUseProgram(blueProgram);
@@ -394,9 +394,6 @@ TEST_P(ClearTestRGB, ShaderOutputsAlphaVerifyReadingAlphaIsOne)
     EGLint backbufferAlphaBits = 0;
     eglGetConfigAttrib(display, config, EGL_ALPHA_SIZE, &backbufferAlphaBits);
     ANGLE_SKIP_TEST_IF(backbufferAlphaBits != 0);
-    // glInvalidateFramebuffer() isn't supported with GLES 2.0
-    ANGLE_SKIP_TEST_IF(getClientMajorVersion() < 3);
-    ANGLE_SKIP_TEST_IF(IsD3D11());
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -2651,5 +2648,8 @@ ANGLE_INSTANTIATE_TEST(ClearTestRGB,
                        ES3_VULKAN(),
                        ES2_METAL(),
                        ES3_METAL());
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTestRGB_ES3);
+ANGLE_INSTANTIATE_TEST(ClearTestRGB_ES3, ES3_D3D11(), ES3_VULKAN(), ES3_METAL());
 
 }  // anonymous namespace

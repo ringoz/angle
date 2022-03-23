@@ -196,8 +196,12 @@ class Context : angle::NonCopyable
     VkDevice getDevice() const;
     RendererVk *getRenderer() const { return mRenderer; }
 
+    const angle::VulkanPerfCounters &getPerfCounters() const { return mPerfCounters; }
+    angle::VulkanPerfCounters &getPerfCounters() { return mPerfCounters; }
+
   protected:
     RendererVk *const mRenderer;
+    angle::VulkanPerfCounters mPerfCounters;
 };
 
 class RenderPassDesc;
@@ -462,6 +466,18 @@ angle::Result AllocateBufferMemoryWithRequirements(Context *context,
                                                    Buffer *buffer,
                                                    VkMemoryPropertyFlags *memoryPropertyFlagsOut,
                                                    DeviceMemory *deviceMemoryOut);
+class BufferPool;
+static constexpr VkDeviceSize kMaxSizeToUseSmallBufferPool = 256;
+using BufferPoolPointerArray = std::array<std::unique_ptr<BufferPool>, VK_MAX_MEMORY_TYPES>;
+BufferPool *GetDefaultBufferPool(std::unique_ptr<vk::BufferPool> &smallBufferPool,
+                                 vk::BufferPoolPointerArray &defaultBufferPools,
+                                 RendererVk *renderer,
+                                 VkDeviceSize size,
+                                 uint32_t memoryTypeIndex);
+void PruneDefaultBufferPools(RendererVk *renderer,
+                             BufferPoolPointerArray &defaultBufferPools,
+                             std::unique_ptr<vk::BufferPool> &smallBufferPool);
+bool IsDueForBufferPoolPrune(double lastPruneTime);
 
 using ShaderAndSerial = ObjectAndSerial<ShaderModule>;
 
@@ -1244,41 +1260,6 @@ struct RenderPassPerfCounters
     uint8_t stencilAttachmentResolves;
     // Whether the depth/stencil attachment is using a read-only layout.
     uint8_t readOnlyDepthStencil;
-};
-
-struct PerfCounters
-{
-    uint32_t primaryBuffers;
-    uint32_t renderPasses;
-    uint32_t writeDescriptorSets;
-    uint32_t flushedOutsideRenderPassCommandBuffers;
-    uint32_t resolveImageCommands;
-    uint32_t depthClears;
-    uint32_t depthLoads;
-    uint32_t depthStores;
-    uint32_t stencilClears;
-    uint32_t stencilLoads;
-    uint32_t stencilStores;
-    uint32_t colorAttachmentUnresolves;
-    uint32_t depthAttachmentUnresolves;
-    uint32_t stencilAttachmentUnresolves;
-    uint32_t colorAttachmentResolves;
-    uint32_t depthAttachmentResolves;
-    uint32_t stencilAttachmentResolves;
-    uint32_t readOnlyDepthStencilRenderPasses;
-    uint32_t descriptorSetAllocations;
-    uint32_t descriptorSetCacheTotalSize;
-    uint32_t uniformsAndXfbDescriptorSetCacheHits;
-    uint32_t uniformsAndXfbDescriptorSetCacheMisses;
-    uint32_t uniformsAndXfbDescriptorSetCacheTotalSize;
-    uint32_t textureDescriptorSetCacheHits;
-    uint32_t textureDescriptorSetCacheMisses;
-    uint32_t textureDescriptorSetCacheTotalSize;
-    uint32_t shaderBuffersDescriptorSetCacheHits;
-    uint32_t shaderBuffersDescriptorSetCacheMisses;
-    uint32_t shaderBuffersDescriptorSetCacheTotalSize;
-    uint32_t buffersGhosted;
-    uint32_t vertexArraySyncStateCalls;
 };
 
 // A Vulkan image level index.

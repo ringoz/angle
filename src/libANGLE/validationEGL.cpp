@@ -2385,6 +2385,16 @@ bool ValidateCreateContext(const ValidationContext *val,
                               clientMajorVersion, clientMinorVersion, max.major, max.minor);
                 return false;
             }
+            if ((attributes.get(EGL_CONTEXT_WEBGL_COMPATIBILITY_ANGLE, EGL_FALSE) == EGL_TRUE) &&
+                (clientMinorVersion > 1))
+            {
+                val->setError(EGL_BAD_ATTRIBUTE,
+                              "Requested GLES version (%" PRIxPTR ".%" PRIxPTR
+                              ") is greater than "
+                              "max supported 3.1 for WebGL.",
+                              clientMajorVersion, clientMinorVersion);
+                return false;
+            }
             break;
         default:
             val->setError(EGL_BAD_ATTRIBUTE);
@@ -6224,6 +6234,15 @@ bool ValidateHandleGPUSwitchANGLE(const ValidationContext *val, const Display *d
     return true;
 }
 
+bool ValidateForceGPUSwitchANGLE(const ValidationContext *val,
+                                 const Display *display,
+                                 EGLint gpuIDHigh,
+                                 EGLint gpuIDLow)
+{
+    ANGLE_VALIDATION_TRY(ValidateDisplay(val, display));
+    return true;
+}
+
 bool ValidateGetCurrentDisplay(const ValidationContext *val)
 {
     return true;
@@ -6515,7 +6534,42 @@ bool ValidateSetDamageRegionKHR(const ValidationContext *val,
     ANGLE_VALIDATION_TRY(ValidateDisplay(val, display));
     ANGLE_VALIDATION_TRY(ValidateSurface(val, display, surface));
 
-    return false;
+    if (!(surface->getType() & EGL_WINDOW_BIT))
+    {
+        val->setError(EGL_BAD_MATCH, "surface is not a postable surface");
+        return false;
+    }
+
+    if (surface != val->eglThread->getCurrentDrawSurface())
+    {
+        val->setError(EGL_BAD_MATCH,
+                      "surface is not the current draw surface for the calling thread");
+        return false;
+    }
+
+    if (surface->getSwapBehavior() != EGL_BUFFER_DESTROYED)
+    {
+        val->setError(EGL_BAD_MATCH, "surface's swap behavior is not EGL_BUFFER_DESTROYED");
+        return false;
+    }
+
+    if (surface->isDamageRegionSet())
+    {
+        val->setError(
+            EGL_BAD_ACCESS,
+            "damage region has already been set on surface since the most recent frame boundary");
+        return false;
+    }
+
+    if (!surface->bufferAgeQueriedSinceLastSwap())
+    {
+        val->setError(EGL_BAD_ACCESS,
+                      "EGL_BUFFER_AGE_KHR attribute of surface has not been queried since the most "
+                      "recent frame boundary");
+        return false;
+    }
+
+    return true;
 }
 
 bool ValidateQueryDmaBufFormatsEXT(ValidationContext const *val,
@@ -6524,8 +6578,27 @@ bool ValidateQueryDmaBufFormatsEXT(ValidationContext const *val,
                                    const EGLint *formats,
                                    const EGLint *num_formats)
 {
-    UNIMPLEMENTED();
-    return false;
+    ANGLE_VALIDATION_TRY(ValidateDisplay(val, dpy));
+
+    if (!dpy->getExtensions().imageDmaBufImportModifiersEXT)
+    {
+        val->setError(EGL_BAD_ACCESS, "EGL_EXT_dma_buf_import_modfier not supported");
+        return false;
+    }
+
+    if (max_formats < 0)
+    {
+        val->setError(EGL_BAD_PARAMETER, "max_formats should not be negative");
+        return false;
+    }
+
+    if (max_formats > 0 && formats == nullptr)
+    {
+        val->setError(EGL_BAD_PARAMETER, "if max_formats is positive, formats should not be NULL");
+        return false;
+    }
+
+    return true;
 }
 
 bool ValidateQueryDmaBufModifiersEXT(ValidationContext const *val,
@@ -6536,8 +6609,34 @@ bool ValidateQueryDmaBufModifiersEXT(ValidationContext const *val,
                                      const EGLBoolean *external_only,
                                      const EGLint *num_modifiers)
 {
-    UNIMPLEMENTED();
-    return false;
+    ANGLE_VALIDATION_TRY(ValidateDisplay(val, dpy));
+
+    if (!dpy->getExtensions().imageDmaBufImportModifiersEXT)
+    {
+        val->setError(EGL_BAD_ACCESS, "EGL_EXT_dma_buf_import_modfier not supported");
+        return false;
+    }
+
+    if (max_modifiers < 0)
+    {
+        val->setError(EGL_BAD_PARAMETER, "max_modifiers should not be negative");
+        return false;
+    }
+
+    if (max_modifiers > 0 && modifiers == nullptr)
+    {
+        val->setError(EGL_BAD_PARAMETER,
+                      "if max_modifiers is positive, modifiers should not be NULL");
+        return false;
+    }
+
+    if (!dpy->supportsDmaBufFormat(format))
+    {
+        val->setError(EGL_BAD_PARAMETER,
+                      "format should be one of the formats advertised by QueryDmaBufFormatsEXT");
+        return false;
+    }
+    return true;
 }
 
 }  // namespace egl

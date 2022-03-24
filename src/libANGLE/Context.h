@@ -711,7 +711,11 @@ class Context final : public egl::LabeledObject, angle::NonCopyable, public angl
 
     State mState;
     bool mShared;
+#ifndef NDEBUG
     bool mSkipValidation;
+#else
+    static constexpr bool mSkipValidation = true;
+#endif    
     bool mDisplayTextureShareGroup;
     bool mDisplaySemaphoreShareGroup;
 

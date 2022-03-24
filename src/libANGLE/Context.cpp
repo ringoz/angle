@@ -415,7 +415,9 @@ Context::Context(egl::Display *display,
              GetContextPriority(attribs),
              GetProtectedContent(attribs)),
       mShared(shareContext != nullptr || shareTextures != nullptr || shareSemaphores != nullptr),
+#ifndef NDEBUG      
       mSkipValidation(GetNoError(attribs)),
+#endif      
       mDisplayTextureShareGroup(shareTextures != nullptr),
       mDisplaySemaphoreShareGroup(shareSemaphores != nullptr),
       mErrors(this),
@@ -2904,7 +2906,9 @@ void Context::setContextLost()
 
     // Stop skipping validation, since many implementation entrypoint assume they can't
     // be called when lost, or with null object arguments, etc.
+#ifndef NDEBUG    
     mSkipValidation = false;
+#endif
 
     // Make sure we update TLS.
 #if defined(ANGLE_PLATFORM_APPLE)
@@ -4025,9 +4029,11 @@ void Context::initCaps()
         // but we don't have the infrastructure for disabling EGL extensions yet.
         // Instead, disable GL_KHR_no_error (which disables exposing the GL extension), which
         // prevents writing invalid calls to the capture.
+#ifndef NDEBUG        
         INFO() << "Enabling validation to prevent invalid calls from being captured. This "
                   "effectively disables GL_KHR_no_error and enables GL_ANGLE_robust_client_memory.";
         mSkipValidation                            = false;
+#endif        
         mState.mExtensions.noErrorKHR              = mSkipValidation;
         mState.mExtensions.robustClientMemoryANGLE = !mSkipValidation;
 

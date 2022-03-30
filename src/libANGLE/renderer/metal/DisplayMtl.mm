@@ -596,6 +596,44 @@ egl::ConfigSet DisplayMtl::generateConfigs()
         configs.add(config);
     }
 
+    config.renderTargetFormat = GL_RGBA16F;
+    config.colorComponentType = EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT;
+
+    for (int samples : samplesSupported)
+    {
+        config.samples       = samples;
+        config.sampleBuffers = (samples == 0) ? 0 : 1;
+
+        // Buffer sizes
+        config.redSize    = 16;
+        config.greenSize  = 16;
+        config.blueSize   = 16;
+        config.alphaSize  = 16;
+        config.bufferSize = config.redSize + config.greenSize + config.blueSize + config.alphaSize;
+
+        // With DS
+        config.depthSize   = 24;
+        config.stencilSize = 8;
+
+        configs.add(config);
+
+        // With D
+        config.depthSize   = 24;
+        config.stencilSize = 0;
+        configs.add(config);
+
+        // With S
+        config.depthSize   = 0;
+        config.stencilSize = 8;
+        configs.add(config);
+
+        // Tests like dEQP-GLES2.functional.depth_range.* assume EGL_DEPTH_SIZE is properly set even
+        // if renderConfig attributes are set to glu::RenderConfig::DONT_CARE
+        config.depthSize   = GetDepthSize(config.depthStencilFormat);
+        config.stencilSize = GetStencilSize(config.depthStencilFormat);
+        configs.add(config);
+    }
+
     return configs;
 }
 

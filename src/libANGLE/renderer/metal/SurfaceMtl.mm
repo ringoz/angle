@@ -84,6 +84,10 @@ SurfaceMtl::SurfaceMtl(DisplayMtl *display,
     mRobustResourceInit =
         attribs.get(EGL_ROBUST_RESOURCE_INITIALIZATION_ANGLE, EGL_FALSE) == EGL_TRUE;
     mColorFormat = display->getPixelFormat(angle::FormatID::B8G8R8A8_UNORM);
+    
+    if (state.config->bufferSize == 64 &&
+        state.config->colorComponentType == EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT)
+        mColorFormat = display->getPixelFormat(angle::FormatID::R16G16B16A16_FLOAT);
 
     mSamples = state.config->samples;
 
@@ -439,6 +443,9 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
         mMetalLayer.get().device          = metalDevice;
         mMetalLayer.get().pixelFormat     = mColorFormat.metalFormat;
         mMetalLayer.get().framebufferOnly = NO;  // Support blitting and glReadPixels
+
+        if (mColorFormat.metalFormat == MTLPixelFormatRGBA16Float)
+            [mMetalLayer.get() setWantsExtendedDynamicRangeContent:YES];
 
 #if TARGET_OS_OSX
         // Autoresize with parent layer.

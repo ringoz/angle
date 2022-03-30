@@ -440,7 +440,7 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
         mMetalLayer.get().pixelFormat     = mColorFormat.metalFormat;
         mMetalLayer.get().framebufferOnly = NO;  // Support blitting and glReadPixels
 
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+#if TARGET_OS_OSX
         // Autoresize with parent layer.
         mMetalLayer.get().autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
 #endif

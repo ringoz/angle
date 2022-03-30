@@ -328,36 +328,11 @@ TEST_P(EGLContextSharingTest, DisplayShareGroupReleasedWithLastContext)
 
     // Create a texture and buffer in ctx 0
     ASSERT_EGL_TRUE(eglMakeCurrent(display, surface, surface, mContexts[0]));
-    //    GLTexture textureFromCtx0;
-    //    glBindTexture(GL_TEXTURE_2D, textureFromCtx0);
-    //    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    //    glBindTexture(GL_TEXTURE_2D, 0);
-    //    ASSERT_GL_TRUE(glIsTexture(textureFromCtx0));
-
     GLTexture textureFromCtx0;
     glBindTexture(GL_TEXTURE_2D, textureFromCtx0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    // Create all mipmap levels for the texture from level 0 to the 1x1 pixel level, but fill all
-    // level with same width and height
-    constexpr GLint width  = 4;
-    constexpr GLint height = 4;
-    GLint level            = 0;
-    GLint levelW           = width;
-    GLint levelH           = height;
-    glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA, levelW, levelH, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                 nullptr);
-    while (levelW > 1 || levelH > 1)
-    {
-        ++level;
-        levelW = static_cast<GLint>(std::max(1.0, std::floor(width / std::pow(2, level))));
-        levelH = static_cast<GLint>(std::max(1.0, std::floor(height / std::pow(2, level))));
-        glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                     nullptr);
-    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    ASSERT_GL_TRUE(glIsTexture(textureFromCtx0));
 
     // Switch to context 1 and verify that the texture is accessible
     ASSERT_EGL_TRUE(eglMakeCurrent(display, surface, surface, mContexts[1]));

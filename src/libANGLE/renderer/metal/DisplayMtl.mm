@@ -482,6 +482,11 @@ void DisplayMtl::generateExtensions(egl::DisplayExtensions *outExtensions) const
 
     // EGL_ANGLE_metal_create_context_ownership_identity
     outExtensions->metalCreateContextOwnershipIdentityANGLE = true;
+
+    // EGL_KHR_gl_colorspace
+    outExtensions->glColorspace =
+    outExtensions->glColorspaceScrgbLinear =
+    outExtensions->glColorspaceBt2020PQ = true;
 }
 
 void DisplayMtl::generateCaps(egl::Caps *outCaps) const {}
@@ -596,8 +601,7 @@ egl::ConfigSet DisplayMtl::generateConfigs()
         configs.add(config);
     }
 
-    config.renderTargetFormat = GL_RGBA16F;
-    config.colorComponentType = EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT;
+    config.renderTargetFormat = GL_RGB10_A2;
 
     for (int samples : samplesSupported)
     {
@@ -605,10 +609,10 @@ egl::ConfigSet DisplayMtl::generateConfigs()
         config.sampleBuffers = (samples == 0) ? 0 : 1;
 
         // Buffer sizes
-        config.redSize    = 16;
-        config.greenSize  = 16;
-        config.blueSize   = 16;
-        config.alphaSize  = 16;
+        config.redSize    = 10;
+        config.greenSize  = 10;
+        config.blueSize   = 10;
+        config.alphaSize  = 2;
         config.bufferSize = config.redSize + config.greenSize + config.blueSize + config.alphaSize;
 
         // With DS

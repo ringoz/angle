@@ -85,9 +85,28 @@ SurfaceMtl::SurfaceMtl(DisplayMtl *display,
         attribs.get(EGL_ROBUST_RESOURCE_INITIALIZATION_ANGLE, EGL_FALSE) == EGL_TRUE;
     mColorFormat = display->getPixelFormat(angle::FormatID::B8G8R8A8_UNORM);
     
-    if (state.config->bufferSize == 64 &&
-        state.config->colorComponentType == EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT)
-        mColorFormat = display->getPixelFormat(angle::FormatID::R16G16B16A16_FLOAT);
+    if (state.config->redSize == 10 &&
+        state.config->greenSize == 10 &&
+        state.config->blueSize == 10 &&
+        state.config->alphaSize == 2)
+        mColorFormat = display->getPixelFormat(angle::FormatID::B10G10R10A2_UNORM);
+
+    switch (attribs.get(EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_LINEAR))
+    {
+    case EGL_GL_COLORSPACE_LINEAR:
+        break;
+    case EGL_GL_COLORSPACE_SRGB_KHR:
+        mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+        break;
+    case EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT:
+        mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearSRGB);
+        break;
+    case EGL_GL_COLORSPACE_BT2020_PQ_EXT:
+        mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2100_PQ);
+        break;
+    default:
+        ASSERT(0 && "Unsupported colorspace requested");
+    }
 
     mSamples = state.config->samples;
 
@@ -128,6 +147,9 @@ SurfaceMtl::~SurfaceMtl() {}
 
 void SurfaceMtl::destroy(const egl::Display *display)
 {
+    CGColorSpaceRelease(mColorSpace);
+    mColorSpace = nullptr;
+
     mColorTexture   = nullptr;
     mDepthTexture   = nullptr;
     mStencilTexture = nullptr;
@@ -444,8 +466,15 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
         mMetalLayer.get().pixelFormat     = mColorFormat.metalFormat;
         mMetalLayer.get().framebufferOnly = NO;  // Support blitting and glReadPixels
 
-        if (mColorFormat.metalFormat == MTLPixelFormatRGBA16Float)
-            [mMetalLayer.get() setWantsExtendedDynamicRangeContent:YES];
+        if (mColorSpace)
+        {
+            if (CGColorSpaceUsesITUR_2100TF(mColorSpace) ||
+                CGColorSpaceUsesExtendedRange(mColorSpace))
+            {
+                [mMetalLayer.get() setWantsExtendedDynamicRangeContent:YES];
+            }
+            [mMetalLayer.get() setColorspace:mColorSpace];
+        }
 
 #if TARGET_OS_OSX
         // Autoresize with parent layer.

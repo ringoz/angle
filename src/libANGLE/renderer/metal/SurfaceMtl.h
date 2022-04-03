@@ -113,6 +113,7 @@ class SurfaceMtl : public SurfaceImpl
     mtl::Format mStencilFormat;
 
     int mSamples = 0;
+    CGColorSpaceRef mColorSpace = nullptr;
 
     RenderTargetMtl mColorRenderTarget;
     RenderTargetMtl mColorManualResolveRenderTarget;

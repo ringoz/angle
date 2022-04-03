@@ -468,10 +468,10 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
 
         if (mColorSpace)
         {
-            if (CGColorSpaceUsesITUR_2100TF(mColorSpace) ||
-                CGColorSpaceUsesExtendedRange(mColorSpace))
+            if ([mMetalLayer.get() respondsToSelector:@selector(setWantsExtendedDynamicRangeContent:)] &&
+                (CGColorSpaceUsesITUR_2100TF(mColorSpace) || CGColorSpaceUsesExtendedRange(mColorSpace)))
             {
-                [mMetalLayer.get() setWantsExtendedDynamicRangeContent:YES];
+                [mMetalLayer.get() performSelector:@selector(setWantsExtendedDynamicRangeContent:) withObject:[NSNumber numberWithBool:YES]];
             }
             [mMetalLayer.get() setColorspace:mColorSpace];
         }

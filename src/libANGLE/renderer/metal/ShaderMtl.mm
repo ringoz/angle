@@ -117,9 +117,6 @@ std::shared_ptr<WaitableCompileEvent> ShaderMtl::compile(const gl::Context *cont
     }
 
     compileOptions |= SH_CLAMP_POINT_SIZE;
-#if defined(ANGLE_PLATFORM_IOS) && !defined(ANGLE_PLATFORM_MACCATALYST)
-    compileOptions |= SH_CLAMP_FRAG_DEPTH;
-#endif
 
     if (contextMtl->getDisplay()->getFeatures().rewriteRowMajorMatrices.enabled)
     {

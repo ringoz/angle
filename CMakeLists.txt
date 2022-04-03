@@ -1090,6 +1090,7 @@ elseif(APPLE)
       "src/common/system_utils_ios.cpp"
       "src/gpu_info_util/SystemInfo_apple.mm"
       "src/gpu_info_util/SystemInfo_ios.cpp"
+      "src/libANGLE/renderer/driver_utils_ios.mm"
       "src/libANGLE/renderer/metal/BufferMtl.h"
       "src/libANGLE/renderer/metal/BufferMtl.mm"
       "src/libANGLE/renderer/metal/CompilerMtl.h"

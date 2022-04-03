@@ -467,14 +467,7 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
         mMetalLayer.get().framebufferOnly = NO;  // Support blitting and glReadPixels
 
         if (mColorSpace)
-        {
-            if ([mMetalLayer.get() respondsToSelector:@selector(setWantsExtendedDynamicRangeContent:)] &&
-                (CGColorSpaceUsesITUR_2100TF(mColorSpace) || CGColorSpaceUsesExtendedRange(mColorSpace)))
-            {
-                [mMetalLayer.get() performSelector:@selector(setWantsExtendedDynamicRangeContent:) withObject:[NSNumber numberWithBool:YES]];
-            }
             [mMetalLayer.get() setColorspace:mColorSpace];
-        }
 
 #if TARGET_OS_OSX
         // Autoresize with parent layer.

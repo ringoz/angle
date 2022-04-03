@@ -461,6 +461,14 @@ bool ValidateColorspaceAttribute(const ValidationContext *val,
                 return false;
             }
             break;
+        case EGL_GL_COLORSPACE_BT2020_PQ_EXT:
+            if (!displayExtensions.glColorspaceBt2020PQ)
+            {
+                val->setError(EGL_BAD_ATTRIBUTE,
+                              "EGL_EXT_gl_colorspace_bt2020_pq is not available.");
+                return false;
+            }
+            break;
         default:
             val->setError(EGL_BAD_ATTRIBUTE);
             return false;

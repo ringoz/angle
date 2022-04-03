@@ -58,7 +58,8 @@ SwapChain11::SwapChain11(Renderer11 *renderer,
                          GLenum backBufferFormat,
                          GLenum depthBufferFormat,
                          EGLint orientation,
-                         EGLint samples)
+                         EGLint samples,
+                         EGLint colorSpace)
     : SwapChainD3D(shareHandle, d3dTexture, backBufferFormat, depthBufferFormat),
       mRenderer(renderer),
       mWidth(-1),
@@ -92,7 +93,8 @@ SwapChain11::SwapChain11(Renderer11 *renderer,
       mPassThroughRS(),
       mColorRenderTarget(this, renderer, false),
       mDepthStencilRenderTarget(this, renderer, true),
-      mEGLSamples(samples)
+      mEGLSamples(samples),
+      mEGLColorSpace(colorSpace)
 {
     // Check that if present path fast is active then we're using the default orientation
     ASSERT(!mRenderer->presentPathFastEnabled() || orientation == 0);
@@ -647,6 +649,25 @@ EGLint SwapChain11::reset(DisplayD3D *displayD3D,
             else
             {
                 return EGL_BAD_ALLOC;
+            }
+        }
+
+        Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain3;
+        if (mEGLColorSpace != EGL_COLORSPACE_LINEAR && SUCCEEDED(mSwapChain->QueryInterface(swapChain3.GetAddressOf())))
+        {
+            switch (mEGLColorSpace)
+            {
+            case EGL_GL_COLORSPACE_SRGB_KHR:
+                swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
+                break;
+            case EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT:
+                swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
+                break;
+            case EGL_GL_COLORSPACE_BT2020_PQ_EXT:
+                swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+                break;
+            default:
+                ASSERT(0 && "Unsupported colorspace requested");
             }
         }
 

@@ -587,6 +587,9 @@ struct DisplayExtensions
     // EGL_KHR_gl_colorspace
     bool glColorspace = false;
 
+    // EGL_EXT_gl_colorspace_bt2020_pq
+    bool glColorspaceBt2020PQ = false;
+
     // EGL_EXT_gl_colorspace_display_p3_linear
     bool glColorspaceDisplayP3Linear = false;
 

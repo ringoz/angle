@@ -203,7 +203,8 @@ egl::Error SurfaceD3D::resetSwapChain(const egl::Display *display)
 
     mSwapChain =
         mRenderer->createSwapChain(mNativeWindow, mShareHandle, mD3DTexture, mRenderTargetFormat,
-                                   mDepthStencilFormat, mOrientation, mState.config->samples);
+                                   mDepthStencilFormat, mOrientation, mState.config->samples,
+                                   mState.attributes.get(EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_LINEAR));
     if (!mSwapChain)
     {
         return egl::EglBadAlloc();

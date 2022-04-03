@@ -1242,6 +1242,7 @@ std::vector<std::string> DisplayExtensions::getStrings() const
     InsertExtensionString("EGL_KHR_gl_colorspace",                               glColorspace,                       &extensionStrings);
     InsertExtensionString("EGL_EXT_gl_colorspace_scrgb",                         glColorspaceScrgb,                  &extensionStrings);
     InsertExtensionString("EGL_EXT_gl_colorspace_scrgb_linear",                  glColorspaceScrgbLinear,            &extensionStrings);
+    InsertExtensionString("EGL_EXT_gl_colorspace_bt2020_pq",                     glColorspaceBt2020PQ,               &extensionStrings);
     InsertExtensionString("EGL_EXT_gl_colorspace_display_p3",                    glColorspaceDisplayP3,              &extensionStrings);
     InsertExtensionString("EGL_EXT_gl_colorspace_display_p3_linear",             glColorspaceDisplayP3Linear,        &extensionStrings);
     InsertExtensionString("EGL_EXT_gl_colorspace_display_p3_passthrough",        glColorspaceDisplayP3Passthrough,   &extensionStrings);

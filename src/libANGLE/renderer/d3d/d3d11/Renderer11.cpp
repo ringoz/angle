@@ -1100,6 +1100,10 @@ void Renderer11::populateRenderer11DeviceCaps()
     IDXGIAdapter2 *dxgiAdapter2 = d3d11::DynamicCastComObject<IDXGIAdapter2>(mDxgiAdapter);
     mRenderer11DeviceCaps.supportsDXGI1_2 = (dxgiAdapter2 != nullptr);
     SafeRelease(dxgiAdapter2);
+
+    IDXGIAdapter3 *dxgiAdapter3 = d3d11::DynamicCastComObject<IDXGIAdapter3>(mDxgiAdapter);
+    mRenderer11DeviceCaps.supportsDXGI1_4 = (dxgiAdapter3 != nullptr);
+    SafeRelease(dxgiAdapter3);
 }
 
 gl::SupportedSampleSet Renderer11::generateSampleSetForEGLConfig(
@@ -1341,6 +1345,11 @@ void Renderer11::generateDisplayExtensions(egl::DisplayExtensions *outExtensions
         outExtensions->windowsUIComposition = true;
     }
 #endif
+
+    // color space selection supported in DXGI 1.4 only
+    outExtensions->glColorspace =
+    outExtensions->glColorspaceScrgbLinear =
+    outExtensions->glColorspaceBt2020PQ = mRenderer11DeviceCaps.supportsDXGI1_4;
 }
 
 angle::Result Renderer11::flush(Context11 *context11)
@@ -1691,10 +1700,11 @@ SwapChainD3D *Renderer11::createSwapChain(NativeWindowD3D *nativeWindow,
                                           GLenum backBufferFormat,
                                           GLenum depthBufferFormat,
                                           EGLint orientation,
-                                          EGLint samples)
+                                          EGLint samples,
+                                          EGLint colorSpace)
 {
     return new SwapChain11(this, GetAs<NativeWindow11>(nativeWindow), shareHandle, d3dTexture,
-                           backBufferFormat, depthBufferFormat, orientation, samples);
+                           backBufferFormat, depthBufferFormat, orientation, samples, colorSpace);
 }
 
 void *Renderer11::getD3DDevice()

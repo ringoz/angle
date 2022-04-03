@@ -28,7 +28,8 @@ class SwapChain11 final : public SwapChainD3D
                 GLenum backBufferFormat,
                 GLenum depthBufferFormat,
                 EGLint orientation,
-                EGLint samples);
+                EGLint samples,
+                EGLint colorSpace);
     ~SwapChain11() override;
 
     EGLint resize(DisplayD3D *displayD3D, EGLint backbufferWidth, EGLint backbufferHeight) override;
@@ -126,6 +127,7 @@ class SwapChain11 final : public SwapChainD3D
     SurfaceRenderTarget11 mDepthStencilRenderTarget;
 
     EGLint mEGLSamples;
+    EGLint mEGLColorSpace;
     LONGLONG mQPCFrequency;
 };
 

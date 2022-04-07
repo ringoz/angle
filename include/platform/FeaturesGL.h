@@ -552,6 +552,22 @@ struct FeaturesGL : FeatureSetBase
         "emulate_immutable_compressed_texture_3d", FeatureCategory::OpenGLWorkarounds,
         "Use non-immutable texture allocation to work around a driver bug.", &members,
         "https://crbug.com/1060012"};
+
+    // Desktop GL does not support RGB10 (without alpha) but it is required for
+    // GL_EXT_texture_type_2_10_10_10_REV. Emulate it by setting a sampler parameter to always
+    // sample 1 from alpha.
+    Feature emulateRGB10 = {"emulate_rgb10", FeatureCategory::OpenGLWorkarounds,
+                            "Emulate RGB10 support using RGB10_A2.", &members,
+                            "https://crbug.com/1300575"};
+
+    // On NVIDIA, binding a texture level > 0 to a framebuffer color attachment and then
+    // binding a renderbuffer to the same attachment causes the driver to report that the FBO
+    // has an incomplete attachment. This workaround forces a call to framebufferTexture2D with
+    // texture_id and level set to 0 before binding a renderbuffer to bypass the issue.
+    Feature alwaysUnbindFramebufferTexture2D = {
+        "always_unbind_framebuffer_texture_2d", FeatureCategory::OpenGLWorkarounds,
+        "Force unbind framebufferTexture2D before binding renderbuffer to work around driver bug.",
+        &members, "https://anglebug.com/5536"};
 };
 
 inline FeaturesGL::FeaturesGL()  = default;

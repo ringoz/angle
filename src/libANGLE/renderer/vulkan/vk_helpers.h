@@ -516,28 +516,30 @@ class SemaphoreHelper final : angle::NonCopyable
 enum class PipelineStage : uint16_t
 {
     // Bellow are ordered based on Graphics Pipeline Stages
-    TopOfPipe             = 0,
-    DrawIndirect          = 1,
-    VertexInput           = 2,
-    VertexShader          = 3,
-    GeometryShader        = 4,
-    TransformFeedback     = 5,
-    EarlyFragmentTest     = 6,
-    FragmentShader        = 7,
-    LateFragmentTest      = 8,
-    ColorAttachmentOutput = 9,
+    TopOfPipe              = 0,
+    DrawIndirect           = 1,
+    VertexInput            = 2,
+    VertexShader           = 3,
+    TessellationControl    = 4,
+    TessellationEvaluation = 5,
+    GeometryShader         = 6,
+    TransformFeedback      = 7,
+    EarlyFragmentTest      = 8,
+    FragmentShader         = 9,
+    LateFragmentTest       = 10,
+    ColorAttachmentOutput  = 11,
 
     // Compute specific pipeline Stage
-    ComputeShader = 10,
+    ComputeShader = 12,
 
     // Transfer specific pipeline Stage
-    Transfer     = 11,
-    BottomOfPipe = 12,
+    Transfer     = 13,
+    BottomOfPipe = 14,
 
     // Host specific pipeline stage
-    Host = 13,
+    Host = 15,
 
-    InvalidEnum = 14,
+    InvalidEnum = 16,
     EnumCount   = InvalidEnum,
 };
 using PipelineStagesMask = angle::PackedEnumBitSet<PipelineStage, uint16_t>;
@@ -788,6 +790,13 @@ class BufferHelper : public ReadWriteResource
     void fillWithColor(const angle::Color<uint8_t> &color,
                        const gl::InternalFormat &internalFormat);
 
+    // Special handling for VertexArray code so that we can create a dedicated VkBuffer for the
+    // sub-range of memory of the actual buffer data size that user requested (i.e, excluding extra
+    // paddings that we added for alignment, which will not get zero filled).
+    const Buffer &getBufferForVertexArray(ContextVk *contextVk,
+                                          VkDeviceSize actualDataSize,
+                                          VkDeviceSize *offsetOut);
+
   private:
     void initializeBarrierTracker(Context *context);
     angle::Result initializeNonZeroMemory(Context *context,
@@ -803,6 +812,11 @@ class BufferHelper : public ReadWriteResource
 
     // Suballocation object.
     BufferSuballocation mSuballocation;
+    // This normally is invalid. We always use the BufferBlock's buffer and offset combination. But
+    // when robust resource init is enabled, we may want to create a dedicated VkBuffer for the
+    // suballocation so that vulkan driver will ensure no access beyond this sub-range. In that
+    // case, this VkBuffer will be created lazily as needed.
+    Buffer mBufferForVertexArray;
 
     // For memory barriers.
     uint32_t mCurrentQueueFamilyIndex;
@@ -923,6 +937,7 @@ class RenderPassAttachment final
                            RenderPassStoreOp *storeOp,
                            bool *isInvalidatedOut);
     void restoreContent();
+    bool hasAnyAccess() const { return mAccess != ResourceAccess::Unused; }
     bool hasWriteAccess() const { return mAccess == ResourceAccess::Write; }
 
     ImageHelper *getImage() { return mImage; }
@@ -1242,6 +1257,14 @@ class RenderPassCommandBufferHelper final : public CommandBufferHelperCommon
     void onColorAccess(PackedAttachmentIndex packedAttachmentIndex, ResourceAccess access);
     void onDepthAccess(ResourceAccess access);
     void onStencilAccess(ResourceAccess access);
+
+    bool hasAnyColorAccess(PackedAttachmentIndex packedAttachmentIndex)
+    {
+        ASSERT(packedAttachmentIndex < mColorAttachmentsCount);
+        return mColorAttachments[packedAttachmentIndex].hasAnyAccess();
+    }
+    bool hasAnyDepthAccess() { return mDepthAttachment.hasAnyAccess(); }
+    bool hasAnyStencilAccess() { return mStencilAttachment.hasAnyAccess(); }
 
     void updateRenderPassForResolve(ContextVk *contextVk,
                                     Framebuffer *newFramebuffer,

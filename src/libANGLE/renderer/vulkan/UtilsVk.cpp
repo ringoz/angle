@@ -13,10 +13,10 @@
 
 #include "libANGLE/renderer/glslang_wrapper_utils.h"
 #include "libANGLE/renderer/vulkan/ContextVk.h"
-#include "libANGLE/renderer/vulkan/DisplayVk.h"
 #include "libANGLE/renderer/vulkan/FramebufferVk.h"
 #include "libANGLE/renderer/vulkan/RenderTargetVk.h"
 #include "libANGLE/renderer/vulkan/RendererVk.h"
+#include "libANGLE/renderer/vulkan/SurfaceVk.h"
 #include "libANGLE/renderer/vulkan/vk_utils.h"
 
 namespace rx
@@ -2014,7 +2014,8 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
     vk::RenderPassCommandBuffer *commandBuffer;
 
     // Start a new render pass if not already started
-    ANGLE_TRY(framebuffer->getFramebuffer(contextVk, &currentFramebuffer, nullptr));
+    ANGLE_TRY(framebuffer->getFramebuffer(contextVk, &currentFramebuffer, nullptr,
+                                          SwapchainResolveMode::Disabled));
     if (contextVk->hasStartedRenderPassWithFramebuffer(currentFramebuffer))
     {
         commandBuffer = &contextVk->getStartedRenderPassCommands().getCommandBuffer();
@@ -2551,7 +2552,7 @@ angle::Result UtilsVk::stencilBlitResolveNoShaderExport(ContextVk *contextVk,
 
     ANGLE_TRY(blitBuffer.get().initSuballocation(
         contextVk, contextVk->getRenderer()->getDeviceLocalMemoryTypeIndex(),
-        static_cast<size_t>(bufferSize), GetDefaultBufferAlignment(contextVk->getRenderer())));
+        static_cast<size_t>(bufferSize), contextVk->getRenderer()->getDefaultBufferAlignment()));
     blitBuffer.get().retainReadWrite(&contextVk->getResourceUseList());
 
     BlitResolveStencilNoExportShaderParams shaderParams;

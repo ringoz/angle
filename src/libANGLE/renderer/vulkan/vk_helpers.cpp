@@ -46,6 +46,8 @@ constexpr angle::PackedEnumMap<PipelineStage, VkPipelineStageFlagBits> kPipeline
     {PipelineStage::DrawIndirect, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT},
     {PipelineStage::VertexInput, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT},
     {PipelineStage::VertexShader, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT},
+    {PipelineStage::TessellationControl, VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT},
+    {PipelineStage::TessellationEvaluation, VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT},
     {PipelineStage::GeometryShader, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT},
     {PipelineStage::TransformFeedback, VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT},
     {PipelineStage::EarlyFragmentTest, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT},
@@ -59,8 +61,10 @@ constexpr angle::PackedEnumMap<PipelineStage, VkPipelineStageFlagBits> kPipeline
 
 constexpr gl::ShaderMap<PipelineStage> kPipelineStageShaderMap = {
     {gl::ShaderType::Vertex, PipelineStage::VertexShader},
-    {gl::ShaderType::Fragment, PipelineStage::FragmentShader},
+    {gl::ShaderType::TessControl, PipelineStage::TessellationControl},
+    {gl::ShaderType::TessEvaluation, PipelineStage::TessellationEvaluation},
     {gl::ShaderType::Geometry, PipelineStage::GeometryShader},
+    {gl::ShaderType::Fragment, PipelineStage::FragmentShader},
     {gl::ShaderType::Compute, PipelineStage::ComputeShader},
 };
 
@@ -1125,9 +1129,9 @@ void RenderPassAttachment::finalizeLoadStore(Context *context,
     const bool supportsStoreOpNone =
         supportsLoadStoreOpNone ||
         context->getRenderer()->getFeatures().supportsRenderPassStoreOpNoneQCOM.enabled;
-    if (mImage->hasRenderPassUsageFlag(RenderPassUsage::ReadOnlyAttachment) && supportsStoreOpNone)
+    if (mAccess == ResourceAccess::ReadOnly && supportsStoreOpNone)
     {
-        if (*storeOp == RenderPassStoreOp::Store)
+        if (*storeOp == RenderPassStoreOp::Store && *loadOp != RenderPassLoadOp::Clear)
         {
             *storeOp = RenderPassStoreOp::None;
         }
@@ -1142,12 +1146,34 @@ void RenderPassAttachment::finalizeLoadStore(Context *context,
             // load/clear op.
             *loadOp = RenderPassLoadOp::DontCare;
         }
-        else if (*loadOp != RenderPassLoadOp::Clear && supportsLoadStoreOpNone)
+        else
         {
-            // Otherwise make sure the attachment is neither loaded nor stored (as it's neither
-            // used nor invalidated).
-            *loadOp  = RenderPassLoadOp::None;
-            *storeOp = RenderPassStoreOp::None;
+            switch (*loadOp)
+            {
+                case RenderPassLoadOp::Clear:
+                    // Cannot optimize away the ops if the attachment is cleared (even if not used
+                    // afterwards)
+                    break;
+                case RenderPassLoadOp::Load:
+                    // Make sure the attachment is neither loaded nor stored (as it's neither used
+                    // nor invalidated), if possible.
+                    if (supportsLoadStoreOpNone)
+                    {
+                        *loadOp = RenderPassLoadOp::None;
+                    }
+                    if (supportsStoreOpNone)
+                    {
+                        *storeOp = RenderPassStoreOp::None;
+                    }
+                    break;
+                case RenderPassLoadOp::DontCare:
+                case RenderPassLoadOp::None:
+                default:
+                    // loadOp=DontCare should be covered by storeOp=DontCare above.
+                    // loadOp=None is never decided upfront.
+                    UNREACHABLE();
+                    break;
+            }
         }
     }
 }
@@ -1736,7 +1762,7 @@ void RenderPassCommandBufferHelper::finalizeColorImageLayout(
         mImageOptimizeForPresent->setCurrentImageLayout(ImageLayout::Present);
         // TODO(syoussefi):  We currently don't store the layout of the resolve attachments, so once
         // multisampled backbuffers are optimized to use resolve attachments, this information needs
-        // to be stored somewhere.  http://anglebug.com/4836
+        // to be stored somewhere.  http://anglebug.com/7150
         SetBitField(mAttachmentOps[packedAttachmentIndex].finalLayout,
                     mImageOptimizeForPresent->getCurrentImageLayout());
         mImageOptimizeForPresent = nullptr;
@@ -3906,7 +3932,14 @@ void LineLoopHelper::Draw(uint32_t count,
 
 PipelineStage GetPipelineStage(gl::ShaderType stage)
 {
-    return kPipelineStageShaderMap[stage];
+    const PipelineStage pipelineStage = kPipelineStageShaderMap[stage];
+    ASSERT(pipelineStage == PipelineStage::VertexShader ||
+           pipelineStage == PipelineStage::TessellationControl ||
+           pipelineStage == PipelineStage::TessellationEvaluation ||
+           pipelineStage == PipelineStage::GeometryShader ||
+           pipelineStage == PipelineStage::FragmentShader ||
+           pipelineStage == PipelineStage::ComputeShader);
+    return pipelineStage;
 }
 
 // PipelineBarrier implementation.
@@ -3940,7 +3973,8 @@ BufferHelper &BufferHelper::operator=(BufferHelper &&other)
 {
     ReadWriteResource::operator=(std::move(other));
 
-    mSuballocation = std::move(other.mSuballocation);
+    mSuballocation        = std::move(other.mSuballocation);
+    mBufferForVertexArray = std::move(other.mBufferForVertexArray);
 
     mCurrentQueueFamilyIndex = other.mCurrentQueueFamilyIndex;
     mCurrentWriteAccess      = other.mCurrentWriteAccess;
@@ -4231,10 +4265,52 @@ angle::Result BufferHelper::initializeNonZeroMemory(Context *context,
     return angle::Result::Continue;
 }
 
+const Buffer &BufferHelper::getBufferForVertexArray(ContextVk *contextVk,
+                                                    VkDeviceSize actualDataSize,
+                                                    VkDeviceSize *offsetOut)
+{
+    ASSERT(mSuballocation.valid());
+    ASSERT(actualDataSize <= mSuballocation.getSize());
+
+    if (!contextVk->isRobustResourceInitEnabled() || !mSuballocation.isSuballocated())
+    {
+        *offsetOut = mSuballocation.getOffset();
+        return mSuballocation.getBuffer();
+    }
+
+    if (!mBufferForVertexArray.valid())
+    {
+        // Allocate buffer that is backed by sub-range of the memory for vertex array usage. This is
+        // only needed when robust resource init is enabled so that vulkan driver will know the
+        // exact size of the vertex buffer it is supposedly to use and prevent out of bound access.
+        VkBufferCreateInfo createInfo    = {};
+        createInfo.sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.flags                 = 0;
+        createInfo.size                  = actualDataSize;
+        createInfo.usage                 = kVertexBufferUsageFlags | kIndexBufferUsageFlags;
+        createInfo.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+        createInfo.queueFamilyIndexCount = 0;
+        createInfo.pQueueFamilyIndices   = nullptr;
+        mBufferForVertexArray.init(contextVk->getDevice(), createInfo);
+
+        VkMemoryRequirements memoryRequirements;
+        mBufferForVertexArray.getMemoryRequirements(contextVk->getDevice(), &memoryRequirements);
+        ASSERT(contextVk->getRenderer()->isMockICDEnabled() ||
+               mSuballocation.getSize() >= memoryRequirements.size);
+        ASSERT(!contextVk->getRenderer()->isMockICDEnabled() ||
+               mSuballocation.getOffset() % memoryRequirements.alignment == 0);
+
+        mBufferForVertexArray.bindMemory(contextVk->getDevice(), mSuballocation.getDeviceMemory(),
+                                         mSuballocation.getOffset());
+    }
+    *offsetOut = 0;
+    return mBufferForVertexArray;
+}
+
 void BufferHelper::destroy(RendererVk *renderer)
 {
     unmap(renderer);
-
+    mBufferForVertexArray.destroy(renderer->getDevice());
     mSuballocation.destroy(renderer);
 }
 
@@ -4247,11 +4323,13 @@ void BufferHelper::release(RendererVk *renderer)
         if (mReadOnlyUse.isCurrentlyInUse(renderer->getLastCompletedQueueSerial()))
         {
             renderer->collectSuballocationGarbage(std::move(mReadOnlyUse),
-                                                  std::move(mSuballocation));
+                                                  std::move(mSuballocation),
+                                                  std::move(mBufferForVertexArray));
             mReadOnlyUse.init();
         }
         else
         {
+            mBufferForVertexArray.destroy(renderer->getDevice());
             mSuballocation.destroy(renderer);
         }
 
@@ -4261,6 +4339,7 @@ void BufferHelper::release(RendererVk *renderer)
             mReadWriteUse.init();
         }
     }
+    ASSERT(!mBufferForVertexArray.valid());
 }
 
 angle::Result BufferHelper::copyFromBuffer(ContextVk *contextVk,
@@ -4703,6 +4782,7 @@ angle::Result ImageHelper::initExternal(Context *context,
     ASSERT(textureType != gl::TextureType::External || mLayerCount == 1);
     ASSERT(textureType != gl::TextureType::Rectangle || mLayerCount == 1);
     ASSERT(textureType != gl::TextureType::CubeMap || mLayerCount == gl::kCubeFaceCount);
+    ASSERT(textureType != gl::TextureType::CubeMapArray || mLayerCount % gl::kCubeFaceCount == 0);
 
     // If externalImageCreateInfo is provided, use that directly.  Otherwise derive the necessary
     // pNext chain.
@@ -7382,6 +7462,9 @@ angle::Result ImageHelper::flushStagedUpdates(ContextVk *contextVk,
             if (IsClearOfAllChannels(update.updateSource) &&
                 mCurrentSingleClearValue.value() == update.data.clear)
             {
+                ASSERT(levelGLStart + 1 == levelGLEnd);
+                setContentDefined(toVkLevel(levelGLStart), 1, layerStart, layerEnd - layerStart,
+                                  update.data.clear.aspectFlags);
                 ANGLE_VK_PERF_WARNING(contextVk, GL_DEBUG_SEVERITY_LOW,
                                       "Repeated Clear on framebuffer attachment dropped");
                 update.release(contextVk->getRenderer());

@@ -2205,6 +2205,13 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
 
     // https://crbug.com/1060012
     ANGLE_FEATURE_CONDITION(features, emulateImmutableCompressedTexture3D, isQualcomm);
+
+    // https://crbug.com/1300575
+    ANGLE_FEATURE_CONDITION(features, emulateRGB10, functions->standard == STANDARD_GL_DESKTOP);
+
+    // https://anglebug.com/5536
+    ANGLE_FEATURE_CONDITION(features, alwaysUnbindFramebufferTexture2D,
+                            isNvidia && (IsWindows() || IsLinux()));
 }
 
 void InitializeFrontendFeatures(const FunctionsGL *functions, angle::FrontendFeatures *features)

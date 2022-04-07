@@ -393,6 +393,7 @@ void RendererVk::ensureCapsInitialized() const
     mNativeExtensions.EGLImageExternalWrapModesEXT = true;
     mNativeExtensions.EGLImageExternalEssl3OES     = true;
     mNativeExtensions.EGLImageArrayEXT             = true;
+    mNativeExtensions.EGLImageStorageEXT           = true;
     mNativeExtensions.memoryObjectEXT              = true;
     mNativeExtensions.memoryObjectFdEXT            = getFeatures().supportsExternalMemoryFd.enabled;
     mNativeExtensions.memoryObjectFlagsANGLE       = true;
@@ -799,7 +800,10 @@ void RendererVk::ensureCapsInitialized() const
     // Set maxShaderAtomicCounters to zero if atomic is not supported.
     if (!mPhysicalDeviceFeatures.vertexPipelineStoresAndAtomics)
     {
-        mNativeCaps.maxShaderAtomicCounters[gl::ShaderType::Vertex] = 0;
+        mNativeCaps.maxShaderAtomicCounters[gl::ShaderType::Vertex]         = 0;
+        mNativeCaps.maxShaderAtomicCounters[gl::ShaderType::Geometry]       = 0;
+        mNativeCaps.maxShaderAtomicCounters[gl::ShaderType::TessControl]    = 0;
+        mNativeCaps.maxShaderAtomicCounters[gl::ShaderType::TessEvaluation] = 0;
     }
     if (!mPhysicalDeviceFeatures.fragmentStoresAndAtomics)
     {
@@ -875,7 +879,8 @@ void RendererVk::ensureCapsInitialized() const
     {
         reservedVaryingComponentCount += kReservedVaryingComponentsForGLLineRasterization;
     }
-    if (getFeatures().supportsTransformFeedbackExtension.enabled)
+    if (getFeatures().supportsTransformFeedbackExtension.enabled &&
+        !getFeatures().supportsDepthClipControl.enabled)
     {
         reservedVaryingComponentCount += kReservedVaryingComponentsForTransformFeedbackExtension;
     }

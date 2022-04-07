@@ -47,8 +47,8 @@ constexpr size_t kInitialTraceEventBufferSize = 50000;
 constexpr double kMilliSecondsPerSecond       = 1e3;
 constexpr double kMicroSecondsPerSecond       = 1e6;
 constexpr double kNanoSecondsPerSecond        = 1e9;
-constexpr char kPeakMemoryMetric[]            = ".peak_memory";
-constexpr char kMedianMemoryMetric[]          = ".median_memory";
+constexpr char kPeakMemoryMetric[]            = ".memory_max";
+constexpr char kMedianMemoryMetric[]          = ".memory_median";
 
 struct TraceCategory
 {
@@ -278,7 +278,8 @@ void ANGLEPerfTest::run()
 {
     if (mSkipTest)
     {
-        return;
+        GTEST_SKIP() << mSkipTestReason;
+        // GTEST_SKIP returns.
     }
 
     if (mStepsToRun <= 0)
@@ -714,8 +715,7 @@ ANGLERenderTest::ANGLERenderTest(const std::string &name,
             mEntryPointsLib.reset(OpenSharedLibraryWithExtension(
                 GetNativeEGLLibraryNameWithExtension(), SearchType::SystemDir));
 #else
-            std::cerr << "Not implemented." << std::endl;
-            mSkipTest = true;
+            skipTest("Not implemented.");
 #endif  // defined(ANGLE_USE_UTIL_LOADER) && !defined(ANGLE_PLATFORM_WINDOWS)
             break;
         case GLESDriverType::SystemWGL:
@@ -723,13 +723,11 @@ ANGLERenderTest::ANGLERenderTest(const std::string &name,
             mGLWindow = WGLWindow::New(testParams.majorVersion, testParams.minorVersion);
             mEntryPointsLib.reset(OpenSharedLibrary("opengl32", SearchType::SystemDir));
 #else
-            std::cout << "WGL driver not available. Skipping test." << std::endl;
-            mSkipTest = true;
+            skipTest("WGL driver not available.");
 #endif  // defined(ANGLE_USE_UTIL_LOADER) && defined(ANGLE_PLATFORM_WINDOWS)
             break;
         default:
-            std::cerr << "Error in switch." << std::endl;
-            mSkipTest = true;
+            skipTest("Error in switch.");
             break;
     }
 }
@@ -761,7 +759,7 @@ void ANGLERenderTest::SetUp()
 
     if (!mGLWindow)
     {
-        mSkipTest = true;
+        skipTest("!mGLWindow");
         return;
     }
 
@@ -777,9 +775,8 @@ void ANGLERenderTest::SetUp()
 
     if (!mOSWindow->initialize(mName, mTestParams.windowWidth, mTestParams.windowHeight))
     {
-        mSkipTest = true;
-        FAIL() << "Failed initializing OSWindow";
-        // FAIL returns.
+        failTest("Failed initializing OSWindow");
+        return;
     }
 
     // Override platform method parameter.
@@ -804,13 +801,11 @@ void ANGLERenderTest::SetUp()
     switch (res)
     {
         case GLWindowResult::NoColorspaceSupport:
-            mSkipTest = true;
-            std::cout << "Test skipped due to missing support for color spaces." << std::endl;
+            skipTest("Missing support for color spaces.");
             return;
         case GLWindowResult::Error:
-            mSkipTest = true;
-            FAIL() << "Failed initializing GL Window";
-            // FAIL returns.
+            failTest("Failed initializing GL Window");
+            return;
         default:
             break;
     }
@@ -820,9 +815,8 @@ void ANGLERenderTest::SetUp()
     {
         if (!mGLWindow->setSwapInterval(0))
         {
-            mSkipTest = true;
-            FAIL() << "Failed setting swap interval";
-            // FAIL returns.
+            failTest("Failed setting swap interval");
+            return;
         }
     }
 
@@ -831,14 +825,12 @@ void ANGLERenderTest::SetUp()
         mIsTimestampQueryAvailable = EnsureGLExtensionEnabled("GL_EXT_disjoint_timer_query");
     }
 
-    if (!areExtensionPrerequisitesFulfilled())
-    {
-        mSkipTest = true;
-    }
+    skipTestIfMissingExtensionPrerequisites();
 
     if (mSkipTest)
     {
-        return;
+        GTEST_SKIP() << mSkipTestReason;
+        // GTEST_SKIP returns.
     }
 
 #if defined(ANGLE_ENABLE_ASSERTS)
@@ -852,14 +844,14 @@ void ANGLERenderTest::SetUp()
 
     if (mSkipTest)
     {
-        return;
+        GTEST_SKIP() << mSkipTestReason;
+        // GTEST_SKIP returns.
     }
 
     if (mTestParams.iterationsPerStep == 0)
     {
-        mSkipTest = true;
-        FAIL() << "Please initialize 'iterationsPerStep'.";
-        // FAIL returns.
+        failTest("Please initialize 'iterationsPerStep'.");
+        return;
     }
 
     if (gVerboseLogging)
@@ -872,8 +864,7 @@ void ANGLERenderTest::SetUp()
 
     for (int loopIndex = 0; loopIndex < gWarmupLoops; ++loopIndex)
     {
-        doRunLoop(gCalibrationTimeSeconds, std::numeric_limits<int>::max(),
-                  RunLoopPolicy::FinishEveryStep);
+        doRunLoop(gCalibrationTimeSeconds, gWarmupSteps, RunLoopPolicy::FinishEveryStep);
         if (gVerboseLogging)
         {
             printf("Warm-up loop took %.2lf seconds.\n", mTimer.getElapsedWallClockTime());
@@ -939,30 +930,37 @@ void ANGLERenderTest::initPerfCounters()
                            angle::SplitResult::SPLIT_WANT_NONEMPTY);
     for (const std::string &counter : counters)
     {
-        auto iter = indexMap.find(counter);
-        if (iter == indexMap.end())
+        bool found = false;
+
+        for (const auto &indexMapIter : indexMap)
         {
-            fprintf(stderr, "Counter '%s' not in list of available perf counters.\n",
-                    counter.c_str());
+            const std::string &indexMapName = indexMapIter.first;
+            if (NamesMatchWithWildcard(counter.c_str(), indexMapName.c_str()))
+            {
+                {
+                    std::stringstream medianStr;
+                    medianStr << '.' << indexMapName << "_median";
+                    std::string medianName = medianStr.str();
+                    mReporter->RegisterImportantMetric(medianName, "count");
+                }
+
+                {
+                    std::stringstream maxStr;
+                    maxStr << '.' << indexMapName << "_max";
+                    std::string maxName = maxStr.str();
+                    mReporter->RegisterImportantMetric(maxName, "count");
+                }
+
+                GLuint index            = indexMapIter.second;
+                mPerfCounterInfo[index] = {indexMapName, {}};
+
+                found = true;
+            }
         }
-        else
+
+        if (!found)
         {
-            {
-                std::stringstream medianStr;
-                medianStr << '.' << counter << "_median";
-                std::string medianName = medianStr.str();
-                mReporter->RegisterImportantMetric(medianName, "count");
-            }
-
-            {
-                std::stringstream maxStr;
-                maxStr << '.' << counter << "_max";
-                std::string maxName = maxStr.str();
-                mReporter->RegisterImportantMetric(maxName, "count");
-            }
-
-            GLuint index            = indexMap[counter];
-            mPerfCounterInfo[index] = {counter, {}};
+            fprintf(stderr, "'%s' does not match any available perf counters.\n", counter.c_str());
         }
     }
 }
@@ -1141,18 +1139,17 @@ GLWindowBase *ANGLERenderTest::getGLWindow()
     return mGLWindow;
 }
 
-bool ANGLERenderTest::areExtensionPrerequisitesFulfilled() const
+void ANGLERenderTest::skipTestIfMissingExtensionPrerequisites()
 {
     for (const char *extension : mExtensionPrerequisites)
     {
         if (!CheckExtensionExists(reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS)),
                                   extension))
         {
-            std::cout << "Test skipped due to missing extension: " << extension << std::endl;
-            return false;
+            skipTest(std::string("Test skipped due to missing extension: ") + extension);
+            return;
         }
     }
-    return true;
 }
 
 void ANGLERenderTest::setWebGLCompatibilityEnabled(bool webglCompatibility)
@@ -1173,7 +1170,9 @@ std::vector<TraceEvent> &ANGLERenderTest::getTraceEventBuffer()
 void ANGLERenderTest::onErrorMessage(const char *errorMessage)
 {
     abortTest();
-    FAIL() << "Failing test because of unexpected error:\n" << errorMessage << "\n";
+    std::ostringstream err;
+    err << "Failing test because of unexpected error:\n" << errorMessage << "\n";
+    failTest(err.str());
 }
 
 uint32_t ANGLERenderTest::getCurrentThreadSerial()

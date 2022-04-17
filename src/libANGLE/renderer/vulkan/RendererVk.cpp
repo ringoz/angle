@@ -547,6 +547,13 @@ constexpr SkippedSyncvalMessage kSkippedSyncvalMessages[] = {
         "SYNC-HAZARD-WRITE_AFTER_READ",
         "type: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
     },
+    // From: TracePerfTest.Run/vulkan_special_forces_group_2 http://anglebug.com/5592
+    {
+        "SYNC-HAZARD-WRITE_AFTER_READ",
+        "Access info (usage: SYNC_IMAGE_LAYOUT_TRANSITION, prior_usage: "
+        "SYNC_FRAGMENT_SHADER_SHADER_STORAGE_READ, read_barriers: "
+        "VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, command: vkCmdDrawIndexed",
+    },
 };
 
 enum class DebugMessageReport
@@ -1853,10 +1860,6 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
     mBlendOperationAdvancedFeatures.sType =
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_FEATURES_EXT;
 
-    mBlendOperationAdvancedProperties = {};
-    mBlendOperationAdvancedProperties.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_PROPERTIES_EXT;
-
     if (!vkGetPhysicalDeviceProperties2KHR || !vkGetPhysicalDeviceFeatures2KHR)
     {
         return;
@@ -1987,7 +1990,6 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
     if (ExtensionFound(VK_EXT_BLEND_OPERATION_ADVANCED_EXTENSION_NAME, deviceExtensionNames))
     {
         vk::AddToPNextChain(&deviceFeatures, &mBlendOperationAdvancedFeatures);
-        vk::AddToPNextChain(&deviceProperties, &mBlendOperationAdvancedProperties);
     }
 
     vkGetPhysicalDeviceFeatures2KHR(mPhysicalDevice, &deviceFeatures);
@@ -2017,7 +2019,6 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
     mHostQueryResetFeatures.pNext                    = nullptr;
     mDepthClipControlFeatures.pNext                  = nullptr;
     mBlendOperationAdvancedFeatures.pNext            = nullptr;
-    mBlendOperationAdvancedProperties.pNext          = nullptr;
 }
 
 angle::Result RendererVk::initializeDevice(DisplayVk *displayVk, uint32_t queueFamilyIndex)
@@ -3248,16 +3249,6 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // Android mistakenly destroys the old swapchain when creating a new one.
     ANGLE_FEATURE_CONDITION(&mFeatures, waitIdleBeforeSwapchainRecreation, IsAndroid() && isARM);
 
-    for (size_t lodOffsetFeatureIdx = 0;
-         lodOffsetFeatureIdx < mFeatures.forceTextureLODOffset.size(); lodOffsetFeatureIdx++)
-    {
-        ANGLE_FEATURE_CONDITION(&mFeatures, forceTextureLODOffset[lodOffsetFeatureIdx], false);
-    }
-    ANGLE_FEATURE_CONDITION(&mFeatures, forceNearestFiltering, false);
-    ANGLE_FEATURE_CONDITION(&mFeatures, forceNearestMipFiltering, false);
-
-    ANGLE_FEATURE_CONDITION(&mFeatures, compressVertexData, false);
-
     // vkCmdClearAttachments races with draw calls on Qualcomm hardware as observed on Pixel2 and
     // Pixel4.  https://issuetracker.google.com/issues/166809097
     ANGLE_FEATURE_CONDITION(&mFeatures, preferDrawClearOverVkCmdClearAttachments, isQualcomm);
@@ -3319,6 +3310,16 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // (which would require Chromium and Capture/Replay test expectations updates).
     ANGLE_FEATURE_CONDITION(&mFeatures, emulateDithering, IsAndroid());
 
+    // GL_KHR_blend_equation_advanced is emulated when the equivalent Vulkan extension is not
+    // usable.  Additionally, the following platforms don't support INPUT_ATTACHMENT usage for the
+    // swapchain, so they are excluded:
+    //
+    // - Intel
+    //
+    // Without VK_GOOGLE_surfaceless_query, there is no way to automatically deduce this support.
+    ANGLE_FEATURE_CONDITION(&mFeatures, emulateAdvancedBlendEquations,
+                            !mFeatures.supportsBlendOperationAdvanced.enabled && !isIntel);
+
     // http://anglebug.com/6933
     // Android expects VkPresentRegionsKHR rectangles with a bottom-left origin, while spec
     // states they should have a top-left origin.
@@ -3328,9 +3329,6 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     ANGLE_FEATURE_CONDITION(&mFeatures, retainSpirvDebugInfo, getEnableValidationLayers());
 
     ANGLE_FEATURE_CONDITION(&mFeatures, generateSPIRVThroughGlslang, kUseSpirvGenThroughGlslang);
-
-    angle::PlatformMethods *platform = ANGLEPlatformCurrent();
-    platform->overrideFeaturesVk(platform, &mFeatures);
 
     ApplyFeatureOverrides(&mFeatures, displayVk->getState());
 

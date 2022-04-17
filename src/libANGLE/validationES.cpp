@@ -562,7 +562,7 @@ const char *ValidateProgramDrawAdvancedBlendState(const Context *context, Progra
 {
     const State &state = context->getState();
     const BlendEquationBitSet &supportedBlendEquations =
-        program->getState().getAdvancedBlendEquations();
+        program->getExecutable().getAdvancedBlendEquations();
     const DrawBufferMask &enabledDrawBufferMask = state.getBlendStateExt().mEnabledMask;
 
     for (size_t blendEnabledBufferIndex : enabledDrawBufferMask)
@@ -918,7 +918,7 @@ bool ValidateDrawInstancedANGLE(const Context *context, angle::EntryPoint entryP
 
     const auto &attribs  = state.getVertexArray()->getVertexAttributes();
     const auto &bindings = state.getVertexArray()->getVertexBindings();
-    for (size_t attributeIndex = 0; attributeIndex < MAX_VERTEX_ATTRIBS; attributeIndex++)
+    for (size_t attributeIndex = 0; attributeIndex < attribs.size(); attributeIndex++)
     {
         const VertexAttribute &attrib = attribs[attributeIndex];
         const VertexBinding &binding  = bindings[attrib.bindingIndex];

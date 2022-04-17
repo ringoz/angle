@@ -15253,25 +15253,72 @@ void main() {
     ASSERT_GL_NO_ERROR();
 }
 
+// Make sure const sampler parameters work.
+TEST_P(GLSLTest, ConstSamplerParameter)
+{
+    constexpr char kFS[] = R"(precision mediump float;
+uniform sampler2D samp;
+
+vec4 sampleConstSampler(const sampler2D s) {
+    return texture2D(s, vec2(0));
+}
+
+void main() {
+    gl_FragColor = sampleConstSampler(samp);
+}
+)";
+    CompileShader(GL_FRAGMENT_SHADER, kFS);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Make sure passing const sampler parameters to another function work.
+TEST_P(GLSLTest, ConstSamplerParameterAsArgument)
+{
+    constexpr char kFS[] = R"(precision mediump float;
+
+uniform sampler2D samp;
+
+vec4 sampleSampler(sampler2D s) {
+    return texture2D(s, vec2(0));
+}
+
+vec4 sampleConstSampler(const sampler2D s) {
+    return sampleSampler(s);
+}
+
+void main() {
+    gl_FragColor = sampleConstSampler(samp);
+}
+)";
+    CompileShader(GL_FRAGMENT_SHADER, kFS);
+    ASSERT_GL_NO_ERROR();
+}
 }  // anonymous namespace
 
-ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(GLSLTest, WithGlslang(ES2_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(GLSLTest,
+                                       ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(GLSLTestNoValidation);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES3);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTest_ES3, WithGlslang(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTest_ES3,
+                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTestLoops);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTestLoops, WithGlslang(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTestLoops,
+                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
-ANGLE_INSTANTIATE_TEST_ES2_AND(WebGLGLSLTest, WithGlslang(ES2_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES2_AND(WebGLGLSLTest,
+                               ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WebGL2GLSLTest);
-ANGLE_INSTANTIATE_TEST_ES3_AND(WebGL2GLSLTest, WithGlslang(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3_AND(WebGL2GLSLTest,
+                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31);
-ANGLE_INSTANTIATE_TEST_ES31_AND(GLSLTest_ES31, WithGlslang(ES31_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES31_AND(GLSLTest_ES31,
+                                ES31_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31_InitShaderVariables);
-ANGLE_INSTANTIATE_TEST(GLSLTest_ES31_InitShaderVariables, WithInitShaderVariables(ES31_VULKAN()));
+ANGLE_INSTANTIATE_TEST(GLSLTest_ES31_InitShaderVariables,
+                       ES31_VULKAN().enable(Feature::ForceInitShaderVariables));

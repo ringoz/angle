@@ -115,6 +115,13 @@ bool Is90DegreeRotation(VkSurfaceTransformFlagsKHR transform)
     return ((transform & k90DegreeRotationVariants) != 0);
 }
 
+bool NeedsInputAttachmentUsage(const angle::FeaturesVk &features)
+{
+    return features.supportsShaderFramebufferFetch.enabled ||
+           features.supportsShaderFramebufferFetchNonCoherent.enabled ||
+           features.emulateAdvancedBlendEquations.enabled;
+}
+
 angle::Result InitImageHelper(DisplayVk *displayVk,
                               EGLint width,
                               EGLint height,
@@ -131,8 +138,7 @@ angle::Result InitImageHelper(DisplayVk *displayVk,
 
     RendererVk *rendererVk = displayVk->getRenderer();
     // If shaders may be fetching from this, we need this image to be an input
-    if (rendererVk->getFeatures().supportsShaderFramebufferFetch.enabled ||
-        rendererVk->getFeatures().supportsShaderFramebufferFetchNonCoherent.enabled)
+    if (NeedsInputAttachmentUsage(rendererVk->getFeatures()))
     {
         usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
     }
@@ -1278,8 +1284,7 @@ angle::Result WindowSurfaceVk::createSwapChain(vk::Context *context,
     VkImageUsageFlags imageUsageFlags = kSurfaceVkColorImageUsageFlags;
 
     // If shaders may be fetching from this, we need this image to be an input
-    if (renderer->getFeatures().supportsShaderFramebufferFetch.enabled ||
-        renderer->getFeatures().supportsShaderFramebufferFetchNonCoherent.enabled)
+    if (NeedsInputAttachmentUsage(renderer->getFeatures()))
     {
         imageUsageFlags |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
     }
@@ -1913,17 +1918,10 @@ angle::Result WindowSurfaceVk::doDeferredAcquireNextImage(const gl::Context *con
     }
     if (mDepthStencilImage.valid())
     {
-        VkImageAspectFlags dsAspects = mDepthStencilImage.getAspectFlags();
-        if ((dsAspects & VK_IMAGE_ASPECT_DEPTH_BIT) != 0)
-        {
-            mDepthStencilImage.invalidateSubresourceContent(contextVk, gl::LevelIndex(0), 0, 1,
-                                                            nullptr);
-        }
-        if ((dsAspects & VK_IMAGE_ASPECT_STENCIL_BIT) != 0)
-        {
-            mDepthStencilImage.invalidateSubresourceStencilContent(contextVk, gl::LevelIndex(0), 0,
-                                                                   1, nullptr);
-        }
+        mDepthStencilImage.invalidateSubresourceContent(contextVk, gl::LevelIndex(0), 0, 1,
+                                                        nullptr);
+        mDepthStencilImage.invalidateSubresourceStencilContent(contextVk, gl::LevelIndex(0), 0, 1,
+                                                               nullptr);
     }
 
     return angle::Result::Continue;

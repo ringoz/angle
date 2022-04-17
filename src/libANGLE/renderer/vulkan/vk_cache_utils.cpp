@@ -2288,8 +2288,18 @@ angle::Result GraphicsPipelineDesc::initializePipeline(
                             ->getFormat(mRenderPassDesc[colorIndexGL])
                             .getActualRenderableImageFormat()
                             .isInt());
-                state.blendEnable = VK_TRUE;
-                UnpackBlendAttachmentState(inputAndBlend.attachments[colorIndexGL], &state);
+
+                // The blend fixed-function is enabled with normal blend as well as advanced blend
+                // when the Vulkan extension is present.  When emulating advanced blend in the
+                // shader, the blend fixed-function must be disabled.
+                const PackedColorBlendAttachmentState &packedBlendState =
+                    inputAndBlend.attachments[colorIndexGL];
+                if (packedBlendState.colorBlendOp <= static_cast<uint8_t>(VK_BLEND_OP_MAX) ||
+                    contextVk->getFeatures().supportsBlendOperationAdvanced.enabled)
+                {
+                    state.blendEnable = VK_TRUE;
+                    UnpackBlendAttachmentState(packedBlendState, &state);
+                }
             }
         }
 
@@ -3436,15 +3446,21 @@ void SamplerDesc::update(ContextVk *contextVk,
 {
     const angle::FeaturesVk &featuresVk = contextVk->getFeatures();
     mMipLodBias                         = 0.0f;
-    for (size_t lodOffsetFeatureIdx = 0;
-         lodOffsetFeatureIdx < featuresVk.forceTextureLODOffset.size(); lodOffsetFeatureIdx++)
+    if (featuresVk.forceTextureLodOffset1.enabled)
     {
-        if (featuresVk.forceTextureLODOffset[lodOffsetFeatureIdx].enabled)
-        {
-            // Make sure only one forceTextureLODOffset feature is set.
-            ASSERT(mMipLodBias == 0.0f);
-            mMipLodBias = static_cast<float>(lodOffsetFeatureIdx + 1);
-        }
+        mMipLodBias = 1.0f;
+    }
+    else if (featuresVk.forceTextureLodOffset2.enabled)
+    {
+        mMipLodBias = 2.0f;
+    }
+    else if (featuresVk.forceTextureLodOffset3.enabled)
+    {
+        mMipLodBias = 3.0f;
+    }
+    else if (featuresVk.forceTextureLodOffset4.enabled)
+    {
+        mMipLodBias = 4.0f;
     }
 
     mMaxAnisotropy = samplerState.getMaxAnisotropy();
@@ -4167,13 +4183,5 @@ void DriverUniformsDescriptorSetCache::destroy(RendererVk *rendererVk)
 {
     accumulateCacheStats(rendererVk);
     mPayload.clear();
-}
-
-// DescriptorSetCache implementation.
-void DescriptorSetCache::destroy(RendererVk *rendererVk, VulkanCacheType cacheType)
-{
-    accumulateCacheStats(cacheType, rendererVk);
-    mPayload.clear();
-    mCacheStats.reset();
 }
 }  // namespace rx

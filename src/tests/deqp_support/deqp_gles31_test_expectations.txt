@@ -163,8 +163,11 @@
 // Cannot create 2D (array) view of 3D texture.  These fail with validation errors, and cause a crash in syncval.
 3886 VULKAN : dEQP-GLES31.functional.image_load_store.3d.*single_layer = SKIP
 
-// Framebuffer fetch implementation bug
-6909 VULKAN : dEQP-GLES31.functional.shaders.framebuffer_fetch.basic.framebuffer_texture_layer = SKIP
+// Emulated advanced blend equations (only Nvidia and SwiftShader support the Vulkan extension):
+3586 AMD VULKAN : dEQP-GLES31.functional.blend_equation_advanced.msaa.* = FAIL
+3586 INTEL VULKAN : dEQP-GLES31.functional.blend_equation_advanced.msaa.* = FAIL
+3586 PIXEL4ORXL VULKAN : dEQP-GLES31.functional.blend_equation_advanced.msaa.* = FAIL
+3586 PIXEL6 VULKAN : dEQP-GLES31.functional.blend_equation_advanced.msaa.* = FAIL
 
 ////
 //// AMD Vulkan expectations
@@ -379,6 +382,12 @@
 // Geometry shader support:
 // This fails on pre-release Android T drivers as of 3/25/22:
 5430 PIXEL6 VULKAN : dEQP-GLES31.functional.geometry_shading.query.primitives_generated_* = FAIL
+
+// Fails on Android 13 DP2
+6876 PIXEL6 VULKAN : dEQP-GLES31.functional.shaders.multisample_interpolation.sample_qualifier.multisample_*1 = FAIL
+6876 PIXEL6 VULKAN : dEQP-GLES31.functional.shaders.multisample_interpolation.sample_qualifier.multisample_*2 = FAIL
+6876 PIXEL6 VULKAN : dEQP-GLES31.functional.shaders.multisample_interpolation.sample_qualifier.multisample_*4 = FAIL
+6876 PIXEL6 VULKAN : dEQP-GLES31.functional.shaders.multisample_interpolation.sample_qualifier.multisample_*8 = FAIL
 
 // ASAN Test bugs
 6678 ASAN : dEQP-GLES31.functional.ssbo.array_length.* = SKIP

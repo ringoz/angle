@@ -1250,7 +1250,8 @@ CommandBufferHelperCommon::CommandBufferHelperCommon()
       mPipelineBarrierMask(),
       mCommandPool(nullptr),
       mHasShaderStorageOutput(false),
-      mHasGLMemoryBarrierIssued(false)
+      mHasGLMemoryBarrierIssued(false),
+      mResourceUseList()
 {}
 
 CommandBufferHelperCommon::~CommandBufferHelperCommon() {}
@@ -1272,6 +1273,7 @@ void CommandBufferHelperCommon::resetImpl()
     mAllocator.push();
 
     mUsedBuffers.clear();
+    ASSERT(mResourceUseList.empty());
 }
 
 void CommandBufferHelperCommon::bufferRead(ContextVk *contextVk,
@@ -1289,7 +1291,7 @@ void CommandBufferHelperCommon::bufferRead(ContextVk *contextVk,
     if (!mUsedBuffers.contains(buffer->getBufferSerial()))
     {
         mUsedBuffers.insert(buffer->getBufferSerial(), BufferAccess::Read);
-        buffer->retainReadOnly(&contextVk->getResourceUseList());
+        buffer->retainReadOnly(&mResourceUseList);
     }
 }
 
@@ -1299,7 +1301,7 @@ void CommandBufferHelperCommon::bufferWrite(ContextVk *contextVk,
                                             AliasingMode aliasingMode,
                                             BufferHelper *buffer)
 {
-    buffer->retainReadWrite(&contextVk->getResourceUseList());
+    buffer->retainReadWrite(&mResourceUseList);
     VkPipelineStageFlagBits stageBits = kPipelineStageFlagBitMap[writeStage];
     if (buffer->recordWriteBarrier(writeAccessType, stageBits, &mPipelineBarriers[writeStage]))
     {
@@ -1391,7 +1393,7 @@ void CommandBufferHelperCommon::imageWriteImpl(ContextVk *contextVk,
                                                AliasingMode aliasingMode,
                                                ImageHelper *image)
 {
-    image->retain(&contextVk->getResourceUseList());
+    image->retain(&mResourceUseList);
     image->onWrite(level, 1, layerStart, layerCount, aspectFlags);
     // Write always requires a barrier
     updateImageLayoutAndBarrier(contextVk, image, aspectFlags, imageLayout);
@@ -1456,7 +1458,7 @@ void OutsideRenderPassCommandBufferHelper::imageRead(ContextVk *contextVk,
                                                      ImageHelper *image)
 {
     imageReadImpl(contextVk, aspectFlags, imageLayout, image);
-    image->retain(&contextVk->getResourceUseList());
+    image->retain(&mResourceUseList);
 }
 
 void OutsideRenderPassCommandBufferHelper::imageWrite(ContextVk *contextVk,
@@ -1579,7 +1581,7 @@ void RenderPassCommandBufferHelper::imageRead(ContextVk *contextVk,
     if (!usesImage(*image))
     {
         mRenderPassUsedImages.insert(image->getImageSerial());
-        image->retain(&contextVk->getResourceUseList());
+        image->retain(&mResourceUseList);
     }
 }
 
@@ -2814,16 +2816,16 @@ void BufferPool::pruneEmptyBuffers(RendererVk *renderer)
     }
 }
 
-angle::Result BufferPool::allocateNewBuffer(ContextVk *contextVk, VkDeviceSize sizeInBytes)
+angle::Result BufferPool::allocateNewBuffer(Context *context, VkDeviceSize sizeInBytes)
 {
-    RendererVk *renderer       = contextVk->getRenderer();
+    RendererVk *renderer       = context->getRenderer();
     const Allocator &allocator = renderer->getAllocator();
 
     VkDeviceSize heapSize =
         renderer->getMemoryProperties().getHeapSizeForMemoryType(mMemoryTypeIndex);
 
     // First ensure we are not exceeding the heapSize to avoid the validation error.
-    ANGLE_VK_CHECK(contextVk, sizeInBytes <= heapSize, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+    ANGLE_VK_CHECK(context, sizeInBytes <= heapSize, VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
     // Double the size until meet the requirement. This also helps reducing the fragmentation. Since
     // this is global pool, we have less worry about memory waste.
@@ -2848,33 +2850,33 @@ angle::Result BufferPool::allocateNewBuffer(ContextVk *contextVk, VkDeviceSize s
     allocator.getMemoryTypeProperties(mMemoryTypeIndex, &memoryPropertyFlags);
 
     DeviceScoped<Buffer> buffer(renderer->getDevice());
-    ANGLE_VK_TRY(contextVk, buffer.get().init(contextVk->getDevice(), createInfo));
+    ANGLE_VK_TRY(context, buffer.get().init(context->getDevice(), createInfo));
 
     DeviceScoped<DeviceMemory> deviceMemory(renderer->getDevice());
     VkMemoryPropertyFlags memoryPropertyFlagsOut;
     VkDeviceSize sizeOut;
-    ANGLE_TRY(AllocateBufferMemory(contextVk, memoryPropertyFlags, &memoryPropertyFlagsOut, nullptr,
+    ANGLE_TRY(AllocateBufferMemory(context, memoryPropertyFlags, &memoryPropertyFlagsOut, nullptr,
                                    &buffer.get(), &deviceMemory.get(), &sizeOut));
     ASSERT(sizeOut >= mSize);
 
     // Allocate bufferBlock
     std::unique_ptr<BufferBlock> block = std::make_unique<BufferBlock>();
-    ANGLE_TRY(block->init(contextVk, buffer.get(), mVirtualBlockCreateFlags, deviceMemory.get(),
+    ANGLE_TRY(block->init(context, buffer.get(), mVirtualBlockCreateFlags, deviceMemory.get(),
                           memoryPropertyFlagsOut, mSize));
 
     if (mHostVisible)
     {
-        ANGLE_VK_TRY(contextVk, block->map(contextVk->getDevice()));
+        ANGLE_VK_TRY(context, block->map(context->getDevice()));
     }
 
     // Append the bufferBlock into the pool
     mBufferBlocks.push_back(std::move(block));
-    contextVk->getPerfCounters().allocateNewBufferBlockCalls++;
+    context->getPerfCounters().allocateNewBufferBlockCalls++;
 
     return angle::Result::Continue;
 }
 
-angle::Result BufferPool::allocateBuffer(ContextVk *contextVk,
+angle::Result BufferPool::allocateBuffer(Context *context,
                                          VkDeviceSize sizeInBytes,
                                          VkDeviceSize alignment,
                                          BufferSuballocation *suballocation)
@@ -2899,19 +2901,19 @@ angle::Result BufferPool::allocateBuffer(ContextVk *contextVk,
 
         if (block->allocate(alignedSize, alignment, &offset) == VK_SUCCESS)
         {
-            suballocation->init(contextVk->getDevice(), block.get(), offset, alignedSize);
+            suballocation->init(context->getDevice(), block.get(), offset, alignedSize);
             return angle::Result::Continue;
         }
         ++iter;
     }
 
-    ANGLE_TRY(allocateNewBuffer(contextVk, alignedSize));
+    ANGLE_TRY(allocateNewBuffer(context, alignedSize));
 
     // Sub-allocate from the bufferBlock.
     std::unique_ptr<BufferBlock> &block = mBufferBlocks.back();
-    ANGLE_VK_CHECK(contextVk, block->allocate(alignedSize, alignment, &offset) == VK_SUCCESS,
+    ANGLE_VK_CHECK(context, block->allocate(alignedSize, alignment, &offset) == VK_SUCCESS,
                    VK_ERROR_OUT_OF_DEVICE_MEMORY);
-    suballocation->init(contextVk->getDevice(), block.get(), offset, alignedSize);
+    suballocation->init(context->getDevice(), block.get(), offset, alignedSize);
 
     return angle::Result::Continue;
 }
@@ -3085,6 +3087,8 @@ angle::Result DynamicDescriptorPool::allocateSetsAndGetInfo(
 
         bindingOut->set(mDescriptorPools[mCurrentPoolIndex]);
     }
+
+    ++context->getPerfCounters().descriptorSetAllocations;
 
     return bindingOut->get().allocateDescriptorSets(context, resourceUseList, descriptorSetLayout,
                                                     descriptorSetCount, descriptorSetsOut);
@@ -6767,7 +6771,18 @@ void ImageHelper::invalidateSubresourceContentImpl(ContextVk *contextVk,
                                                    LevelContentDefinedMask *contentDefinedMask,
                                                    bool *preferToKeepContentsDefinedOut)
 {
-    // If the color format is emualted and has extra channels, those channels need to stay cleared.
+    // If the aspect being invalidated doesn't exist, skip invalidation altogether.
+    if ((getAspectFlags() & aspect) == 0)
+    {
+        if (preferToKeepContentsDefinedOut)
+        {
+            // Let the caller know that this invalidate request was ignored.
+            *preferToKeepContentsDefinedOut = true;
+        }
+        return;
+    }
+
+    // If the color format is emulated and has extra channels, those channels need to stay cleared.
     // On some devices, it's cheaper to skip invalidating the framebuffer attachment, while on
     // others it's cheaper to invalidate but then re-clear the image.
     //

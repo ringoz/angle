@@ -27,6 +27,12 @@ enum class ImageMipLevels
     InvalidEnum = 2,
 };
 
+enum class TextureUpdateResult
+{
+    ImageUnaffected,
+    ImageRespecified,
+};
+
 class TextureVk : public TextureImpl, public angle::ObserverInterface
 {
   public:
@@ -267,7 +273,7 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     }
 
     angle::Result ensureMutable(ContextVk *contextVk);
-    angle::Result ensureRenderable(ContextVk *contextVk);
+    angle::Result ensureRenderable(ContextVk *contextVk, TextureUpdateResult *updateResultOut);
 
     bool getAndResetImmutableSamplerDirtyState()
     {
@@ -453,6 +459,14 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     // Flush image's staged updates for all levels and layers.
     angle::Result flushImageStagedUpdates(ContextVk *contextVk);
 
+    // For various reasons, the underlying image may need to be respecified.  For example because
+    // base/max level changed, usage/create flags have changed, the format needs modification to
+    // become renderable, generate mipmap is adding levels, etc.  This function is called by
+    // syncState and getAttachmentRenderTarget.  The latter calls this function to be able to sync
+    // the texture's image while an attached framebuffer is being synced.  Note that we currently
+    // sync framebuffers before textures so that the deferred clear optimization works.
+    angle::Result respecifyImageStorageIfNecessary(ContextVk *contextVk, gl::Command source);
+
     const gl::InternalFormat &getImplementationSizedFormat(const gl::Context *context) const;
     const vk::Format &getBaseLevelFormat(RendererVk *renderer) const;
     // Queues a flush of any modified image attributes. The image will be reallocated with its new
@@ -460,7 +474,8 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     angle::Result respecifyImageStorage(ContextVk *contextVk);
 
     // Update base and max levels, and re-create image if needed.
-    angle::Result maybeUpdateBaseMaxLevels(ContextVk *contextVk, bool *didRespecifyOut);
+    angle::Result maybeUpdateBaseMaxLevels(ContextVk *contextVk,
+                                           TextureUpdateResult *changeResultOut);
 
     bool isFastUnpackPossible(const vk::Format &vkFormat, size_t offset) const;
 

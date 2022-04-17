@@ -7,7 +7,7 @@
 // Thread sanitizer skips.
 6718 TSAN : MultithreadingTestES3.MultithreadFenceDraw/* = SKIP
 6718 TSAN : MultithreadingTestES3.MultithreadFenceTexImage/* = SKIP
-6746 TSAN : *AsyncQueue* = SKIP
+6746 TSAN : *_AsyncCommandQueue* = SKIP
 6804 TSAN : MultithreadingTest.MultiContextDrawWithSwapBuffers/* = SKIP
 7159 TSAN : InstancingTestES3.LargeDivisor/* = SKIP
 
@@ -49,6 +49,11 @@
 6730 VULKAN : GLSLTest_ES3.GLVertexIDIntegerTextureDrawElementsU8Line/* = SKIP
 6730 VULKAN : GLSLTest_ES3.GLVertexIDIntegerTextureDrawElementsU8LineIds/* = SKIP
 7151 VULKAN : IncompleteTextureTestES31.MultisampleTexture/* = SKIP
+7197 VULKAN : BlitFramebufferTest.ResolveWithRotation/ES3_Vulkan_EmulatedPrerotation180 = SKIP
+7197 VULKAN : BlitFramebufferTest.ResolveWithRotation/ES3_Vulkan_EmulatedPrerotation270 = SKIP
+7197 VULKAN : BlitFramebufferTest.BlitMultisampleStencilToDefault/ES3_Vulkan_EmulatedPrerotation180 = SKIP
+7198 VULKAN : BlitFramebufferTest.BlitMultisampleStencilToDefault/ES3_Vulkan_EmulatedPrerotation90 = SKIP
+7198 VULKAN : BlitFramebufferTest.BlitMultisampleStencilToDefault/ES3_Vulkan_EmulatedPrerotation270 = SKIP
 
 // Windows
 3786 WIN NVIDIA D3D11 : BufferDataOverflowTest.VertexBufferIntegerOverflow/* = SKIP
@@ -155,6 +160,20 @@
 6643 MAC AMD OPENGL : TransformFeedbackTest.TransformFeedbackPausedDrawThenResume/* = SKIP
 6738 MAC AMD OPENGL : Texture3DTestES3.PixelUnpackStateTex* = SKIP
 1296467 MAC OPENGL : VertexAttributeTestES3.emptyBuffer/* = SKIP
+7203 MAC INTEL OPENGL : CopyTextureTest.CopyToMipmap/* = SKIP
+7206 MAC NVIDIA OPENGL : CopyTextureTest.CubeMap*/ES2_OpenGL = SKIP
+7206 MAC NVIDIA OPENGL : CopyTextureTest.CopyToMipmap/ES2_OpenGL = SKIP
+7206 MAC NVIDIA OPENGL : BlitFramebufferTest.NonZeroBaseDestinationStencil/ES3_OpenGL = SKIP
+7206 MAC NVIDIA OPENGL : BlendIntegerTest.MRTUnsigned/ES3_OpenGL = SKIP
+7206 MAC NVIDIA OPENGL : BlendIntegerTest.MRTSigned/ES3_OpenGL = SKIP
+7206 MAC NVIDIA OPENGL : DrawBuffersTest.BlendWithGaps/ES3_OpenGL = SKIP
+
+// BlitFramebufferTest.ScissoredMultisampleStencil failures
+3496 MAC INTEL OPENGL : BlitFramebufferTest.ScissoredMultisampleStencil/* = SKIP
+3496 MAC AMD OPENGL : BlitFramebufferTest.ScissoredMultisampleStencil/* = SKIP
+7191 MAC NVIDIA OPENGL : BlitFramebufferTest.ScissoredMultisampleStencil/ES3_OpenGL = SKIP
+
+// Mac Metal
 
 // Failures from Transform Feedback Enablement. Passes on BigSur
 6407 MAC NVIDIA METAL : TransformFeedbackTest.OptimizedVaryings/ES3_Metal = SKIP
@@ -297,8 +316,8 @@
 200067929 NEXUS5X GLES : ShaderStorageBufferTest31.ShaderStorageBufferReadWriteAndBufferSubData/* = SKIP
 
 // Pixel 4 expectations.
-6344 PIXEL4ORXL : GLSLTest_ES31_InitShaderVariables.InitIOBlockWithStruct/ES3_1_Vulkan_InitShaderVars = SKIP
-6344 PIXEL4ORXL : GLSLTest_ES31_InitShaderVariables.InitIOBlockWithComplexTypes/ES3_1_Vulkan_InitShaderVars = SKIP
+6344 PIXEL4ORXL : GLSLTest_ES31_InitShaderVariables.InitIOBlockWithStruct/ES3_1_Vulkan_ForceInitShaderVariables = SKIP
+6344 PIXEL4ORXL : GLSLTest_ES31_InitShaderVariables.InitIOBlockWithComplexTypes/ES3_1_Vulkan_ForceInitShaderVariables = SKIP
 
 5981 PIXEL4ORXL GLES : BlitFramebufferTest.BlitSRGBToRGBOversizedDestArea/* = SKIP
 5981 PIXEL4ORXL GLES : CopyTexImageTest.CopyTexSubImageFrom3DTexureOES/* = SKIP
@@ -522,8 +541,8 @@
 6751 D3D11 : MultiDrawIndirectTest.MultiDrawElementsIndirect* = SKIP
 6751 D3D11 : DrawBaseVertexBaseInstanceTest.MultiDrawElementsInstancedBaseVertexBaseInstance/* = SKIP
 
-// ASAN flakes with Vulkan / SwiftShader / AsyncQueue
-6875 ASAN VULKAN SWIFTSHADER : ComputeShaderTest.*/ES3_1_Vulkan_SwiftShader_AsyncQueue = SKIP
+// ASAN flakes with Vulkan / SwiftShader / AsyncCommandQueue
+6875 ASAN VULKAN SWIFTSHADER : ComputeShaderTest.*/ES3_1_Vulkan_SwiftShader_AsyncCommandQueue = SKIP
 6875 SWIFTSHADER : TransformFeedbackTest.SpanMultipleRenderPasses/* = SKIP
 
 7112 SWIFTSHADER : TransformFeedbackTest.BaseInstance/* = SKIP

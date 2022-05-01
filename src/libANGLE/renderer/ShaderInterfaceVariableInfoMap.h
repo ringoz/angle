@@ -56,8 +56,8 @@ class ShaderInterfaceVariableInfoMap final : angle::NonCopyable
     using ResourceIndexMap                      = angle::FastMap<uint32_t, kResourceFastMapMax>;
     using VariableTypeToIndexMap = angle::PackedEnumMap<ShaderVariableType, ResourceIndexMap>;
 
-    ShaderInterfaceVariableInfoMap();
-    ~ShaderInterfaceVariableInfoMap();
+    ShaderInterfaceVariableInfoMap() = default;
+    ~ShaderInterfaceVariableInfoMap() = default;
 
     void clear();
     void load(const gl::ShaderMap<VariableTypeToInfoMap> &data,

@@ -1085,7 +1085,7 @@ void Renderer11::populateRenderer11DeviceCaps()
                                  &mRenderer11DeviceCaps.B5G6R5maxSamples);
     }
 
-    if (getFeatures().allowES3OnFL10_0.enabled)
+    if (getFeatures().allowES3OnFL100.enabled)
     {
         mRenderer11DeviceCaps.allowES3OnFL10_0 = true;
     }
@@ -1278,7 +1278,7 @@ egl::ConfigSet Renderer11::generateConfigs()
                 config.transparentBlueValue  = 0;
                 config.optimalOrientation    = optimalSurfaceOrientation;
                 config.colorComponentType    = gl_egl::GLComponentTypeToEGLColorComponentType(
-                    colorBufferFormatInfo.componentType);
+                       colorBufferFormatInfo.componentType);
 
                 configs.add(config);
             }
@@ -2931,10 +2931,10 @@ angle::Result Renderer11::createRenderTarget(const gl::Context *context,
             if (formatInfo.blitSRVFormat != formatInfo.srvFormat)
             {
                 D3D11_SHADER_RESOURCE_VIEW_DESC blitSRVDesc;
-                blitSRVDesc.Format        = formatInfo.blitSRVFormat;
-                blitSRVDesc.ViewDimension = (supportedSamples == 0)
-                                                ? D3D11_SRV_DIMENSION_TEXTURE2D
-                                                : D3D11_SRV_DIMENSION_TEXTURE2DMS;
+                blitSRVDesc.Format                    = formatInfo.blitSRVFormat;
+                blitSRVDesc.ViewDimension             = (supportedSamples == 0)
+                                                            ? D3D11_SRV_DIMENSION_TEXTURE2D
+                                                            : D3D11_SRV_DIMENSION_TEXTURE2DMS;
                 blitSRVDesc.Texture2D.MostDetailedMip = 0;
                 blitSRVDesc.Texture2D.MipLevels       = 1;
 
@@ -2950,9 +2950,9 @@ angle::Result Renderer11::createRenderTarget(const gl::Context *context,
         if (bindDSV)
         {
             D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc;
-            dsvDesc.Format        = formatInfo.dsvFormat;
-            dsvDesc.ViewDimension = (supportedSamples == 0) ? D3D11_DSV_DIMENSION_TEXTURE2D
-                                                            : D3D11_DSV_DIMENSION_TEXTURE2DMS;
+            dsvDesc.Format             = formatInfo.dsvFormat;
+            dsvDesc.ViewDimension      = (supportedSamples == 0) ? D3D11_DSV_DIMENSION_TEXTURE2D
+                                                                 : D3D11_DSV_DIMENSION_TEXTURE2DMS;
             dsvDesc.Texture2D.MipSlice = 0;
             dsvDesc.Flags              = 0;
 
@@ -2966,9 +2966,9 @@ angle::Result Renderer11::createRenderTarget(const gl::Context *context,
         else if (bindRTV)
         {
             D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-            rtvDesc.Format        = formatInfo.rtvFormat;
-            rtvDesc.ViewDimension = (supportedSamples == 0) ? D3D11_RTV_DIMENSION_TEXTURE2D
-                                                            : D3D11_RTV_DIMENSION_TEXTURE2DMS;
+            rtvDesc.Format             = formatInfo.rtvFormat;
+            rtvDesc.ViewDimension      = (supportedSamples == 0) ? D3D11_RTV_DIMENSION_TEXTURE2D
+                                                                 : D3D11_RTV_DIMENSION_TEXTURE2DMS;
             rtvDesc.Texture2D.MipSlice = 0;
 
             d3d11::RenderTargetView rtv;
@@ -4037,6 +4037,15 @@ void Renderer11::initializeFeatures(angle::FeaturesD3D *features) const
     if (!mDisplay->getState().featuresAllDisabled)
     {
         d3d11::InitializeFeatures(mRenderer11DeviceCaps, mAdapterDescription, features);
+    }
+    ApplyFeatureOverrides(features, mDisplay->getState());
+}
+
+void Renderer11::initializeFrontendFeatures(angle::FrontendFeatures *features) const
+{
+    if (!mDisplay->getState().featuresAllDisabled)
+    {
+        d3d11::InitializeFrontendFeatures(mAdapterDescription, features);
     }
     ApplyFeatureOverrides(features, mDisplay->getState());
 }

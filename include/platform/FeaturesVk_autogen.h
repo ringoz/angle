@@ -5,7 +5,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// FeaturesVk.h: Optional features for the Vulkan renderer.
+// FeaturesVk_autogen.h: Optional features for the Vulkan renderer.
 
 #ifndef ANGLE_PLATFORM_FEATURESVK_H_
 #define ANGLE_PLATFORM_FEATURESVK_H_
@@ -50,12 +50,12 @@ struct FeaturesVk : FeatureSetBase
     };
 
     FeatureInfo clampPointSize = {
-        "clamp_point_size", FeatureCategory::VulkanWorkarounds,
+        "clampPointSize", FeatureCategory::VulkanWorkarounds,
         "The point size range reported from the API is inconsistent with the actual behavior",
         &members, "http://anglebug.com/2970"};
 
     FeatureInfo depthClamping = {
-        "depth_clamping", FeatureCategory::VulkanWorkarounds,
+        "depthClamping", FeatureCategory::VulkanWorkarounds,
         "The depth value is not clamped to [0,1] for floating point depth buffers.", &members,
         "http://anglebug.com/3970"};
 
@@ -336,8 +336,8 @@ struct FeaturesVk : FeatureSetBase
         "and the performance is better.",
         &members, "http://anglebug.com/4551"};
 
-    FeatureInfo supportsRenderPassStoreOpNoneQCOM = {
-        "supportsRenderPassStoreOpNoneQCOM", FeatureCategory::VulkanFeatures,
+    FeatureInfo supportsRenderPassStoreOpNone = {
+        "supportsRenderPassStoreOpNone", FeatureCategory::VulkanFeatures,
         "VkDevice supports VK_QCOM_render_pass_store_ops extension.", &members,
         "http://anglebug.com/5055"};
 
@@ -383,35 +383,35 @@ struct FeaturesVk : FeatureSetBase
         &members, "http://anglebug.com/5061"};
 
     FeatureInfo forceTextureLodOffset1 = {
-        "force_texture_lod_offset_1",
+        "forceTextureLodOffset1",
         FeatureCategory::VulkanWorkarounds,
         "Increase the minimum texture level-of-detail by 1 when sampling.",
         &members,
     };
 
     FeatureInfo forceTextureLodOffset2 = {
-        "force_texture_lod_offset_2",
+        "forceTextureLodOffset2",
         FeatureCategory::VulkanWorkarounds,
         "Increase the minimum texture level-of-detail by 2 when sampling.",
         &members,
     };
 
     FeatureInfo forceTextureLodOffset3 = {
-        "force_texture_lod_offset_3",
+        "forceTextureLodOffset3",
         FeatureCategory::VulkanWorkarounds,
         "Increase the minimum texture level-of-detail by 3 when sampling.",
         &members,
     };
 
     FeatureInfo forceTextureLodOffset4 = {
-        "force_texture_lod_offset_4",
+        "forceTextureLodOffset4",
         FeatureCategory::VulkanWorkarounds,
         "Increase the minimum texture level-of-detail by 4 when sampling.",
         &members,
     };
 
     FeatureInfo forceNearestFiltering = {
-        "force_nearest_filtering",
+        "forceNearestFiltering",
         FeatureCategory::VulkanWorkarounds,
         "Force nearest filtering when sampling.",
         &members,
@@ -425,7 +425,7 @@ struct FeaturesVk : FeatureSetBase
     };
 
     FeatureInfo compressVertexData = {
-        "compress_vertex_data",
+        "compressVertexData",
         FeatureCategory::VulkanWorkarounds,
         "Compress vertex data to smaller data types when "
         "possible. Using this feature makes ANGLE non-conformant.",
@@ -527,8 +527,8 @@ struct FeaturesVk : FeatureSetBase
         &members,
     };
 
-    FeatureInfo overrideSurfaceFormatRGB8toRGBA8 = {
-        "overrideSurfaceFormatRGB8toRGBA8", FeatureCategory::VulkanWorkarounds,
+    FeatureInfo overrideSurfaceFormatRGB8ToRGBA8 = {
+        "overrideSurfaceFormatRGB8ToRGBA8", FeatureCategory::VulkanWorkarounds,
         "Override surface format GL_RGB8 to GL_RGBA8", &members, "http://anglebug.com/6651"};
 
     FeatureInfo supportsSharedPresentableImageExtension = {
@@ -569,6 +569,11 @@ struct FeaturesVk : FeatureSetBase
                                     "Emulate OpenGL dithering", &members,
                                     "http://anglebug.com/6755"};
 
+    FeatureInfo roundOutputAfterDithering = {
+        "roundOutputAfterDithering", FeatureCategory::VulkanWorkarounds,
+        "Round output after dithering to workaround a driver bug that rounds the output up",
+        &members, "http://anglebug.com/6953"};
+
     FeatureInfo emulateAdvancedBlendEquations = {
         "emulateAdvancedBlendEquations", FeatureCategory::VulkanFeatures,
         "Emulate GL_KHR_blend_equation_advanced", &members, "http://anglebug.com/3586"};
@@ -585,7 +590,7 @@ struct FeaturesVk : FeatureSetBase
         "forceSubmitImmutableTextureUpdates", FeatureCategory::VulkanAppWorkarounds,
         "Force submit updates to immutable textures", &members, "http://anglebug.com/6929"};
 
-    FeatureInfo retainSpirvDebugInfo = {"retainSpirvDebugInfo", FeatureCategory::VulkanFeatures,
+    FeatureInfo retainSPIRVDebugInfo = {"retainSPIRVDebugInfo", FeatureCategory::VulkanFeatures,
                                         "Retain debug info in SPIR-V blob.", &members,
                                         "http://anglebug.com/5901"};
 
@@ -593,6 +598,16 @@ struct FeaturesVk : FeatureSetBase
         "createPipelineDuringLink", FeatureCategory::VulkanFeatures,
         "Create pipeline with default state during glLinkProgram", &members,
         "http://anglebug.com/7046"};
+
+    FeatureInfo preferDeviceLocalMemoryHostVisible = {
+        "preferDeviceLocalMemoryHostVisible", FeatureCategory::VulkanFeatures,
+        "Prefer adding HOST_VISIBLE flag for DEVICE_LOCAL memory when picking memory types",
+        &members, "http://anglebug.com/7047"};
+
+    FeatureInfo supportsFragmentShadingRate = {
+        "supportsFragmentShadingRate", FeatureCategory::VulkanFeatures,
+        "VkDevice supports VK_KHR_fragment_shading_rate extension", &members,
+        "http://anglebug.com/7172"};
 };
 
 inline FeaturesVk::FeaturesVk()  = default;

@@ -993,12 +993,8 @@ void RendererVk::ensureCapsInitialized() const
         mNativeExtensions.geometryShaderOES = geometryShader;
         mNativeCaps.maxFramebufferLayers    = LimitToInt(limitsVk.maxFramebufferLayers);
 
-        // If the provoking vertex feature is enabled, angle specifies to use
-        // the "last" convention in order to match GL behavior. Otherwise, use
-        // "first" as vulkan follows this convention for provoking vertex.
-        mNativeCaps.layerProvokingVertex = (mFeatures.provokingVertex.enabled)
-                                               ? GL_LAST_VERTEX_CONVENTION_EXT
-                                               : GL_FIRST_VERTEX_CONVENTION_EXT;
+        // Use "undefined" which means APP would have to set gl_Layer identically.
+        mNativeCaps.layerProvokingVertex = GL_UNDEFINED_VERTEX_EXT;
 
         mNativeCaps.maxGeometryInputComponents =
             LimitToInt(limitsVk.maxGeometryInputComponents) - reservedVaryingComponentCount;
@@ -1131,6 +1127,9 @@ void RendererVk::ensureCapsInitialized() const
 
     // GL_KHR_parallel_shader_compile
     mNativeExtensions.parallelShaderCompileKHR = false;
+
+    // GL_QCOM_shading_rate
+    mNativeExtensions.shadingRateQCOM = mFeatures.supportsFragmentShadingRate.enabled;
 }
 
 namespace vk

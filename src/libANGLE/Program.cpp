@@ -33,7 +33,7 @@
 #include "libANGLE/queryconversions.h"
 #include "libANGLE/renderer/GLImplFactory.h"
 #include "libANGLE/renderer/ProgramImpl.h"
-#include "platform/FrontendFeatures.h"
+#include "platform/FrontendFeatures_autogen.h"
 #include "platform/PlatformMethods.h"
 
 namespace gl
@@ -573,7 +573,7 @@ void InfoLog::getLog(GLsizei bufSize, GLsizei *length, char *infoLog) const
     }
 }
 
-// append a santized message to the program info log.
+// append a sanitized message to the program info log.
 // The D3D compiler includes a fake file path in some of the warning or error
 // messages, so lets remove all occurrences of this fake file path from the log.
 void InfoLog::appendSanitized(const char *message)
@@ -1357,6 +1357,8 @@ angle::Result Program::linkImpl(const Context *context)
         }
     }
 
+    mState.mExecutable->saveLinkedStateInfo(mState);
+
     mLinkingState                    = std::move(linkingState);
     mLinkingState->linkingFromBinary = false;
     mLinkingState->programHash       = programHash;
@@ -1366,11 +1368,8 @@ angle::Result Program::linkImpl(const Context *context)
     mState.updateProgramInterfaceInputs();
     mState.updateProgramInterfaceOutputs();
 
-    // Linking has succeeded, so we need to save some information that may get overwritten by a
-    // later linkProgram() that could fail.
     if (mState.mSeparable)
     {
-        mState.mExecutable->saveLinkedStateInfo(mState);
         mLinkingState->linkedExecutable = mState.mExecutable;
     }
 

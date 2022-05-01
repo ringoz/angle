@@ -99,8 +99,13 @@
 // Generates invalid errors when compiling the shader in the GL backend
 6172 NVIDIA OpenGL : GLSLTest_ES31.TypesUsedInDifferentBlockStorages/* = SKIP
 6172 NVIDIA GLES : GLSLTest_ES31.TypesUsedInDifferentBlockStorages/* = SKIP
-6977 NVIDIA OpenGL : MipmapTestES31.UpdateBaseLevel/* = SKIP
-6977 NVIDIA GLES : MipmapTestES31.UpdateBaseLevel/* = SKIP
+6977 NVIDIA OpenGL : MipmapTestES31.GenerateMipmapWithDraw/* = SKIP
+6977 NVIDIA GLES : MipmapTestES31.GenerateMipmapWithDraw/* = SKIP
+6977 LINUX NVIDIA OpenGL : MipmapTestES31.GenerateLowerMipsWithDraw/* = SKIP
+
+// Nvidia Vulkan
+7236 NVIDIA VULKAN : GLSLTest_ES31.TessellationControlShaderMatrixCopyBug/* = SKIP
+7236 NVIDIA VULKAN : GLSLTest_ES31.TessellationControlShaderMatrixMultiplicationBug/* = SKIP
 
 // Intel Vulkan
 
@@ -288,6 +293,7 @@
 7109 WIN D3D11 : SimpleStateChangeTestES3.DrawAndInvalidateRGBThenVerifyAlpha/* = SKIP
 7113 WIN D3D9 : GLSLTest.LoopBodyEndingInBranch*/* = SKIP
 7148 WIN D3D9 : RobustResourceInitTest.OutOfBoundsArrayBuffers/* = SKIP
+7213 WIN D3D11 : BufferDataTestES3.BufferDataWithNullFollowedByMap/* = SKIP
 
 // Android
 6095 ANDROID GLES : GLSLTest_ES3.InitGlobalComplexConstant/* = SKIP
@@ -378,6 +384,7 @@
 5981 PIXEL4ORXL GLES : VulkanExternalImageTest.ShouldClearOpaqueFdRGBA8/* = SKIP
 5981 PIXEL4ORXL GLES : VulkanExternalImageTest.TextureFormatCompatChromiumFd/* = SKIP
 7142 PIXEL4ORXL GLES : GLSLTest.AliasingFunctionOutParamAndGlobal/* = SKIP
+7213 PIXEL4ORXL GLES : BufferDataTestES3.BufferDataWithNullFollowedByMap/* = SKIP
 
 5946 PIXEL4ORXL VULKAN : TransformFeedbackTestES32.PrimitivesWrittenAndGenerated/* = SKIP
 5947 PIXEL4ORXL VULKAN : FramebufferFetchES31.DrawFetchBlitDrawFetch_NonCoherent/* = SKIP
@@ -423,6 +430,8 @@
 7140 PIXEL4ORXL VULKAN : DrawBuffersTest.MaskedDrawMidRPClearWithGapsRGB/* = SKIP
 7140 PIXEL4ORXL VULKAN : DrawBuffersTest.MidRenderPassClearWithGaps/* = SKIP
 7140 PIXEL4ORXL VULKAN : DrawBuffersTest.MidRenderPassClearWithGapsRGB/* = SKIP
+
+7207 PIXEL4ORXL VULKAN : VulkanPerformanceCounterTest.InRenderpassFlushShouldNotBreakRenderpass/* = SKIP
 
 6167 NEXUS5X GLES : DepthStencilTestES3.FramebufferClearThenStencilAttachedThenStencilTestState/* = SKIP
 6167 NEXUS5X GLES : DepthStencilTestES3.FramebufferClearThenStencilTestStateThenStencilAttached/* = SKIP
@@ -494,9 +503,24 @@
 1224996 WIN AMD VULKAN : GLSLTest_ES3.InitGlobalComplexConstant/* = SKIP
 1224996 WIN AMD VULKAN : GLSLTest_ES31.TypesUsedInDifferentBlockStorages/* = SKIP
 7144 WIN AMD VULKAN : GLSLTest.AliasingFunctionOutParamAndGlobal/* = SKIP
-
 // Test is disabled as it only pertains to desktop GLSL
 6197 : GLSLTest_ES31.InterpolateAtWithSwizzle/* = SKIP
+// The following tests are disabled because of AMD vulkan driver crash on compiling compute shader for convertIndexBufferGPU
+7227 WIN AMD VULKAN : DrawElementsTest.PartOfIndexBufferThenAll/* = SKIP
+7227 WIN AMD VULKAN : GLSLTest_ES3.GLVertexIDIntegerTextureDrawElementsU8/* = SKIP
+7227 WIN AMD VULKAN : IndexedPointsTestUByte.* = SKIP
+7227 WIN AMD VULKAN : InstancingTest.IndexedAttrib0TriFanBuffer* = SKIP
+7227 WIN AMD VULKAN : InstancingTest.IndexedAttrib1TriFanBuffer* = SKIP
+7227 WIN AMD VULKAN : MultisampleTest.ContentPresevedAfterInterruption/* = SKIP
+7227 WIN AMD VULKAN : RobustResourceInitTest.OutOfBoundsIndexBuffers/* = SKIP
+7227 WIN AMD VULKAN : SimpleStateChangeTest.DrawElementsThenDrawElementsNewIndexBuffer/* = SKIP
+7227 WIN AMD VULKAN : SimpleStateChangeTest.DrawElementsUBYTEX2ThenDrawElementsUSHORT/* = SKIP
+7227 WIN AMD VULKAN : SimpleStateChangeTest.UpdateBoundElementArrayBuffer/* = SKIP
+7227 WIN AMD VULKAN : TriangleFanDrawTest.DrawTriangleFanElements/* = SKIP
+7227 WIN AMD VULKAN : TriangleFanDrawTest.DrawTriangleFanPrimitiveRestartAt* = SKIP
+7227 WIN AMD VULKAN : WebGLCompatibilityTest.DrawElementsBufferOutOfBoundsInIndexBuffer/* = SKIP
+7227 WIN AMD VULKAN : WebGLCompatibilityTest.DrawElementsBufferOutOfBoundsInVertexBuffer/* = SKIP
+7227 WIN AMD VULKAN : WebGLCompatibilityTest.DrawElementsOffsetRestriction/* = SKIP
 
 // Slow tests
 5076 : GLSLTest.VerifyMaxVertexUniformVectors* = TIMEOUT
@@ -586,3 +610,10 @@
 7029 NVIDIA GLES : GLSLTest.SwizzledChainedAssignIncrement/* = SKIP
 
 7085 : VulkanPerformanceCounterTest.DepthStencilInvalidateDrawDisable/* = SKIP
+
+// Flaking due to threading usage of the queue
+7204 : VulkanImageTest.PreInitializedOnGLImport/*AsyncCommandQueue = SKIP
+
+// Causes incompatible error in GL back-end.
+7218 OPENGL : TransformFeedbackTest.DrawAfterDeletingPausedBuffer/* = SKIP
+7218 GLES : TransformFeedbackTest.DrawAfterDeletingPausedBuffer/* = SKIP

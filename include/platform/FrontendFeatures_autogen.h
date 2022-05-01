@@ -5,7 +5,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// FrontendFeatures.h: Features/workarounds for driver bugs and other behaviors seen
+// FrontendFeatures_autogen.h: Features/workarounds for driver bugs and other behaviors seen
 // on all platforms.
 
 #ifndef ANGLE_PLATFORM_FRONTENDFEATURES_H_
@@ -22,45 +22,50 @@ struct FrontendFeatures : FeatureSetBase
     ~FrontendFeatures();
 
     FeatureInfo loseContextOnOutOfMemory = {
-        "lose_context_on_out_of_memory",
+        "loseContextOnOutOfMemory",
         FeatureCategory::FrontendWorkarounds,
         "Some users rely on a lost context notification if a GL_OUT_OF_MEMORY error occurs",
         &members,
     };
 
     FeatureInfo disableProgramCachingForTransformFeedback = {
-        "disable_program_caching_for_transform_feedback",
+        "disableProgramCachingForTransformFeedback",
         FeatureCategory::FrontendWorkarounds,
         "On some GPUs, program binaries don't contain transform feedback varyings",
         &members,
     };
 
     FeatureInfo scalarizeVecAndMatConstructorArgs = {
-        "scalarize_vec_and_mat_constructor_args", FeatureCategory::FrontendWorkarounds,
+        "scalarizeVecAndMatConstructorArgs", FeatureCategory::FrontendWorkarounds,
         "Always rewrite vec/mat constructors to be consistent", &members,
         "http://crbug.com/1165751"};
 
-    FeatureInfo disableProgramBinary = {"disable_program_binary", FeatureCategory::FrontendFeatures,
+    FeatureInfo disableProgramBinary = {"disableProgramBinary", FeatureCategory::FrontendFeatures,
                                         "Disable support for GL_OES_get_program_binary", &members,
                                         "http://anglebug.com/5007"};
 
     FeatureInfo disableAnisotropicFiltering = {
-        "disable_anisotropic_filtering",
+        "disableAnisotropicFiltering",
         FeatureCategory::FrontendWorkarounds,
         "Disable support for anisotropic filtering",
         &members,
     };
 
     FeatureInfo allowCompressedFormats = {
-        "allow_compressed_formats",
+        "allowCompressedFormats",
         FeatureCategory::FrontendWorkarounds,
         "Allow compressed formats",
         &members,
     };
 
-    FeatureInfo captureLimits = {"enable_capture_limits", FeatureCategory::FrontendFeatures,
-                                 "Set the context limits like frame capturing was enabled",
-                                 &members, "http://anglebug.com/5750"};
+    FeatureInfo forceDepthAttachmentInitOnClear = {
+        "forceDepthAttachmentInitOnClear", FeatureCategory::FrontendWorkarounds,
+        "Force depth attachment initialization on clear ops", &members,
+        "https://anglebug.com/7246"};
+
+    FeatureInfo enableCaptureLimits = {"enableCaptureLimits", FeatureCategory::FrontendFeatures,
+                                       "Set the context limits like frame capturing was enabled",
+                                       &members, "http://anglebug.com/5750"};
 
     FeatureInfo enableCompressingPipelineCacheInThreadPool = {
         "enableCompressingPipelineCacheInThreadPool", FeatureCategory::FrontendWorkarounds,

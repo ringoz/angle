@@ -466,18 +466,6 @@ angle::Result AllocateBufferMemoryWithRequirements(Context *context,
                                                    Buffer *buffer,
                                                    VkMemoryPropertyFlags *memoryPropertyFlagsOut,
                                                    DeviceMemory *deviceMemoryOut);
-class BufferPool;
-static constexpr VkDeviceSize kMaxSizeToUseSmallBufferPool = 256;
-using BufferPoolPointerArray = std::array<std::unique_ptr<BufferPool>, VK_MAX_MEMORY_TYPES>;
-BufferPool *GetDefaultBufferPool(std::unique_ptr<vk::BufferPool> &smallBufferPool,
-                                 vk::BufferPoolPointerArray &defaultBufferPools,
-                                 RendererVk *renderer,
-                                 VkDeviceSize size,
-                                 uint32_t memoryTypeIndex);
-void PruneDefaultBufferPools(RendererVk *renderer,
-                             BufferPoolPointerArray &defaultBufferPools,
-                             std::unique_ptr<vk::BufferPool> &smallBufferPool);
-bool IsDueForBufferPoolPrune(double lastPruneTime);
 
 using ShaderAndSerial = ObjectAndSerial<ShaderModule>;
 
@@ -1330,6 +1318,9 @@ void InitExternalSemaphoreCapabilitiesFunctions(VkInstance instance);
 
 // VK_KHR_shared_presentable_image
 void InitGetSwapchainStatusKHRFunctions(VkDevice device);
+
+// VK_KHR_fragment_shading_rate
+void InitFragmentShadingRateKHRFunctions(VkDevice device);
 
 #endif  // !defined(ANGLE_SHARED_LIBVULKAN)
 

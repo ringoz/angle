@@ -285,6 +285,8 @@ set(angle_translator_hlsl_sources
   "src/compiler/translator/emulated_builtin_functions_hlsl_autogen.cpp"
   "src/compiler/translator/tree_ops/d3d/AddDefaultReturnStatements.cpp"
   "src/compiler/translator/tree_ops/d3d/AddDefaultReturnStatements.h"
+  "src/compiler/translator/tree_ops/d3d/AggregateAssignArraysInSSBOs.cpp"
+  "src/compiler/translator/tree_ops/d3d/AggregateAssignArraysInSSBOs.h"
   "src/compiler/translator/tree_ops/d3d/ArrayReturnValueToOutParameter.cpp"
   "src/compiler/translator/tree_ops/d3d/ArrayReturnValueToOutParameter.h"
   "src/compiler/translator/tree_ops/d3d/BreakVariableAliasingInInnerLoops.cpp"

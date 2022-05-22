@@ -6,7 +6,7 @@
 
 // X11Window.cpp: Implementation of OSWindow for X11
 
-#include "util/x11/X11Window.h"
+#include "util/linux/x11/X11Window.h"
 
 #include "common/debug.h"
 #include "util/Timer.h"
@@ -361,6 +361,17 @@ bool X11Window::initializeImpl(const std::string &name, int width, int height)
         return false;
     }
 
+    // Set PMinSize and PMaxSize on XSizeHints so windows larger than the screen do not get adjusted
+    // to screen size
+    XSizeHints sizeHints = {
+        .flags      = PMinSize | PMaxSize,
+        .min_width  = width,
+        .min_height = height,
+        .max_width  = width,
+        .max_height = height,
+    };
+    XSetWMNormalHints(mDisplay, mWindow, &sizeHints);
+
     XFlush(mDisplay);
 
     mX      = 0;
@@ -439,6 +450,18 @@ bool X11Window::setPosition(int x, int y)
 bool X11Window::resize(int width, int height)
 {
     XResizeWindow(mDisplay, mWindow, width, height);
+
+    // Set PMinSize and PMaxSize on XSizeHints so windows larger than the screen do not get adjusted
+    // to screen size
+    XSizeHints sizeHints = {
+        .flags      = PMinSize | PMaxSize,
+        .min_width  = width,
+        .min_height = height,
+        .max_width  = width,
+        .max_height = height,
+    };
+    XSetWMNormalHints(mDisplay, mWindow, &sizeHints);
+
     XFlush(mDisplay);
 
     Timer timer;
@@ -722,8 +745,13 @@ void X11Window::processEvent(const XEvent &xEvent)
     }
 }
 
-// static
-OSWindow *OSWindow::New()
+bool IsX11WindowAvailable()
 {
-    return new X11Window();
+    Display *display = XOpenDisplay(nullptr);
+    if (!display)
+    {
+        return false;
+    }
+    XCloseDisplay(display);
+    return true;
 }

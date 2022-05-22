@@ -193,6 +193,11 @@ constexpr const char *kSkippedMessages[] = {
     // http://anglebug.com/7105
     "VUID-vkCmdDraw-None-06538",
     "VUID-vkCmdDrawIndexed-None-06538",
+    // http://anglebug.com/7325
+    "VUID-vkCmdBindVertexBuffers2-pStrides-06209",
+    // http://anglebug.com/7338
+    "VUID-VkGraphicsPipelineCreateInfo-renderPass-06040",
+    "VUID-VkGraphicsPipelineCreateInfo-renderPass-06039",
 };
 
 // Some syncval errors are resolved in the presence of the NONE load or store render pass ops.  For
@@ -419,6 +424,34 @@ constexpr vk::SkippedSyncvalMessage kSkippedSyncvalMessages[] = {
         "SYNC_FRAGMENT_SHADER_SHADER_STORAGE_READ, read_barriers: "
         "VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, command: vkCmdDrawIndexed",
     },
+    // http://anglebug.com/7031
+    {"SYNC-HAZARD-READ_AFTER_WRITE",
+     "type: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageLayout: "
+     "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, binding #0, index 0. Access info (usage: "
+     "SYNC_COMPUTE_SHADER_SHADER_STORAGE_READ, prior_usage: SYNC_IMAGE_LAYOUT_TRANSITION, "
+     "write_barriers: "
+     "SYNC_VERTEX_ATTRIBUTE_INPUT_VERTEX_ATTRIBUTE_READ|SYNC_VERTEX_SHADER_SHADER_SAMPLED_READ|"
+     "SYNC_VERTEX_SHADER_SHADER_STORAGE_READ|SYNC_VERTEX_SHADER_UNIFORM_READ|SYNC_TESSELLATION_"
+     "CONTROL_SHADER_SHADER_SAMPLED_READ|SYNC_TESSELLATION_CONTROL_SHADER_SHADER_STORAGE_READ|"
+     "SYNC_TESSELLATION_CONTROL_SHADER_UNIFORM_READ|SYNC_TESSELLATION_EVALUATION_SHADER_SHADER_"
+     "SAMPLED_READ|SYNC_TESSELLATION_EVALUATION_SHADER_SHADER_STORAGE_READ|SYNC_TESSELLATION_EV"
+     "ALUATION_SHADER_UNIFORM_READ|SYNC_GEOMETRY_SHADER_SHADER_SAMPLED_READ|SYNC_GEOMETRY_SHADER"
+     "_SHADER_STORAGE_READ|SYNC_GEOMETRY_SHADER_UNIFORM_READ|SYNC_FRAGMENT_SHADER_SHADER_SAMPLED_"
+     "READ"
+     "|SYNC_FRAGMENT_SHADER_SHADER_STORAGE_READ|SYNC_FRAGMENT_SHADER_UNIFORM_READ, "
+     "command: vkCmdPipelineBarrier, seq_no: 4,",
+     "", false},
+    // On SwiftShader, http://anglebug.com/7031
+    {"SYNC-HAZARD-READ_AFTER_WRITE",
+     "type: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageLayout: "
+     "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, binding #0, index 0. Access info (usage: "
+     "SYNC_COMPUTE_SHADER_SHADER_STORAGE_READ, prior_usage: SYNC_IMAGE_LAYOUT_TRANSITION, "
+     "write_barriers: "
+     "SYNC_FRAGMENT_SHADER_SHADER_SAMPLED_READ|SYNC_FRAGMENT_SHADER_SHADER_STORAGE_READ|SYNC_"
+     "FRAGMENT_SHADER_UNIFORM_READ, "
+     "command: vkCmdPipelineBarrier, seq_no: 3,",
+     "", false},
+
 };
 
 // Messages that shouldn't be generated if storeOp=NONE is supported, otherwise they are expected.
@@ -1127,6 +1160,9 @@ RendererVk::RendererVk()
       mDefaultUniformBufferSize(kPreferredDefaultUniformBufferSize),
       mDevice(VK_NULL_HANDLE),
       mDeviceLost(false),
+      mSuballocationGarbageSizeInBytes(0),
+      mSuballocationGarbageDestroyed(0),
+      mSuballocationGarbageSizeInBytesCachedAtomic(0),
       mCoherentStagingBufferMemoryTypeIndex(kInvalidMemoryTypeIndex),
       mNonCoherentStagingBufferMemoryTypeIndex(kInvalidMemoryTypeIndex),
       mStagingBufferAlignment(1),
@@ -1163,7 +1199,7 @@ RendererVk::~RendererVk()
 
 bool RendererVk::hasSharedGarbage()
 {
-    std::lock_guard<std::mutex> lock(mGarbageMutex);
+    std::unique_lock<std::mutex> lock(mGarbageMutex);
     return !mSharedGarbage.empty() || !mPendingSubmissionGarbage.empty() ||
            !mSuballocationGarbage.empty() || !mPendingSubmissionSuballocationGarbage.empty();
 }
@@ -1172,22 +1208,12 @@ void RendererVk::releaseSharedResources(vk::ResourceUseList *resourceList)
 {
     // resource list may access same resources referenced by garbage collection so need to protect
     // that access with a lock.
-    std::lock_guard<std::mutex> lock(mGarbageMutex);
+    std::unique_lock<std::mutex> lock(mGarbageMutex);
     resourceList->releaseResourceUses();
 }
 
 void RendererVk::onDestroy(vk::Context *context)
 {
-    // Make sure device loss is handled, despite potential race conditions.  Device loss is only
-    // procesed under the mCommandQueueMutex lock, but it may be generated from any Vulkan command.
-    // For example:
-    //
-    // - Thread A may proceed without a device loss, but be at ~ScopedCommandQueueLock before
-    //   unlocking the mutex.
-    // - Thread B may generate a device loss, but cannot take the lock in handleDeviceLost.
-    //
-    // In the above scenario, neither thread handles device loss.  If the application destroys the
-    // display at this moment, device loss needs to be handled.
     if (isDeviceLost())
     {
         handleDeviceLost();
@@ -1201,7 +1227,7 @@ void RendererVk::onDestroy(vk::Context *context)
     mOrphanedBufferBlocks.clear();
 
     {
-        vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+        std::unique_lock<std::mutex> lock(mCommandQueueMutex);
         if (isAsyncCommandQueueEnabled())
         {
             mCommandProcessor.destroy(context);
@@ -1213,7 +1239,7 @@ void RendererVk::onDestroy(vk::Context *context)
     }
 
     // Assigns an infinite "last completed" serial to force garbage to delete.
-    (void)cleanupGarbage(Serial::Infinite());
+    cleanupGarbage(Serial::Infinite());
     ASSERT(!hasSharedGarbage());
 
     for (PendingOneOffCommands &pending : mPendingOneOffCommands)
@@ -1668,7 +1694,7 @@ angle::Result RendererVk::initialize(DisplayVk *displayVk,
     }
 
     // Initialize the format table.
-    mFormatTable.initialize(this, &mNativeTextureCaps, &mNativeCaps.compressedTextureFormats);
+    mFormatTable.initialize(this, &mNativeTextureCaps);
 
     setGlobalDebugAnnotator();
 
@@ -1831,6 +1857,10 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
     mMultisampledRenderToSingleSampledFeatures.sType =
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_FEATURES_EXT;
 
+    mImage2dViewOf3dFeatures = {};
+    mImage2dViewOf3dFeatures.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_2D_VIEW_OF_3D_FEATURES_EXT;
+
     mMultiviewFeatures       = {};
     mMultiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
 
@@ -1861,6 +1891,14 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
     mBlendOperationAdvancedFeatures = {};
     mBlendOperationAdvancedFeatures.sType =
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_FEATURES_EXT;
+
+    mExtendedDynamicStateFeatures = {};
+    mExtendedDynamicStateFeatures.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
+
+    mExtendedDynamicState2Features = {};
+    mExtendedDynamicState2Features.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT;
 
     mFragmentShadingRateFeatures = {};
     mFragmentShadingRateFeatures.sType =
@@ -1946,6 +1984,11 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
         vk::AddToPNextChain(&deviceFeatures, &mMultisampledRenderToSingleSampledFeatures);
     }
 
+    if (ExtensionFound(VK_EXT_IMAGE_2D_VIEW_OF_3D_EXTENSION_NAME, deviceExtensionNames))
+    {
+        vk::AddToPNextChain(&deviceFeatures, &mImage2dViewOf3dFeatures);
+    }
+
     // Query multiview features and properties
     if (ExtensionFound(VK_KHR_MULTIVIEW_EXTENSION_NAME, deviceExtensionNames))
     {
@@ -1998,6 +2041,16 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
         vk::AddToPNextChain(&deviceFeatures, &mBlendOperationAdvancedFeatures);
     }
 
+    if (ExtensionFound(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME, deviceExtensionNames))
+    {
+        vk::AddToPNextChain(&deviceFeatures, &mExtendedDynamicStateFeatures);
+    }
+
+    if (ExtensionFound(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME, deviceExtensionNames))
+    {
+        vk::AddToPNextChain(&deviceFeatures, &mExtendedDynamicState2Features);
+    }
+
     if (ExtensionFound(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, deviceExtensionNames))
     {
         vk::AddToPNextChain(&deviceFeatures, &mFragmentShadingRateFeatures);
@@ -2021,6 +2074,7 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
     mShaderFloat16Int8Features.pNext                 = nullptr;
     mDepthStencilResolveProperties.pNext             = nullptr;
     mMultisampledRenderToSingleSampledFeatures.pNext = nullptr;
+    mImage2dViewOf3dFeatures.pNext                   = nullptr;
     mMultiviewFeatures.pNext                         = nullptr;
     mMultiviewProperties.pNext                       = nullptr;
     mDriverProperties.pNext                          = nullptr;
@@ -2030,6 +2084,8 @@ void RendererVk::queryDeviceExtensionFeatures(const vk::ExtensionNameList &devic
     mHostQueryResetFeatures.pNext                    = nullptr;
     mDepthClipControlFeatures.pNext                  = nullptr;
     mBlendOperationAdvancedFeatures.pNext            = nullptr;
+    mExtendedDynamicStateFeatures.pNext              = nullptr;
+    mExtendedDynamicState2Features.pNext             = nullptr;
     mFragmentShadingRateFeatures.pNext               = nullptr;
 }
 
@@ -2482,6 +2538,18 @@ angle::Result RendererVk::initializeDevice(DisplayVk *displayVk, uint32_t queueF
         vk::AddToPNextChain(&mEnabledFeatures, &mBlendOperationAdvancedFeatures);
     }
 
+    if (getFeatures().supportsExtendedDynamicState.enabled)
+    {
+        mEnabledDeviceExtensions.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
+        vk::AddToPNextChain(&mEnabledFeatures, &mExtendedDynamicStateFeatures);
+    }
+
+    if (getFeatures().supportsExtendedDynamicState2.enabled)
+    {
+        mEnabledDeviceExtensions.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
+        vk::AddToPNextChain(&mEnabledFeatures, &mExtendedDynamicState2Features);
+    }
+
     if (getFeatures().supportsFragmentShadingRate.enabled)
     {
         mEnabledDeviceExtensions.push_back(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
@@ -2581,6 +2649,14 @@ angle::Result RendererVk::initializeDevice(DisplayVk *displayVk, uint32_t queueF
     {
                        InitRenderPass2KHRFunctions(mDevice);
     }
+    if (getFeatures().supportsExtendedDynamicState.enabled)
+    {
+                       InitExtendedDynamicStateEXTFunctions(mDevice);
+    }
+    if (getFeatures().supportsExtendedDynamicState2.enabled)
+    {
+                       InitExtendedDynamicState2EXTFunctions(mDevice);
+    }
 #endif  // !defined(ANGLE_SHARED_LIBVULKAN)
 
     if (getFeatures().forceMaxUniformBufferSize16KB.enabled)
@@ -2594,7 +2670,7 @@ angle::Result RendererVk::initializeDevice(DisplayVk *displayVk, uint32_t queueF
     // Initialize the vulkan pipeline cache.
     bool success = false;
     {
-        std::lock_guard<std::mutex> lock(mPipelineCacheMutex);
+        std::unique_lock<std::mutex> lock(mPipelineCacheMutex);
         ANGLE_TRY(initPipelineCache(displayVk, &mPipelineCache, &success));
     }
 
@@ -3171,6 +3247,10 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
             mMultisampledRenderToSingleSampledFeatures.multisampledRenderToSingleSampled ==
                 VK_TRUE);
 
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsImage2dViewOf3d,
+                            mImage2dViewOf3dFeatures.image2DViewOf3D == VK_TRUE &&
+                                mImage2dViewOf3dFeatures.sampler2DViewOf3D == VK_TRUE);
+
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsMultiview, mMultiviewFeatures.multiview == VK_TRUE);
 
     ANGLE_FEATURE_CONDITION(&mFeatures, emulateTransformFeedback,
@@ -3194,9 +3274,6 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
 
     ANGLE_FEATURE_CONDITION(&mFeatures, perFrameWindowSizeQuery,
                             isIntel || (IsWindows() && isAMD) || IsFuchsia() || isSamsung);
-
-    // Disabled on AMD/windows due to buggy behavior.
-    ANGLE_FEATURE_CONDITION(&mFeatures, disallowSeamfulCubeMapEmulation, IsWindows() && isAMD);
 
     ANGLE_FEATURE_CONDITION(&mFeatures, padBuffersToMaxVertexAttribStride, isAMD || isSamsung);
     mMaxVertexAttribStride = std::min(static_cast<uint32_t>(gl::limits::kMaxVertexAttribStride),
@@ -3433,9 +3510,23 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // host visible flag for them and result in allocation failure.
     ANGLE_FEATURE_CONDITION(&mFeatures, preferDeviceLocalMemoryHostVisible, !isDiscreteGPU);
 
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsExtendedDynamicState,
+                            mExtendedDynamicStateFeatures.extendedDynamicState == VK_TRUE);
+
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsExtendedDynamicState2,
+                            mExtendedDynamicState2Features.extendedDynamicState2 == VK_TRUE);
+
     // Support GL_QCOM_shading_rate extension
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsFragmentShadingRate,
                             canSupportFragmentShadingRate(deviceExtensionNames));
+
+    // On ARM, per-sample shading is not enabled despite the presence of a Sample decoration.  As a
+    // workaround, per-sample shading is inferred by ANGLE and explicitly enabled by the API.
+    ANGLE_FEATURE_CONDITION(&mFeatures, explicitlyEnablePerSampleShading, isARM);
+
+    // Force to create swapchain with continuous refresh on shared present. Disabled by default.
+    // Only enable it on integrations without EGL_FRONT_BUFFER_AUTO_REFRESH_ANDROID passthrough.
+    ANGLE_FEATURE_CONDITION(&mFeatures, forceContinuousRefreshOnSharedPresent, false);
 
     ApplyFeatureOverrides(&mFeatures, displayVk->getState());
 
@@ -3482,7 +3573,7 @@ angle::Result RendererVk::getPipelineCache(vk::PipelineCache **pipelineCache)
     // Note that unless external synchronization is specifically requested the pipeline cache
     // is internally synchronized. See VK_EXT_pipeline_creation_cache_control. We might want
     // to investigate controlling synchronization manually in ANGLE at some point for perf.
-    std::lock_guard<std::mutex> lock(mPipelineCacheMutex);
+    std::unique_lock<std::mutex> lock(mPipelineCacheMutex);
 
     if (mPipelineCacheInitialized)
     {
@@ -3709,7 +3800,7 @@ angle::Result RendererVk::queueSubmitOneOff(vk::Context *context,
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::queueSubmitOneOff");
 
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
 
     Serial submitQueueSerial;
     if (isAsyncCommandQueueEnabled())
@@ -3800,7 +3891,7 @@ bool RendererVk::haveSameFormatFeatureBits(angle::FormatID formatID1,
 
 void RendererVk::addBufferBlockToOrphanList(vk::BufferBlock *block)
 {
-    std::lock_guard<std::mutex> lock(mGarbageMutex);
+    std::unique_lock<std::mutex> lock(mGarbageMutex);
     mOrphanedBufferBlocks.emplace_back(block);
 }
 
@@ -3818,9 +3909,9 @@ void RendererVk::pruneOrphanedBufferBlocks()
     }
 }
 
-angle::Result RendererVk::cleanupGarbage(Serial lastCompletedQueueSerial)
+void RendererVk::cleanupGarbage(Serial lastCompletedQueueSerial)
 {
-    std::lock_guard<std::mutex> lock(mGarbageMutex);
+    std::unique_lock<std::mutex> lock(mGarbageMutex);
 
     // Clean up general garbages
     while (!mSharedGarbage.empty())
@@ -3834,15 +3925,21 @@ angle::Result RendererVk::cleanupGarbage(Serial lastCompletedQueueSerial)
     }
 
     // Clean up suballocation garbages
+    VkDeviceSize suballocationBytesDestroyed = 0;
     while (!mSuballocationGarbage.empty())
     {
         vk::SharedBufferSuballocationGarbage &garbage = mSuballocationGarbage.front();
+        VkDeviceSize garbageSize                      = garbage.getSize();
         if (!garbage.destroyIfComplete(this, lastCompletedQueueSerial))
         {
             break;
         }
+        // Actually destroyed.
         mSuballocationGarbage.pop();
+        suballocationBytesDestroyed += garbageSize;
     }
+    mSuballocationGarbageDestroyed += suballocationBytesDestroyed;
+    mSuballocationGarbageSizeInBytes -= suballocationBytesDestroyed;
 
     // Note: do this after clean up mSuballocationGarbage so that we will have more chances to find
     // orphaned blocks being empty.
@@ -3851,17 +3948,19 @@ angle::Result RendererVk::cleanupGarbage(Serial lastCompletedQueueSerial)
         pruneOrphanedBufferBlocks();
     }
 
-    return angle::Result::Continue;
+    // Cache the value with atomic variable for access without mGarbageMutex lock.
+    mSuballocationGarbageSizeInBytesCachedAtomic.store(mSuballocationGarbageSizeInBytes,
+                                                       std::memory_order_release);
 }
 
 void RendererVk::cleanupCompletedCommandsGarbage()
 {
-    (void)cleanupGarbage(getLastCompletedQueueSerial());
+    cleanupGarbage(getLastCompletedQueueSerial());
 }
 
 void RendererVk::cleanupPendingSubmissionGarbage()
 {
-    std::lock_guard<std::mutex> lock(mGarbageMutex);
+    std::unique_lock<std::mutex> lock(mGarbageMutex);
 
     // Check if pending garbage is still pending. If not, move them to the garbage list.
     vk::SharedGarbageList pendingGarbage;
@@ -3890,6 +3989,7 @@ void RendererVk::cleanupPendingSubmissionGarbage()
             mPendingSubmissionSuballocationGarbage.front();
         if (!suballocationGarbage.usedInRecordedCommands())
         {
+            mSuballocationGarbageSizeInBytes += suballocationGarbage.getSize();
             mSuballocationGarbage.push(std::move(suballocationGarbage));
         }
         else
@@ -3966,7 +4066,7 @@ void RendererVk::setGlobalDebugAnnotator()
 #endif
 
     {
-        std::lock_guard<std::mutex> lock(gl::GetDebugMutex());
+        std::unique_lock<std::mutex> lock(gl::GetDebugMutex());
         if (installDebugAnnotatorVk)
         {
             gl::InitializeDebugAnnotations(&mAnnotator);
@@ -4043,7 +4143,7 @@ angle::Result RendererVk::submitFrame(vk::Context *context,
                                       vk::SecondaryCommandPools *commandPools,
                                       Serial *submitSerialOut)
 {
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
 
     vk::SecondaryCommandBufferList commandBuffersToReset = {
         std::move(mOutsideRenderPassCommandBufferRecycler.releaseCommandBuffersToReset()),
@@ -4077,21 +4177,7 @@ angle::Result RendererVk::submitFrame(vk::Context *context,
 
 void RendererVk::handleDeviceLost()
 {
-    // If the lock is already taken, it must be taken by ScopedCommandQueueLock, which would call
-    // handleDeviceLostNoLock when appropriate.
-    if (!mCommandQueueMutex.try_lock())
-    {
-        return;
-    }
-    handleDeviceLostNoLock();
-    mCommandQueueMutex.unlock();
-}
-
-void RendererVk::handleDeviceLostNoLock()
-{
-    // The lock must already be taken, either by handleDeviceLost() or ScopedCommandQueueLock
-    ASSERT(mCommandQueueMutex.try_lock() == false);
-
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
     if (isAsyncCommandQueueEnabled())
     {
         mCommandProcessor.handleDeviceLost(this);
@@ -4104,7 +4190,7 @@ void RendererVk::handleDeviceLostNoLock()
 
 angle::Result RendererVk::finishToSerial(vk::Context *context, Serial serial)
 {
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
 
     if (isAsyncCommandQueueEnabled())
     {
@@ -4125,7 +4211,7 @@ angle::Result RendererVk::waitForSerialWithUserTimeout(vk::Context *context,
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::waitForSerialWithUserTimeout");
 
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
 
     if (isAsyncCommandQueueEnabled())
     {
@@ -4141,7 +4227,7 @@ angle::Result RendererVk::waitForSerialWithUserTimeout(vk::Context *context,
 
 angle::Result RendererVk::finish(vk::Context *context, bool hasProtectedContent)
 {
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
 
     if (isAsyncCommandQueueEnabled())
     {
@@ -4157,7 +4243,7 @@ angle::Result RendererVk::finish(vk::Context *context, bool hasProtectedContent)
 
 angle::Result RendererVk::checkCompletedCommands(vk::Context *context)
 {
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
     // TODO: https://issuetracker.google.com/169788986 - would be better if we could just wait
     // for the work we need but that requires QueryHelper to use the actual serial for the
     // query.
@@ -4181,7 +4267,7 @@ angle::Result RendererVk::flushRenderPassCommands(
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::flushRenderPassCommands");
 
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
     if (isAsyncCommandQueueEnabled())
     {
         ANGLE_TRY(mCommandProcessor.flushRenderPassCommands(context, hasProtectedContent,
@@ -4203,7 +4289,7 @@ angle::Result RendererVk::flushOutsideRPCommands(
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::flushOutsideRPCommands");
 
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
     if (isAsyncCommandQueueEnabled())
     {
         ANGLE_TRY(mCommandProcessor.flushOutsideRPCommands(context, hasProtectedContent,
@@ -4222,7 +4308,7 @@ VkResult RendererVk::queuePresent(vk::Context *context,
                                   egl::ContextPriority priority,
                                   const VkPresentInfoKHR &presentInfo)
 {
-    vk::ScopedCommandQueueLock lock(this, mCommandQueueMutex);
+    std::unique_lock<std::mutex> lock(mCommandQueueMutex);
 
     VkResult result = VK_SUCCESS;
     if (isAsyncCommandQueueEnabled())
@@ -4269,7 +4355,7 @@ void RendererVk::recycleOutsideRenderPassCommandBufferHelper(
     vk::OutsideRenderPassCommandBufferHelper **commandBuffer)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::recycleOutsideRenderPassCommandBufferHelper");
-    std::lock_guard<std::mutex> lock(mCommandBufferRecyclerMutex);
+    std::unique_lock<std::mutex> lock(mCommandBufferRecyclerMutex);
     mOutsideRenderPassCommandBufferRecycler.recycleCommandBufferHelper(device, commandBuffer);
 }
 
@@ -4278,7 +4364,7 @@ void RendererVk::recycleRenderPassCommandBufferHelper(
     vk::RenderPassCommandBufferHelper **commandBuffer)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "RendererVk::recycleRenderPassCommandBufferHelper");
-    std::lock_guard<std::mutex> lock(mCommandBufferRecyclerMutex);
+    std::unique_lock<std::mutex> lock(mCommandBufferRecyclerMutex);
     mRenderPassCommandBufferRecycler.recycleCommandBufferHelper(device, commandBuffer);
 }
 
@@ -4289,7 +4375,7 @@ void RendererVk::logCacheStats() const
         return;
     }
 
-    std::lock_guard<std::mutex> localLock(mCacheStatsMutex);
+    std::unique_lock<std::mutex> localLock(mCacheStatsMutex);
 
     int cacheType = 0;
     INFO() << "Vulkan object cache hit ratios: ";
@@ -4356,13 +4442,13 @@ angle::Result RendererVk::getFormatDescriptorCountForExternalFormat(ContextVk *c
 
 void RendererVk::onAllocateHandle(vk::HandleType handleType)
 {
-    std::lock_guard<std::mutex> localLock(mActiveHandleCountsMutex);
+    std::unique_lock<std::mutex> localLock(mActiveHandleCountsMutex);
     mActiveHandleCounts.onAllocate(handleType);
 }
 
 void RendererVk::onDeallocateHandle(vk::HandleType handleType)
 {
-    std::lock_guard<std::mutex> localLock(mActiveHandleCountsMutex);
+    std::unique_lock<std::mutex> localLock(mActiveHandleCountsMutex);
     mActiveHandleCounts.onDeallocate(handleType);
 }
 
@@ -4385,7 +4471,7 @@ MemoryReport::MemoryReport()
 void MemoryReport::processCallback(const VkDeviceMemoryReportCallbackDataEXT &callbackData,
                                    bool logCallback)
 {
-    std::lock_guard<std::mutex> lock(mMemoryReportMutex);
+    std::unique_lock<std::mutex> lock(mMemoryReportMutex);
     VkDeviceSize size = 0;
     std::string reportType;
     switch (callbackData.type)
@@ -4463,7 +4549,7 @@ void MemoryReport::processCallback(const VkDeviceMemoryReportCallbackDataEXT &ca
 
 void MemoryReport::logMemoryReportStats() const
 {
-    std::lock_guard<std::mutex> lock(mMemoryReportMutex);
+    std::unique_lock<std::mutex> lock(mMemoryReportMutex);
 
     INFO() << std::right << "GPU Memory Totals:       Allocated=" << std::setw(10)
            << mCurrentTotalAllocatedMemory << " (max=" << std::setw(10) << mMaxTotalAllocatedMemory

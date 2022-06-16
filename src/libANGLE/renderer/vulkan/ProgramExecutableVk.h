@@ -51,13 +51,10 @@ class ShaderInfo final : angle::NonCopyable
 
 struct ProgramTransformOptions final
 {
-    uint8_t enableLineRasterEmulation : 1;
-    uint8_t removeEarlyFragmentTestsOptimization : 1;
-    uint8_t surfaceRotation : 3;
-    uint8_t enableDepthCorrection : 1;
+    uint8_t surfaceRotation : 1;
     uint8_t removeTransformFeedbackEmulation : 1;
-    uint8_t reserved : 1;  // must initialize to zero
-    static constexpr uint32_t kPermutationCount = 0x1 << 7;
+    uint8_t reserved : 6;  // must initialize to zero
+    static constexpr uint32_t kPermutationCount = 0x1 << 2;
 };
 static_assert(sizeof(ProgramTransformOptions) == 1, "Size check failed");
 static_assert(static_cast<int>(SurfaceRotation::EnumCount) <= 8, "Size check failed");
@@ -137,12 +134,18 @@ class ProgramExecutableVk
 
     angle::Result getGraphicsPipeline(ContextVk *contextVk,
                                       gl::PrimitiveMode mode,
+                                      PipelineCacheAccess *pipelineCache,
+                                      PipelineSource source,
                                       const vk::GraphicsPipelineDesc &desc,
                                       const gl::ProgramExecutable &glExecutable,
                                       const vk::GraphicsPipelineDesc **descPtrOut,
                                       vk::PipelineHelper **pipelineOut);
 
-    angle::Result getComputePipeline(ContextVk *contextVk, vk::PipelineHelper **pipelineOut);
+    angle::Result getComputePipeline(ContextVk *contextVk,
+                                     PipelineCacheAccess *pipelineCache,
+                                     PipelineSource source,
+                                     const gl::ProgramExecutable &glExecutable,
+                                     vk::PipelineHelper **pipelineOut);
 
     const vk::PipelineLayout &getPipelineLayout() const { return mPipelineLayout.get(); }
     angle::Result createPipelineLayout(ContextVk *contextVk,
@@ -156,28 +159,25 @@ class ProgramExecutableVk
                                               bool emulateSeamfulCubeMapSampling,
                                               PipelineType pipelineType,
                                               UpdateDescriptorSetsBuilder *updateBuilder,
-                                              vk::ResourceUseList *resourceUseList,
+                                              vk::CommandBufferHelperCommon *commandBufferHelper,
                                               const vk::DescriptorSetDesc &texturesDesc);
     angle::Result updateShaderResourcesDescriptorSet(
         ContextVk *contextVk,
         UpdateDescriptorSetsBuilder *updateBuilder,
-        vk::ResourceUseList *resourceUseList,
+        vk::CommandBufferHelperCommon *commandBufferHelper,
         const vk::DescriptorSetDescBuilder &shaderResourcesDesc);
     angle::Result updateUniformsAndXfbDescriptorSet(
         vk::Context *context,
         UpdateDescriptorSetsBuilder *updateBuilder,
-        vk::ResourceUseList *resourceUseList,
+        vk::CommandBufferHelperCommon *commandBufferHelper,
         vk::BufferHelper *defaultUniformBuffer,
         const vk::DescriptorSetDescBuilder &uniformsAndXfbDesc);
 
     template <typename CommandBufferT>
     angle::Result bindDescriptorSets(vk::Context *context,
-                                     vk::ResourceUseList *resourceUseList,
+                                     vk::CommandBufferHelperCommon *commandBufferHelper,
                                      CommandBufferT *commandBuffer,
                                      PipelineType pipelineType);
-
-    void updateEarlyFragmentTestsOptimization(ContextVk *contextVk,
-                                              const gl::ProgramExecutable &glExecutable);
 
     bool usesDynamicUniformBufferDescriptors() const
     {
@@ -215,7 +215,7 @@ class ProgramExecutableVk
     void setAllDefaultUniformsDirty(const gl::ProgramExecutable &executable);
     angle::Result updateUniforms(vk::Context *context,
                                  UpdateDescriptorSetsBuilder *updateBuilder,
-                                 vk::ResourceUseList *resourceUseList,
+                                 vk::CommandBufferHelperCommon *commandBufferHelper,
                                  vk::BufferHelper *emptyBuffer,
                                  const gl::ProgramExecutable &glExecutable,
                                  vk::DynamicBuffer *defaultUniformStorage,
@@ -307,7 +307,7 @@ class ProgramExecutableVk
 
     angle::Result getOrAllocateDescriptorSet(vk::Context *context,
                                              UpdateDescriptorSetsBuilder *updateBuilder,
-                                             vk::ResourceUseList *resourceUseList,
+                                             vk::CommandBufferHelperCommon *commandBufferHelper,
                                              const vk::DescriptorSetDescBuilder &descriptorSetDesc,
                                              DescriptorSetIndex setIndex);
 

@@ -170,7 +170,8 @@ egl::Error SurfaceMtl::initialize(const egl::Display *display)
 FramebufferImpl *SurfaceMtl::createDefaultFramebuffer(const gl::Context *context,
                                                       const gl::FramebufferState &state)
 {
-    auto fbo = new FramebufferMtl(state, /* flipY */ false, /* backbuffer */ nullptr);
+    ContextMtl *contextMtl = mtl::GetImpl(context);
+    auto fbo = new FramebufferMtl(state, contextMtl, /* flipY */ false, /* backbuffer */ nullptr);
 
     return fbo;
 }
@@ -513,7 +514,8 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
 FramebufferImpl *WindowSurfaceMtl::createDefaultFramebuffer(const gl::Context *context,
                                                             const gl::FramebufferState &state)
 {
-    auto fbo = new FramebufferMtl(state, /* flipY */ true, /* backbuffer */ this);
+    ContextMtl *contextMtl = mtl::GetImpl(context);
+    auto fbo = new FramebufferMtl(state, contextMtl, /* flipY */ true, /* backbuffer */ this);
 
     return fbo;
 }
@@ -813,4 +815,4 @@ void PBufferSurfaceMtl::setFixedHeight(EGLint height)
     mSize.height = height;
 }
 
-}
+}  // namespace rx

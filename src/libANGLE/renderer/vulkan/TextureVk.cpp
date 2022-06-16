@@ -1393,6 +1393,15 @@ angle::Result TextureVk::setEGLImageTarget(const gl::Context *context,
     RendererVk *renderer = contextVk->getRenderer();
     ImageVk *imageVk     = vk::GetImpl(image);
 
+    // Early out if we are creating TextureVk with the exact same eglImage and target/face/level to
+    // avoid unnecessarily dirty the state and allocating new ImageViews etc.
+    if (mImage == imageVk->getImage() && mEGLImageNativeType == imageVk->getImageTextureType() &&
+        static_cast<GLint>(mEGLImageLevelOffset) == imageVk->getImageLevel().get() &&
+        mEGLImageLayerOffset == imageVk->getImageLayer())
+    {
+        return angle::Result::Continue;
+    }
+
     // TODO: Textures other than EGLImage targets can have immutable samplers.
     // http://anglebug.com/5773
     handleImmutableSamplerTransition(mImage, imageVk ? imageVk->getImage() : nullptr);
@@ -2679,6 +2688,19 @@ angle::Result TextureVk::respecifyImageStorageIfNecessary(ContextVk *contextVk, 
         ANGLE_TRY(respecifyImageStorage(contextVk));
     }
 
+    return angle::Result::Continue;
+}
+
+angle::Result TextureVk::onLabelUpdate(const gl::Context *context)
+{
+    ContextVk *contextVk = vk::GetImpl(context);
+    RendererVk *renderer = contextVk->getRenderer();
+
+    if (!renderer->enableDebugUtils() && !renderer->angleDebuggerMode() && imageValid())
+    {
+        return vk::SetDebugUtilsObjectName(contextVk, (uint64_t)(getImage().getImage().getHandle()),
+                                           mState.getLabel());
+    }
     return angle::Result::Continue;
 }
 

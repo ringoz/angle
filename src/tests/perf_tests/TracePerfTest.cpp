@@ -174,7 +174,6 @@ class TracePerfTest : public ANGLERenderTest
     std::vector<QueryInfo> mRunningQueries;
     std::vector<TimeSample> mTimeline;
 
-    std::string mStartingDirectory;
     bool mUseTimestampQueries                                           = false;
     static constexpr int mMaxOffscreenBufferCount                       = 2;
     std::array<GLuint, mMaxOffscreenBufferCount> mOffscreenFramebuffers = {0, 0};
@@ -835,27 +834,11 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
 
     if (traceNameIs("efootball_pes_2021"))
     {
-        if (mParams.isVulkan() && ((IsLinux() && IsIntel()) || IsPixel2()))
+        if (mParams.isVulkan() && IsLinux() && IsIntel())
         {
             skipTest(
-                "TODO: https://anglebug.com/5517 Linux+Intel and Pixel 2 generate 'Framebuffer is "
+                "TODO: https://anglebug.com/5517 Linux+Intel generate 'Framebuffer is "
                 "incomplete' errors with the Vulkan backend");
-        }
-    }
-
-    if (traceNameIs("manhattan_31"))
-    {
-        if (IsPixel2() && mParams.isVulkan())
-        {
-            skipTest("TODO: http://anglebug.com/5591 Trace crashes on Pixel 2 in vulkan driver");
-        }
-    }
-
-    if (traceNameIs("idle_heroes"))
-    {
-        if (IsPixel2())
-        {
-            skipTest("TODO: http://anglebug.com/5591 Trace crashes on Pixel 2");
         }
     }
 
@@ -924,14 +907,6 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
         }
     }
 
-    if (traceNameIs("rope_hero_vice_town"))
-    {
-        if (IsPixel2() && mParams.isVulkan())
-        {
-            skipTest("TODO: http://anglebug.com/5716 Trace crashes on Pixel 2 in vulkan driver");
-        }
-    }
-
     if (traceNameIs("extreme_car_driving_simulator"))
     {
         addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
@@ -954,13 +929,6 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
     {
         addExtensionPrerequisite("GL_OES_EGL_image_external");
         addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
-
-        if (IsPixel2() && mParams.isVulkan())
-        {
-            skipTest(
-                "TODO: http://anglebug.com/5772 Pixel 2 errors with 'Framebuffer is incomplete' on "
-                "Vulkan");
-        }
     }
 
     if (traceNameIs("real_cricket_20"))
@@ -985,30 +953,23 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
     if (traceNameIs("aztec_ruins"))
     {
         addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
-
-        if (IsPixel2() && mParams.isVulkan())
-        {
-            skipTest(
-                "TODO: http://anglebug.com/5553 Pixel 2 errors with 'Framebuffer is incomplete' on "
-                "Vulkan");
-        }
     }
 
     if (traceNameIs("dragon_raja"))
     {
         addExtensionPrerequisite("GL_OES_EGL_image_external");
 
-        if (((IsLinux() && IsIntel()) || IsPixel2()) && mParams.isVulkan())
+        if ((IsLinux() && IsIntel()) && mParams.isVulkan())
         {
             skipTest(
-                "TODO: http://anglebug.com/5807 Intel Linux and Pixel 2 error with 'Framebuffer is "
+                "TODO: http://anglebug.com/5807 Intel Linux errors with 'Framebuffer is "
                 "incomplete' on Vulkan");
         }
     }
 
     if (traceNameIs("hill_climb_racing") || traceNameIs("dead_trigger_2"))
     {
-        if (IsAndroid() && (IsPixel2() || IsPixel4() || IsPixel4XL()) &&
+        if (IsAndroid() && (IsPixel4() || IsPixel4XL()) &&
             mParams.driver == GLESDriverType::SystemEGL)
         {
             skipTest(
@@ -1039,14 +1000,6 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
             skipTest(
                 "TODO: http://anglebug.com/5837 Intel Linux Vulkan errors with 'Framebuffer is "
                 "incomplete'");
-        }
-    }
-
-    if (traceNameIs("slingshot_test1") || traceNameIs("slingshot_test2"))
-    {
-        if (IsPixel2() && mParams.isVulkan())
-        {
-            skipTest("TODO: http://anglebug.com/5877 Trace crashes on Pixel 2 in vulkan driver");
         }
     }
 
@@ -1093,11 +1046,6 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
     if (traceNameIs("genshin_impact"))
     {
         addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
-
-        if (IsPixel2() && mParams.isVulkan())
-        {
-            skipTest("TODO: http://anglebug.com/6023 Crashes on Pixel 2 in vulkan driver");
-        }
 
         if ((IsLinux() && IsIntel()) && mParams.isVulkan())
         {
@@ -1322,19 +1270,10 @@ void TracePerfTest::initializeBenchmark()
 {
     const TraceInfo &traceInfo = mParams.traceInfo;
 
-    mStartingDirectory = angle::GetCWD().value();
-
     std::stringstream traceNameStr;
     traceNameStr << "angle_restricted_traces_" << traceInfo.name;
     std::string traceName = traceNameStr.str();
     mTraceLibrary.reset(new TraceLibrary(traceName.c_str()));
-
-    // To load the trace data path correctly we set the CWD to the executable dir.
-    if (!IsAndroid())
-    {
-        std::string exeDir = angle::GetExecutableDirectory();
-        angle::SetCWD(exeDir.c_str());
-    }
 
     trace_angle::LoadEGL(TraceLoadProc);
     trace_angle::LoadGLES(TraceLoadProc);
@@ -1451,9 +1390,6 @@ void TracePerfTest::destroyBenchmark()
 
     mTraceLibrary->finishReplay();
     mTraceLibrary.reset(nullptr);
-
-    // In order for the next test to load, restore the working directory
-    angle::SetCWD(mStartingDirectory.c_str());
 }
 
 void TracePerfTest::sampleTime()
@@ -2104,15 +2040,6 @@ using PV = std::vector<P>;
 
 void RegisterTraceTests()
 {
-    // To load the trace data path correctly we set the CWD to the executable dir.
-    std::string previousCWD;
-    if (!IsAndroid())
-    {
-        previousCWD        = GetCWD().value();
-        std::string exeDir = GetExecutableDirectory();
-        SetCWD(exeDir.c_str());
-    }
-
     char rootTracePath[kMaxPath] = {};
     if (!FindRootTraceTestDataPath(rootTracePath, kMaxPath))
     {
@@ -2198,10 +2125,5 @@ void RegisterTraceTests()
         std::string testName = testNameStr.str();
         testing::RegisterTest("TracePerfTest", testName.c_str(), nullptr, paramName.c_str(),
                               __FILE__, __LINE__, factory);
-    }
-
-    if (!previousCWD.empty())
-    {
-        SetCWD(previousCWD.c_str());
     }
 }

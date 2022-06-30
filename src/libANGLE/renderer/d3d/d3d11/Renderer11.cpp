@@ -1357,8 +1357,10 @@ void Renderer11::generateDisplayExtensions(egl::DisplayExtensions *outExtensions
 
     // color space selection supported in DXGI 1.4 only
     outExtensions->glColorspace =
+    outExtensions->glColorspaceScrgb =
     outExtensions->glColorspaceScrgbLinear =
-    outExtensions->glColorspaceBt2020PQ = mRenderer11DeviceCaps.supportsDXGI1_4;
+    outExtensions->glColorspaceBt2020PQ = 
+    outExtensions->glColorspaceBt2020Linear = mRenderer11DeviceCaps.supportsDXGI1_4;
 }
 
 angle::Result Renderer11::flush(Context11 *context11)

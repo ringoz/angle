@@ -483,8 +483,10 @@ void DisplayMtl::generateExtensions(egl::DisplayExtensions *outExtensions) const
 
     // EGL_KHR_gl_colorspace
     outExtensions->glColorspace =
+    outExtensions->glColorspaceScrgb =
     outExtensions->glColorspaceScrgbLinear =
-    outExtensions->glColorspaceBt2020PQ = true;
+    outExtensions->glColorspaceBt2020PQ = 
+    outExtensions->glColorspaceBt2020Linear = true;
 }
 
 void DisplayMtl::generateCaps(egl::Caps *outCaps) const {}

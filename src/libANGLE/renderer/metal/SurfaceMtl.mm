@@ -98,11 +98,17 @@ SurfaceMtl::SurfaceMtl(DisplayMtl *display,
     case EGL_GL_COLORSPACE_SRGB_KHR:
         mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
         break;
+    case EGL_GL_COLORSPACE_SCRGB_EXT:
+        mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB);
+        break;
     case EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT:
         mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearSRGB);
         break;
     case EGL_GL_COLORSPACE_BT2020_PQ_EXT:
         mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2100_PQ);
+        break;
+    case EGL_GL_COLORSPACE_BT2020_LINEAR_EXT:
+        mColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearITUR_2020);
         break;
     default:
         ASSERT(0 && "Unsupported colorspace requested");

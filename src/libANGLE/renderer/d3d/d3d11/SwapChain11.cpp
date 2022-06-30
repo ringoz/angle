@@ -658,13 +658,18 @@ EGLint SwapChain11::reset(DisplayD3D *displayD3D,
             switch (mEGLColorSpace)
             {
             case EGL_GL_COLORSPACE_SRGB_KHR:
-                swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
-                break;
-            case EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT:
+            case EGL_GL_COLORSPACE_SCRGB_EXT:
                 swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
+                break;
+            case EGL_GL_COLORSPACE_LINEAR_KHR:
+            case EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT:
+                swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
                 break;
             case EGL_GL_COLORSPACE_BT2020_PQ_EXT:
                 swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+                break;
+            case EGL_GL_COLORSPACE_BT2020_LINEAR_EXT:
+                swapChain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P2020);
                 break;
             default:
                 ASSERT(0 && "Unsupported colorspace requested");

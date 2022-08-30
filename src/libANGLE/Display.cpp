@@ -649,7 +649,7 @@ DisplayState::DisplayState(EGLNativeDisplayType nativeDisplayId)
 
 DisplayState::~DisplayState() {}
 
-// Note that ANGLE support on Ozone platform is limited. Our prefered support Matrix for
+// Note that ANGLE support on Ozone platform is limited. Our preferred support Matrix for
 // EGL_ANGLE_platform_angle on Linux and Ozone/Linux/Fuchsia platforms should be the following:
 //
 // |--------------------------------------------------------|
@@ -840,7 +840,6 @@ Display::Display(EGLenum platform, EGLNativeDisplayType displayId, Device *eglDe
       mGPUSwitchedBinding(this, kGPUSwitchedSubjectIndex),
       mAttributeMap(),
       mConfigSet(),
-      mContextSet(),
       mStreamSet(),
       mInvalidImageSet(),
       mInvalidStreamSet(),
@@ -862,7 +861,8 @@ Display::Display(EGLenum platform, EGLNativeDisplayType displayId, Device *eglDe
       mMemoryProgramCache(mBlobCache),
       mGlobalTextureShareGroupUsers(0),
       mGlobalSemaphoreShareGroupUsers(0),
-      mIsTerminated(false)
+      mTerminatedByApi(false),
+      mActiveThreads()
 {}
 
 Display::~Display()
@@ -871,6 +871,7 @@ Display::~Display()
     {
         case EGL_PLATFORM_ANGLE_ANGLE:
         case EGL_PLATFORM_GBM_KHR:
+        case EGL_PLATFORM_WAYLAND_EXT:
         {
             ANGLEPlatformDisplayMap *displays      = GetANGLEPlatformDisplayMap();
             ANGLEPlatformDisplayMap::iterator iter = displays->find(ANGLEPlatformDisplay(
@@ -920,9 +921,9 @@ void Display::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMess
 {
     ASSERT(index == kGPUSwitchedSubjectIndex);
     ASSERT(message == angle::SubjectMessage::SubjectChanged);
-    for (ContextSet::iterator ctx = mContextSet.begin(); ctx != mContextSet.end(); ctx++)
+    for (gl::Context *context : mState.contextSet)
     {
-        (*ctx)->onGPUSwitch();
+        context->onGPUSwitch();
     }
 }
 
@@ -934,7 +935,7 @@ void Display::setupDisplayPlatform(rx::DisplayImpl *impl)
     SafeDelete(mImplementation);
     mImplementation = impl;
 
-    // TODO(jmadill): Store Platform in Display and init here.
+    // TODO(anglebug.com/7365): Remove PlatformMethods.
     const angle::PlatformMethods *platformMethods =
         reinterpret_cast<const angle::PlatformMethods *>(
             mAttributeMap.get(EGL_PLATFORM_ANGLE_PLATFORM_METHODS_ANGLEX, 0));
@@ -960,7 +961,7 @@ void Display::setupDisplayPlatform(rx::DisplayImpl *impl)
 
 Error Display::initialize()
 {
-    mIsTerminated = false;
+    mTerminatedByApi = false;
 
     ASSERT(mImplementation != nullptr);
     mImplementation->setBlobCache(&mBlobCache);
@@ -1105,7 +1106,10 @@ Error Display::destroyInvalidEglObjects()
 
 Error Display::terminate(Thread *thread, TerminateReason terminateReason)
 {
-    mIsTerminated = true;
+    if (terminateReason == TerminateReason::Api)
+    {
+        mTerminatedByApi = true;
+    }
 
     if (!mInitialized)
     {
@@ -1119,6 +1123,7 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     // as eglTerminate returns
     // Cache EGL objects that are no longer valid
     // TODO (http://www.anglebug.com/6798): Invalidate context handles as well.
+    if (mTerminatedByApi)
     {
         std::lock_guard<std::mutex> lock(mInvalidEglObjectsMutex);
 
@@ -1136,14 +1141,15 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     }
 
     // All EGL objects, except contexts, have been marked invalid by the block above and will be
-    // cleaned up during eglReleaseThread. If no contexts are current on any thread, perform the
-    // cleanup right away.
-    for (gl::Context *context : mContextSet)
+    // cleaned up by "destroyInvalidEglObjects". If app called eglTerminate and no active threads
+    // remain, perform the cleanup right away.
+    for (gl::Context *context : mState.contextSet)
     {
         if (context->getRefCount() > 0)
         {
-            if (terminateReason == TerminateReason::ProcessExit)
+            if (terminateReason == TerminateReason::NoActiveThreads)
             {
+                ASSERT(mTerminatedByApi);
                 context->release();
                 (void)context->unMakeCurrent(this);
             }
@@ -1155,9 +1161,9 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     }
 
     // Destroy all of the Contexts for this Display, since none of them are current anymore.
-    while (!mContextSet.empty())
+    while (!mState.contextSet.empty())
     {
-        gl::Context *context = *mContextSet.begin();
+        gl::Context *context = *mState.contextSet.begin();
         context->setIsDestroyed();
         ANGLE_TRY(releaseContext(context, thread));
     }
@@ -1205,6 +1211,22 @@ Error Display::releaseThread()
 {
     ANGLE_TRY(mImplementation->releaseThread());
     return destroyInvalidEglObjects();
+}
+
+void Display::addActiveThread(Thread *thread)
+{
+    std::lock_guard<std::mutex> lock(mActiveThreadsMutex);
+    mActiveThreads.insert(thread);
+}
+
+void Display::removeActiveThreadAndPerformCleanup(Thread *thread)
+{
+    std::lock_guard<std::mutex> lock(mActiveThreadsMutex);
+    mActiveThreads.erase(thread);
+    if (mTerminatedByApi && mActiveThreads.size() == 0)
+    {
+        (void)terminate(thread, TerminateReason::NoActiveThreads);
+    }
 }
 
 std::vector<const Config *> Display::getConfigs(const egl::AttributeMap &attribs) const
@@ -1409,7 +1431,7 @@ Error Display::createContext(const Config *configuration,
                              const AttributeMap &attribs,
                              gl::Context **outContext)
 {
-    ASSERT(!mIsTerminated);
+    ASSERT(!mTerminatedByApi);
     ASSERT(isInitialized());
 
     if (mImplementation->testDeviceLost())
@@ -1486,7 +1508,7 @@ Error Display::createContext(const Config *configuration,
     }
 
     ASSERT(context != nullptr);
-    mContextSet.insert(context);
+    mState.contextSet.insert(context);
 
     ASSERT(outContext != nullptr);
     *outContext = context;
@@ -1579,7 +1601,8 @@ Error Display::makeCurrent(Thread *thread,
 
 Error Display::restoreLostDevice()
 {
-    for (ContextSet::iterator ctx = mContextSet.begin(); ctx != mContextSet.end(); ctx++)
+    for (ContextSet::iterator ctx = mState.contextSet.begin(); ctx != mState.contextSet.end();
+         ctx++)
     {
         if ((*ctx)->isResetNotificationEnabled())
         {
@@ -1645,8 +1668,8 @@ Error Display::releaseContext(gl::Context *context, Thread *thread)
 
     // Use scoped_ptr to make sure the context is always freed.
     std::unique_ptr<gl::Context> unique_context(context);
-    ASSERT(mContextSet.find(context) != mContextSet.end());
-    mContextSet.erase(context);
+    ASSERT(mState.contextSet.find(context) != mState.contextSet.end());
+    mState.contextSet.erase(context);
 
     if (context->usingDisplayTextureShareGroup())
     {
@@ -1724,9 +1747,9 @@ Error Display::destroyContext(Thread *thread, gl::Context *context)
 
     // If eglTerminate() has previously been called and this is the last Context the Display owns,
     // we can now fully terminate the display and release all of its resources.
-    if (mIsTerminated)
+    if (mTerminatedByApi)
     {
-        for (const gl::Context *ctx : mContextSet)
+        for (const gl::Context *ctx : mState.contextSet)
         {
             if (ctx->getRefCount() > 0)
             {
@@ -1793,8 +1816,8 @@ void Display::notifyDeviceLost()
         return;
     }
 
-    for (ContextSet::iterator context = mContextSet.begin(); context != mContextSet.end();
-         context++)
+    for (ContextSet::iterator context = mState.contextSet.begin();
+         context != mState.contextSet.end(); context++)
     {
         (*context)->markContextLost(gl::GraphicsResetStatus::UnknownContextReset);
     }
@@ -1863,7 +1886,7 @@ bool Display::isValidConfig(const Config *config) const
 
 bool Display::isValidContext(const gl::Context *context) const
 {
-    return mContextSet.find(const_cast<gl::Context *>(context)) != mContextSet.end();
+    return mState.contextSet.find(const_cast<gl::Context *>(context)) != mState.contextSet.end();
 }
 
 bool Display::isValidSurface(const Surface *surface) const
@@ -2139,6 +2162,9 @@ void Display::initializeFrontendFeatures()
     // Disabled by default. To reduce the risk, create a feature to enable
     // compressing pipeline cache in multi-thread pool.
     ANGLE_FEATURE_CONDITION(&mFrontendFeatures, enableCompressingPipelineCacheInThreadPool, false);
+
+    // Disabled by default until work on the extension is complete - anglebug.com/7279.
+    ANGLE_FEATURE_CONDITION(&mFrontendFeatures, emulatePixelLocalStorage, false);
 
     mImplementation->initializeFrontendFeatures(&mFrontendFeatures);
 

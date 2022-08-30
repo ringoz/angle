@@ -2263,7 +2263,8 @@ angle::Result UtilsVk::clearImage(ContextVk *contextVk,
 
     ANGLE_TRY(dst->initLayerImageView(contextVk, destViewType, VK_IMAGE_ASPECT_COLOR_BIT,
                                       gl::SwizzleState(), &destView.get(), params.dstMip, 1,
-                                      params.dstLayer, 1, gl::SrgbWriteControlMode::Default));
+                                      params.dstLayer, 1, gl::SrgbWriteControlMode::Default,
+                                      gl::YuvSamplingMode::Default));
 
     const gl::Rectangle &renderArea = params.clearArea;
 
@@ -2427,39 +2428,29 @@ angle::Result UtilsVk::blitResolveImpl(ContextVk *contextVk,
     switch (params.rotation)
     {
         case SurfaceRotation::Identity:
-            break;
         case SurfaceRotation::Rotated90Degrees:
-            shaderParams.rotateXY = 1;
             break;
         case SurfaceRotation::Rotated180Degrees:
-            if (isResolve)
-            {
-                shaderParams.offset.resolve[0] += params.rotatedOffsetFactor[0];
-                shaderParams.offset.resolve[1] += params.rotatedOffsetFactor[1];
-            }
-            else
-            {
-                shaderParams.offset.blit[0] += params.rotatedOffsetFactor[0];
-                shaderParams.offset.blit[1] += params.rotatedOffsetFactor[1];
-            }
-            break;
         case SurfaceRotation::Rotated270Degrees:
             if (isResolve)
             {
-                shaderParams.offset.resolve[0] += params.rotatedOffsetFactor[0];
-                shaderParams.offset.resolve[1] += params.rotatedOffsetFactor[1];
+                // Align the offset with minus 1, or the sample position near the edge will be
+                // wrong.
+                shaderParams.offset.resolve[0] += params.rotatedOffsetFactor[0] - 1;
+                shaderParams.offset.resolve[1] += params.rotatedOffsetFactor[1] - 1;
             }
             else
             {
                 shaderParams.offset.blit[0] += params.rotatedOffsetFactor[0];
                 shaderParams.offset.blit[1] += params.rotatedOffsetFactor[1];
             }
-            shaderParams.rotateXY = 1;
             break;
         default:
             UNREACHABLE();
             break;
     }
+
+    shaderParams.rotateXY = IsRotatedAspectRatio(params.rotation);
 
     bool blitColor   = srcColorView != nullptr;
     bool blitDepth   = srcDepthView != nullptr;
@@ -2687,41 +2678,29 @@ angle::Result UtilsVk::stencilBlitResolveNoShaderExport(ContextVk *contextVk,
     switch (params.rotation)
     {
         case SurfaceRotation::Identity:
-            break;
         case SurfaceRotation::Rotated90Degrees:
-            shaderParams.rotateXY = 1;
             break;
         case SurfaceRotation::Rotated180Degrees:
+        case SurfaceRotation::Rotated270Degrees:
             if (isResolve)
             {
                 // Align the offset with minus 1, or the sample position near the edge will be
                 // wrong.
                 shaderParams.offset.resolve[0] += params.rotatedOffsetFactor[0] - 1;
-                shaderParams.offset.resolve[1] += params.rotatedOffsetFactor[1];
-            }
-            else
-            {
-                shaderParams.offset.blit[0] += params.rotatedOffsetFactor[0] - 1;
-                shaderParams.offset.blit[1] += params.rotatedOffsetFactor[1];
-            }
-            break;
-        case SurfaceRotation::Rotated270Degrees:
-            if (isResolve)
-            {
-                shaderParams.offset.resolve[0] += params.rotatedOffsetFactor[0] - 1;
                 shaderParams.offset.resolve[1] += params.rotatedOffsetFactor[1] - 1;
             }
             else
             {
-                shaderParams.offset.blit[0] += params.rotatedOffsetFactor[0] - 1;
-                shaderParams.offset.blit[1] += params.rotatedOffsetFactor[1] - 1;
+                shaderParams.offset.blit[0] += params.rotatedOffsetFactor[0];
+                shaderParams.offset.blit[1] += params.rotatedOffsetFactor[1];
             }
-            shaderParams.rotateXY = 1;
             break;
         default:
             UNREACHABLE();
             break;
     }
+
+    shaderParams.rotateXY = IsRotatedAspectRatio(params.rotation);
 
     // Linear sampling is only valid with color blitting.
     ASSERT(!params.linear);
@@ -3382,7 +3361,8 @@ angle::Result UtilsVk::unresolve(ContextVk *contextVk,
         {
             ANGLE_TRY(depthStencilSrc->initLayerImageView(
                 contextVk, textureType, VK_IMAGE_ASPECT_DEPTH_BIT, gl::SwizzleState(),
-                &depthView.get(), levelIndex, 1, layerIndex, 1, gl::SrgbWriteControlMode::Default));
+                &depthView.get(), levelIndex, 1, layerIndex, 1, gl::SrgbWriteControlMode::Default,
+                gl::YuvSamplingMode::Default));
             depthSrcView = &depthView.get();
         }
 
@@ -3390,8 +3370,8 @@ angle::Result UtilsVk::unresolve(ContextVk *contextVk,
         {
             ANGLE_TRY(depthStencilSrc->initLayerImageView(
                 contextVk, textureType, VK_IMAGE_ASPECT_STENCIL_BIT, gl::SwizzleState(),
-                &stencilView.get(), levelIndex, 1, layerIndex, 1,
-                gl::SrgbWriteControlMode::Default));
+                &stencilView.get(), levelIndex, 1, layerIndex, 1, gl::SrgbWriteControlMode::Default,
+                gl::YuvSamplingMode::Default));
             stencilSrcView = &stencilView.get();
         }
     }
@@ -3681,9 +3661,9 @@ angle::Result UtilsVk::allocateDescriptorSet(ContextVk *contextVk,
                                              vk::RefCountedDescriptorPoolBinding *bindingOut,
                                              VkDescriptorSet *descriptorSetOut)
 {
-    ANGLE_TRY(mDescriptorPools[function].allocateDescriptorSets(
+    ANGLE_TRY(mDescriptorPools[function].allocateDescriptorSet(
         contextVk, commandBufferHelper,
-        mDescriptorSetLayouts[function][DescriptorSetIndex::Internal].get(), 1, bindingOut,
+        mDescriptorSetLayouts[function][DescriptorSetIndex::Internal].get(), bindingOut,
         descriptorSetOut));
 
     return angle::Result::Continue;

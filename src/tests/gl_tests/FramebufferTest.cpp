@@ -26,7 +26,7 @@ void ExpectFramebufferCompleteOrUnsupported(GLenum binding)
 
 }  // anonymous namespace
 
-class FramebufferFormatsTest : public ANGLETest
+class FramebufferFormatsTest : public ANGLETest<>
 {
   protected:
     FramebufferFormatsTest() : mFramebuffer(0), mTexture(0), mRenderbuffer(0), mProgram(0)
@@ -386,7 +386,7 @@ TEST_P(FramebufferFormatsTest, RGB565Renderbuffer)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
 }
 
-class FramebufferTest_ES3 : public ANGLETest
+class FramebufferTest_ES3 : public ANGLETest<>
 {
   protected:
     FramebufferTest_ES3()
@@ -1300,7 +1300,7 @@ TEST_P(FramebufferTest_ES3Metal, TooManyBitsGeneratesInvalidFramebufferOperation
     EXPECT_GLENUM_EQ(GL_INVALID_FRAMEBUFFER_OPERATION, glGetError());
 }
 
-class FramebufferTestWithFormatFallback : public ANGLETest
+class FramebufferTestWithFormatFallback : public ANGLETest<>
 {
   protected:
     FramebufferTestWithFormatFallback()
@@ -1853,7 +1853,7 @@ TEST_P(FramebufferTestWithFormatFallback, R4G4B4A4_InCompatibleFormat)
     }
 }
 
-class FramebufferTest_ES31 : public ANGLETest
+class FramebufferTest_ES31 : public ANGLETest<>
 {
   protected:
     void validateSamplePass(GLuint &query, GLuint &passedCount, GLint width, GLint height)
@@ -1888,9 +1888,6 @@ void main()
     gl_FragData[1] = vec4(0.0, 1.0, 0.0, 1.0);  // attachment 1: green
 })";
 };
-
-// Until C++17, need to redundantly declare the constexpr array members outside the class.
-constexpr char FramebufferTest_ES31::kFSWriteRedGreen[];
 
 // Test that without attachment, if either the value of FRAMEBUFFER_DEFAULT_WIDTH or
 // FRAMEBUFFER_DEFAULT_HEIGHT parameters is zero, the framebuffer is incomplete.
@@ -2997,7 +2994,7 @@ TEST_P(FramebufferTest_ES31, ValidateFramebufferFlipYMesaExtension)
     EXPECT_EQ(flip_y, 0);
 }
 
-class AddMockTextureNoRenderTargetTest : public ANGLETest
+class AddMockTextureNoRenderTargetTest : public ANGLETest<>
 {
   public:
     AddMockTextureNoRenderTargetTest()
@@ -3747,7 +3744,7 @@ TEST_P(FramebufferTest_ES3, FramebufferFlipYMesaExtensionIncorrectPname)
     ASSERT_GL_ERROR(GL_INVALID_ENUM);
 }
 
-class FramebufferTest : public ANGLETest
+class FramebufferTest : public ANGLETest<>
 {};
 
 template <typename T>
@@ -3948,6 +3945,39 @@ TEST_P(FramebufferTest, BindAndDrawDifferentSizedFBOs)
 
     // 7. Verify FBO 1 is entirely blue
     EXPECT_PIXEL_RECT_EQ(0, 0, kLargeWidth, kLargeHeight, GLColor::blue);
+}
+
+// Test FBOs with same attachments. Destroy one framebuffer should not affect the other framebuffer
+// (chromium:1351170).
+TEST_P(FramebufferTest_ES3, TwoFramebuffersWithSameAttachments)
+{
+    ANGLE_GL_PROGRAM(redProgram, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    glUseProgram(redProgram);
+
+    GLRenderbuffer rb;
+    glBindRenderbuffer(GL_RENDERBUFFER, rb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, 1, 1);
+
+    GLuint fbs[2];
+    glGenFramebuffers(2, fbs);
+    // Create fbos[0]
+    glBindFramebuffer(GL_FRAMEBUFFER, fbs[0]);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rb);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    const GLenum colorAttachment0 = {GL_COLOR_ATTACHMENT0};
+    glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &colorAttachment0);
+    // Create fbos[1] with same attachment as fbos[0]
+    glBindFramebuffer(GL_FRAMEBUFFER, fbs[1]);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rb);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &colorAttachment0);
+    // Destroy fbos[0]
+    glDeleteFramebuffers(1, &fbs[0]);
+    // fbos[1] should still work, not crash.
+    GLuint data;
+    glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &data);
+    drawQuad(redProgram.get(), std::string(essl1_shaders::PositionAttrib()), 0.0f);
+    ASSERT_GL_NO_ERROR();
 }
 
 // Regression test based on a fuzzer failure.  A crash was encountered in the following situation:

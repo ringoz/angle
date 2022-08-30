@@ -33,23 +33,10 @@
 
 # ES2
 
-5822 : ExternalWrapTest.ClampToEdge/* = CRASH
-5822 : ExternalWrapTest.MirroredRepeat/* = CRASH
-5822 : ExternalWrapTest.NoWrap/* = CRASH
-5822 : ExternalWrapTest.Repeat/* = CRASH
-
 6267 : FramebufferTest.MultiContextNoRenderingFeedbackLoops/* = SKIP_FOR_CAPTURE
 
 6180 : GLSLTest_ES3.GLVertexIDIntegerTextureDrawElementsU8Line/* = NOT_RUN
 6180 : GLSLTest_ES3.GLVertexIDIntegerTextureDrawElementsU8LineIds/* = NOT_RUN
-
-6180 : PbufferTest.BindTexImage/* = FAIL
-6180 : PbufferTest.BindTexImageAfterTexImage/* = FAIL
-6180 : PbufferTest.ClearAndBindTexImageSrgb/* = FAIL
-6180 : PbufferTest.ClearAndBindTexImageSrgbSkipDecode/* = FAIL
-6180 : PbufferTest.Clearing/* = FAIL
-6180 : PbufferTest.TextureSizeReset/* = FAIL
-
 
 6221 : VulkanExternalImageTest.ShouldClearOpaqueFdWithSemaphores/* = TIMEOUT
 6221 : VulkanExternalImageTest.ShouldClearOpaqueFdWithSemaphoresMutableNoStorage/* = TIMEOUT
@@ -70,16 +57,18 @@
 
 # Skipped in end2end tests
 6336 : GetImageTest.InconsistentTexture2D/* = NOT_RUN
+6195 : FramebufferFetchES31.SingleSampledMultiSampledMixedTest/* = NOT_RUN
+6195 : RenderbufferMultisampleTestES31.ColorBurnBlend/* = NOT_RUN
 
 # ES3
 6180 : BlitFramebufferTest.BlitDepthStencilPixelByPixel/* = NOT_RUN
 6180 : GLSLTest_ES3.UnsuccessfulRelinkWithBindAttribLocation/* = NOT_RUN
 3886 : ComputeShaderTest.BindImageTexture3D/* = NOT_RUN
+7441 : DrawBaseInstanceTest.DrawElementsInstancedBaseInstance/ES3_D3D11__DynamicDraw* = NOT_RUN
 
 # This test only exists on Win64
 6180 WIN : BufferDataOverflowTest.VertexBufferIntegerOverflow/* = NOT_RUN
 
-6512 : RobustResourceInitTestES3.BindTexImage/* = FAIL
 6180 WIN : TransformFeedbackTest.DrawWithoutTransformFeedbackThenWith/* = FLAKY
 6180 : TransformFeedbackTest.TransformFeedbackQueryPausedDrawThenResume/* = FLAKY
 6513 : TransformFeedbackTest.MultiContext/* = FLAKY
@@ -92,10 +81,7 @@
 6314 : FramebufferTest_ES3.AttachmentsWithUnequalDimensions/* = CRASH
 6314 : FramebufferTest_ES3.ChangeAttachmentThenInvalidateAndDraw/* = CRASH
 6314 : FramebufferTest_ES3.RenderAndInvalidateImmutableTextureWithBeyondMaxLevel/* = CRASH
-6334 : MipmapTestES3.GenerateMipmapBaseLevelOutOfRangeImmutableTexture/* = CRASH
-6334 : Texture2DTestES3.ImmutableTextureBaseLevelOutOfRange/* = CRASH
 6399 : Texture2DTestES3.TexStorage2DCycleThroughYuvSourcesNoData/* = CRASH
-6334 : Texture2DTestES3.TextureBaseLevelGreaterThanMaxLevel/* = CRASH
 6399 : Texture2DTestES3.TexStorage2DSimultaneousUseOfMultipleYuvSourcesNoData/* = CRASH
 6400 : Texture2DTestES3.TextureCompletenessChangesWithBaseLevel/* = CRASH
 6399 : Texture2DTestES3.TexStorage2DLargeYuvTextureCount/* = CRASH
@@ -161,7 +147,7 @@
 7291 : BlitFramebufferTest.Blit2DArrayTo3D/* = SKIP_FOR_CAPTURE
 
 7357 : FramebufferTest_ES3.FramebufferConditionalFeedbackLoop/* = SKIP_FOR_CAPTURE
-
+7499 : Texture2DTest.TextureMaxSize/* = SKIP_FOR_CAPTURE
 7373 : FramebufferTest_ES3.SurfaceDimensionsChangeAndFragCoord/* = SKIP_FOR_CAPTURE
 
 7423 : MultithreadingTest.NoFlushNoContextReturnsTimeout/* = SKIP_FOR_CAPTURE
@@ -172,3 +158,18 @@
 7423 : MultithreadingTestES3.ThreadBServerWaitBeforeThreadASyncFinish/* = SKIP_FOR_CAPTURE
 7423 : MultithreadingTestES3.ThreadBServerWaitBeforeThreadASyncFlush/* = SKIP_FOR_CAPTURE
 7423 : MultithreadingTestES3.ThreadCWaitBeforeThreadBSyncFinish/* = SKIP_FOR_CAPTURE
+
+7419 : MultithreadingTestES3.CreateFramebufferFetchBeforeRenderPass/* = NOT_RUN
+7419 : MultithreadingTestES3.CreateFramebufferFetchMidRenderPass/* = NOT_RUN
+
+7389 : Texture2DTest.ManySupersedingTextureUpdates/* = SKIP_FOR_CAPTURE
+
+7449 : MultisampleTest.ContentPresevedAfterInterruption/* = SKIP_FOR_CAPTURE
+7449 : MultisampleTest.Line/* = SKIP_FOR_CAPTURE
+7449 : MultisampleTest.Point/* = SKIP_FOR_CAPTURE
+7449 : MultisampleTest.Triangle/* = SKIP_FOR_CAPTURE
+
+7483 : MultisampleTest.AlphaToSampleCoverage/* = SKIP_FOR_CAPTURE
+7483 : MultisampleTestES3.ResolveToFBO/* = SKIP_FOR_CAPTURE
+
+6723 : EGLMultiContextTest.ReuseUnterminatedDisplay/* = SKIP_FOR_CAPTURE

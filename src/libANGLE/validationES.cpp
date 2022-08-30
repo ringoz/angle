@@ -76,7 +76,7 @@ bool CompressedSubTextureFormatRequiresExactSize(GLenum internalFormat)
     // Compressed sub textures have additional formats that requires exact size.
     // ES 3.1, Section 8.7, Page 171
     return CompressedTextureFormatRequiresExactSize(internalFormat) ||
-           IsETC2EACFormat(internalFormat);
+           IsETC2EACFormat(internalFormat) || IsASTC2DFormat(internalFormat);
 }
 
 bool DifferenceCanOverflow(GLint a, GLint b)
@@ -167,8 +167,7 @@ bool ValidReadPixelsUnsignedNormalizedDepthType(const Context *context,
                                                 const gl::InternalFormat *info,
                                                 GLenum type)
 {
-    bool supportsReadDepthNV = (context->getExtensions().readDepthNV && (info->depthBits > 0) &&
-                                (info->componentCount == 1));
+    bool supportsReadDepthNV = context->getExtensions().readDepthNV && (info->depthBits > 0);
     switch (type)
     {
         case GL_UNSIGNED_SHORT:
@@ -185,7 +184,7 @@ bool ValidReadPixelsFloatDepthType(const Context *context,
                                    GLenum type)
 {
     return context->getExtensions().readDepthNV && (type == GL_FLOAT) &&
-           context->getExtensions().depthBufferFloat2NV && (info->componentCount == 1);
+           context->getExtensions().depthBufferFloat2NV;
 }
 
 bool ValidReadPixelsFormatType(const Context *context,
@@ -210,6 +209,9 @@ bool ValidReadPixelsFormatType(const Context *context,
                     return context->getExtensions().readStencilNV && (type == GL_UNSIGNED_BYTE);
                 case GL_DEPTH_COMPONENT:
                     return ValidReadPixelsUnsignedNormalizedDepthType(context, info, type);
+                case GL_DEPTH_STENCIL_OES:
+                    return context->getExtensions().readDepthStencilNV &&
+                           (type == GL_UNSIGNED_INT_24_8_OES) && info->stencilBits > 0;
                 case GL_RGBX8_ANGLE:
                     return context->getExtensions().rgbxInternalFormatANGLE &&
                            (type == GL_UNSIGNED_BYTE);
@@ -234,6 +236,9 @@ bool ValidReadPixelsFormatType(const Context *context,
                     return (type == GL_FLOAT);
                 case GL_DEPTH_COMPONENT:
                     return ValidReadPixelsFloatDepthType(context, info, type);
+                case GL_DEPTH_STENCIL_OES:
+                    return context->getExtensions().readDepthStencilNV &&
+                           type == GL_FLOAT_32_UNSIGNED_INT_24_8_REV && info->stencilBits > 0;
                 default:
                     return false;
             }
@@ -655,6 +660,36 @@ ANGLE_INLINE const char *ValidateProgramDrawStates(const Context *context,
     return errorString;
 }
 }  // anonymous namespace
+
+bool CompressedTextureFormatAcceptedByTexImage(GLenum internalFormat)
+{
+    // List of compressed formats from the EXT_texture_compression_bptc,
+    // EXT_texture_compression_rgtc,
+    // EXT_texture_compression_s3tc and EXT_texture_compression_s3tc_srgb
+    switch (internalFormat)
+    {
+        case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT:
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+        case GL_COMPRESSED_RED_RGTC1_EXT:
+        case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:
+        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+        case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:
+        case GL_COMPRESSED_RGBA_BPTC_UNORM_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT:
+        case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT:
+        case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT:
+            return true;
+
+        default:
+            return false;
+    }
+}
 
 void SetRobustLengthParam(const GLsizei *length, GLsizei value)
 {
@@ -6808,7 +6843,8 @@ bool ValidateGetRenderbufferParameterivBase(const Context *context,
             break;
 
         case GL_RENDERBUFFER_SAMPLES_ANGLE:
-            if (!context->getExtensions().framebufferMultisampleANGLE)
+            if (context->getClientMajorVersion() < 3 &&
+                !context->getExtensions().framebufferMultisampleANGLE)
             {
                 context->validationError(entryPoint, GL_INVALID_ENUM, kExtensionNotEnabled);
                 return false;
@@ -7090,6 +7126,9 @@ bool ValidateGetTexParameterBase(const Context *context,
             }
             break;
 
+        case GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES:
+            break;
+
         default:
             context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
             return false;
@@ -7355,6 +7394,7 @@ bool ValidateReadPixelsBase(const Context *context,
             readBuffer = readFramebuffer->getDepthAttachment();
             break;
         case GL_STENCIL_INDEX_OES:
+        case GL_DEPTH_STENCIL_OES:
             readBuffer = readFramebuffer->getStencilOrDepthStencilAttachment();
             break;
         default:
@@ -7411,6 +7451,7 @@ bool ValidateReadPixelsBase(const Context *context,
     {
         case GL_DEPTH_COMPONENT:
         case GL_STENCIL_INDEX_OES:
+        case GL_DEPTH_STENCIL_OES:
             // Only rely on ValidReadPixelsFormatType for depth/stencil formats
             break;
         default:

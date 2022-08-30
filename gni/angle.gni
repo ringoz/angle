@@ -19,6 +19,8 @@ declare_args() {
 
   # Enables OpenCL support, off by default.
   angle_enable_cl = false
+
+  angle_restricted_traces = []
 }
 
 if (angle_has_build) {
@@ -168,6 +170,11 @@ declare_args() {
 
   # Use glslang to generate SPIR-V
   angle_use_spirv_gen_through_glslang = false
+}
+
+declare_args() {
+  # ASTC emulation is only built on standalone non-android builds
+  angle_has_astc_encoder = angle_has_build && angle_standalone && !is_android
 }
 
 # OpenCL is not supported on Windows UWP, because the CL headers include DX9, which is not
@@ -585,14 +592,13 @@ set_defaults("angle_trace_library") {
 }
 
 template("angle_trace_library") {
-  _trace_json = read_file(invoker.json_path, "json")
   _trace_targets = []
 
   if (invoker.short_names) {
     _trace_counter = 1
   }
 
-  foreach(_trace_and_version, _trace_json.traces) {
+  foreach(_trace_and_version, invoker.trace_list) {
     _trace_and_version_arr = []
     _trace_and_version_arr = string_split(_trace_and_version)
     _trace = _trace_and_version_arr[0]

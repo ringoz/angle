@@ -104,7 +104,7 @@ const char *GetShaderTypeString(ShaderType type)
     }
 }
 
-class ANGLE_NO_DISCARD ScopedExit final : angle::NonCopyable
+class [[nodiscard]] ScopedExit final : angle::NonCopyable
 {
   public:
     ScopedExit(std::function<void()> exit) : mExit(exit) {}
@@ -165,9 +165,15 @@ Shader::~Shader()
     ASSERT(!mImplementation);
 }
 
-void Shader::setLabel(const Context *context, const std::string &label)
+angle::Result Shader::setLabel(const Context *context, const std::string &label)
 {
     mState.mLabel = label;
+
+    if (mImplementation)
+    {
+        return mImplementation->onLabelUpdate(context);
+    }
+    return angle::Result::Continue;
 }
 
 const std::string &Shader::getLabel() const

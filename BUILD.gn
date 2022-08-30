@@ -2,12 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build_overrides/wayland.gni")
-
 # import the ozone_platform_x11 variable
 import("gni/angle.gni")
 if (angle_enable_vulkan) {
   import("//build_overrides//vulkan_headers.gni")
+}
+if (angle_use_wayland) {
+  import("//build_overrides/wayland.gni")
 }
 if (angle_has_build) {
   import("//build/config/linux/pkg_config.gni")
@@ -60,6 +61,9 @@ declare_args() {
   # Allow shared library custom name extensions for setting soname such as libEGL.so.1
   angle_egl_extension = ""
   angle_glesv2_extension = ""
+
+  # Enable share context lock. If it is false, the client need to use gl calls in a threadsafe way.
+  angle_enable_share_context_lock = true
 }
 
 if (angle_build_all) {
@@ -133,6 +137,10 @@ config("internal_config") {
     defines += [ "ANGLE_IS_LINUX" ]
   }
 
+  if (angle_enable_share_context_lock) {
+    defines += [ "ANGLE_ENABLE_SHARE_CONTEXT_LOCK=1" ]
+  }
+
   # Enables debug/trace-related functionality, including logging every GLES/EGL API command to the
   # "angle_debug.txt" file on desktop.  Enables debug markers for AGI, but must also set
   # angle_enable_annotator_run_time_checks to improve performance.
@@ -184,6 +192,10 @@ config("internal_config") {
 
   if (is_lsan) {
     defines += [ "ANGLE_WITH_LSAN" ]
+  }
+
+  if (angle_has_astc_encoder) {
+    defines += [ "ANGLE_HAS_ASTCENC" ]
   }
 }
 
@@ -452,6 +464,11 @@ angle_static_library("angle_image_util") {
   sources = libangle_image_util_sources
   public_configs += [ ":angle_image_util_config" ]
   public_deps = [ ":angle_image_util_headers" ]
+
+  if (angle_has_astc_encoder) {
+    public_deps += [ "third_party/astc-encoder:astcenc" ]
+    include_dirs = [ "third_party/astc-encoder/src/Source/" ]
+  }
 }
 
 config("angle_gl_visibility_config") {

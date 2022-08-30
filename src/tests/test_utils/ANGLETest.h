@@ -230,6 +230,7 @@ constexpr std::array<GLenum, 6> kCubeFaces = {
 
 void LoadEntryPointsWithUtilLoader(angle::GLESDriverType driver);
 
+bool IsFormatEmulated(GLenum target);
 }  // namespace angle
 
 #define EXPECT_PIXEL_EQ(x, y, r, g, b, a) \
@@ -511,7 +512,7 @@ class ANGLETestBase
     // Has a float uniform "u_layer" to choose the 3D texture layer.
     GLuint get3DTexturedQuadProgram();
 
-    class ANGLE_NO_DISCARD ScopedIgnorePlatformMessages : angle::NonCopyable
+    class [[nodiscard]] ScopedIgnorePlatformMessages : angle::NonCopyable
     {
       public:
         ScopedIgnorePlatformMessages();
@@ -617,10 +618,10 @@ class ANGLETestBase
 };
 
 template <typename Params = angle::PlatformParameters>
-class ANGLETestWithParam : public ANGLETestBase, public ::testing::TestWithParam<Params>
+class ANGLETest : public ANGLETestBase, public ::testing::TestWithParam<Params>
 {
   protected:
-    ANGLETestWithParam();
+    ANGLETest();
 
     virtual void testSetUp() {}
     virtual void testTearDown() {}
@@ -653,18 +654,13 @@ class ANGLETestWithParam : public ANGLETestBase, public ::testing::TestWithParam
 };
 
 template <typename Params>
-ANGLETestWithParam<Params>::ANGLETestWithParam()
+ANGLETest<Params>::ANGLETest()
     : ANGLETestBase(std::get<angle::PlatformParameters>(this->GetParam()))
 {}
 
 template <>
-inline ANGLETestWithParam<angle::PlatformParameters>::ANGLETestWithParam()
-    : ANGLETestBase(this->GetParam())
+inline ANGLETest<angle::PlatformParameters>::ANGLETest() : ANGLETestBase(this->GetParam())
 {}
-
-// Note: this hack is not necessary in C++17.  Once we switch to C++17, we can just rename
-// ANGLETestWithParam to ANGLETest.
-using ANGLETest = ANGLETestWithParam<>;
 
 class ANGLETestEnvironment : public testing::Environment
 {

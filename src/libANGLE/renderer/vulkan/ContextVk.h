@@ -253,7 +253,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
                                                 GLsizei stride);
 
     // ShareGroup
-    ShareGroupVk *getShareGroupVk() { return mShareGroupVk; }
+    ShareGroupVk *getShareGroup() { return mShareGroupVk; }
     PipelineLayoutCache &getPipelineLayoutCache()
     {
         return mShareGroupVk->getPipelineLayoutCache();
@@ -383,6 +383,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     ANGLE_INLINE void invalidateTexture(gl::TextureType target) override {}
 
+    bool hasDisplayTextureShareGroup() const { return mState.hasDisplayTextureShareGroup(); }
+
     // EXT_shader_framebuffer_fetch_non_coherent
     void framebufferFetchBarrier() override;
 
@@ -468,6 +470,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     void updateColorMasks();
     void updateBlendFuncsAndEquations();
     void updateSampleMaskWithRasterizationSamples(const uint32_t rasterizationSamples);
+    void updateFrameBufferFetchSamples(const uint32_t prevSamples, const uint32_t curSamples);
 
     void handleError(VkResult errorCode,
                      const char *file,
@@ -741,15 +744,21 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
         return angle::Result::Continue;
     }
 
-    const angle::PerfMonitorCounterGroups &getPerfMonitorCounters() override;
-
-    void resetPerFramePerfCounters();
-
     angle::Result bindCachedDescriptorPool(
         DescriptorSetIndex descriptorSetIndex,
         const vk::DescriptorSetLayoutDesc &descriptorSetLayoutDesc,
         uint32_t descriptorCountMultiplier,
         vk::DescriptorPoolPointer *poolPointerOut);
+
+    // Put the context in framebuffer fetch mode.  If the permanentlySwitchToFramebufferFetchMode
+    // feature is enabled, this is done on first encounter of framebuffer fetch, and makes the
+    // context use framebuffer-fetch-enabled render passes from here on.
+    angle::Result switchToFramebufferFetchMode(bool hasFramebufferFetch);
+    bool isInFramebufferFetchMode() const { return mIsInFramebufferFetchMode; }
+
+    const angle::PerfMonitorCounterGroups &getPerfMonitorCounters() override;
+
+    void resetPerFramePerfCounters();
 
     // Accumulate cache stats for a specific cache
     void accumulateCacheStats(VulkanCacheType cache, const CacheStats &stats)
@@ -758,6 +767,10 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     }
 
     std::ostringstream &getPipelineCacheGraphStream() { return mPipelineCacheGraph; }
+
+    // Add resource to the resource use list tracking the last CommandBuffer (i.e,
+    // RenderpassCommands if exists, or outsideRenderPassCommands)
+    void retainResource(vk::Resource *resource);
 
   private:
     // Dirty bits.
@@ -1050,7 +1063,6 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     }
 
     angle::Result invalidateProgramExecutableHelper(const gl::Context *context);
-    angle::Result checkAndUpdateFramebufferFetchStatus(const gl::ProgramExecutable *executable);
 
     void invalidateCurrentDefaultUniforms();
     angle::Result invalidateCurrentTextures(const gl::Context *context, gl::Command command);
@@ -1198,9 +1210,19 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     void writeAtomicCounterBufferDriverUniformOffsets(uint32_t *offsetsOut, size_t offsetsSize);
 
-    angle::Result submitFrame(const vk::Semaphore *signalSemaphore, Serial *submitSerialOut);
+    enum class Submit
+    {
+        OutsideRenderPassCommandsOnly,
+        AllCommands,
+    };
+
+    angle::Result submitFrame(const vk::Semaphore *signalSemaphore,
+                              Submit submission,
+                              Serial *submitSerialOut);
     angle::Result submitFrameOutsideCommandBufferOnly(Serial *submitSerialOut);
-    angle::Result submitCommands(const vk::Semaphore *signalSemaphore, Serial *submitSerialOut);
+    angle::Result submitCommands(const vk::Semaphore *signalSemaphore,
+                                 Submit submission,
+                                 Serial *submitSerialOut);
 
     angle::Result synchronizeCpuGpuTime();
     angle::Result traceGpuEventImpl(vk::OutsideRenderPassCommandBuffer *commandBuffer,
@@ -1467,6 +1489,13 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     // glFlush in that mode).
     bool mHasAnyCommandsPendingSubmission;
 
+    // Whether framebuffer fetch is active.  When the permanentlySwitchToFramebufferFetchMode
+    // feature is enabled, if any program uses framebuffer fetch, rendering switches to assuming
+    // framebuffer fetch could happen in any render pass.  This incurs a potential cost due to usage
+    // of the GENERAL layout instead of COLOR_ATTACHMENT_OPTIMAL, but has definite benefits of
+    // avoiding render pass breaks when a framebuffer fetch program is used mid render pass.
+    bool mIsInFramebufferFetchMode;
+
     // The size of copy commands issued between buffers and images. Used to submit the command
     // buffer for the outside render pass.
     VkDeviceSize mTotalBufferToImageCopySize;
@@ -1562,6 +1591,18 @@ ANGLE_INLINE angle::Result ContextVk::onVertexAttributeChange(size_t attribIndex
         divisor > mRenderer->getMaxVertexAttribDivisor() ? 1 : divisor, format, compressed,
         relativeOffset);
     return onVertexBufferChange(vertexBuffer);
+}
+
+ANGLE_INLINE void ContextVk::retainResource(vk::Resource *resource)
+{
+    if (hasStartedRenderPass())
+    {
+        mRenderPassCommands->retainResource(resource);
+    }
+    else
+    {
+        mOutsideRenderPassCommands->retainResource(resource);
+    }
 }
 
 ANGLE_INLINE bool UseLineRaster(const ContextVk *contextVk, gl::PrimitiveMode mode)

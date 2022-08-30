@@ -43,6 +43,10 @@ bool IsFullPath(std::string dirName);
 std::string GetRootDirectory();
 std::string ConcatenatePath(std::string first, std::string second);
 
+Optional<std::string> GetTempDirectory();
+Optional<std::string> CreateTemporaryFileInDirectory(const std::string &directory);
+Optional<std::string> CreateTemporaryFile();
+
 // Get absolute time in seconds.  Use this function to get an absolute time with an unknown origin.
 double GetCurrentSystemTime();
 // Get CPU time for current process in seconds.
@@ -91,32 +95,32 @@ class Library : angle::NonCopyable
     Library(void *libraryHandle) : mLibraryHandle(libraryHandle) {}
     ~Library() { close(); }
 
-    ANGLE_NO_DISCARD bool open(const char *libraryName, SearchType searchType)
+    [[nodiscard]] bool open(const char *libraryName, SearchType searchType)
     {
         close();
         mLibraryHandle = OpenSystemLibrary(libraryName, searchType);
         return mLibraryHandle != nullptr;
     }
 
-    ANGLE_NO_DISCARD bool openWithExtension(const char *libraryName, SearchType searchType)
+    [[nodiscard]] bool openWithExtension(const char *libraryName, SearchType searchType)
     {
         close();
         mLibraryHandle = OpenSystemLibraryWithExtension(libraryName, searchType);
         return mLibraryHandle != nullptr;
     }
 
-    ANGLE_NO_DISCARD bool openAndGetError(const char *libraryName,
-                                          SearchType searchType,
-                                          std::string *errorOut)
+    [[nodiscard]] bool openAndGetError(const char *libraryName,
+                                       SearchType searchType,
+                                       std::string *errorOut)
     {
         close();
         mLibraryHandle = OpenSystemLibraryAndGetError(libraryName, searchType, errorOut);
         return mLibraryHandle != nullptr;
     }
 
-    ANGLE_NO_DISCARD bool openWithExtensionAndGetError(const char *libraryName,
-                                                       SearchType searchType,
-                                                       std::string *errorOut)
+    [[nodiscard]] bool openWithExtensionAndGetError(const char *libraryName,
+                                                    SearchType searchType,
+                                                    std::string *errorOut)
     {
         close();
         mLibraryHandle =

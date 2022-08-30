@@ -17,10 +17,80 @@ using namespace angle;
 namespace
 {
 
+struct FormatInfo
+{
+    GLenum internalFormat;
+    GLenum format;
+    GLenum sizedFormat;
+    bool issRGB;
+    struct
+    {
+        GLsizei x, y;
+    } blockSize;
+};
+
+// List of compressed texture formats (table 8.17)
+const FormatInfo compressedFormats[] = {
+    // ETC (table C.2)
+    // internalFormat, format, sizedFormat, issRGB, blockSize
+    {GL_COMPRESSED_R11_EAC, GL_RED, GL_R8, false, {4, 4}},
+    {GL_COMPRESSED_SIGNED_R11_EAC, GL_RED, GL_R8, false, {4, 4}},
+    {GL_COMPRESSED_RG11_EAC, GL_RG, GL_RG8, false, {4, 4}},
+    {GL_COMPRESSED_SIGNED_RG11_EAC, GL_RG, GL_RG8, false, {4, 4}},
+    {GL_COMPRESSED_RGB8_ETC2, GL_RGB, GL_RGB8, false, {4, 4}},
+    {GL_COMPRESSED_SRGB8_ETC2, GL_RGB, GL_SRGB8, true, {4, 4}},
+    {GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2, GL_RGBA, GL_RGBA8, false, {4, 4}},
+    {GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2, GL_RGBA, GL_SRGB8_ALPHA8, true, {4, 4}},
+    {GL_COMPRESSED_RGBA8_ETC2_EAC, GL_RGBA, GL_RGBA8, false, {4, 4}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC, GL_RGBA, GL_SRGB8_ALPHA8, true, {4, 4}},
+    // ASTC (table C.1)
+    // internalFormat, format, sizedFormat, issRGB, blockSize
+    {GL_COMPRESSED_RGBA_ASTC_4x4, GL_RGBA, GL_RGBA8, false, {4, 4}},
+    {GL_COMPRESSED_RGBA_ASTC_5x4, GL_RGBA, GL_RGBA8, false, {5, 4}},
+    {GL_COMPRESSED_RGBA_ASTC_5x5, GL_RGBA, GL_RGBA8, false, {5, 5}},
+    {GL_COMPRESSED_RGBA_ASTC_6x5, GL_RGBA, GL_RGBA8, false, {6, 5}},
+    {GL_COMPRESSED_RGBA_ASTC_6x6, GL_RGBA, GL_RGBA8, false, {6, 6}},
+    {GL_COMPRESSED_RGBA_ASTC_8x5, GL_RGBA, GL_RGBA8, false, {8, 5}},
+    {GL_COMPRESSED_RGBA_ASTC_8x6, GL_RGBA, GL_RGBA8, false, {8, 6}},
+    {GL_COMPRESSED_RGBA_ASTC_8x8, GL_RGBA, GL_RGBA8, false, {8, 8}},
+    {GL_COMPRESSED_RGBA_ASTC_10x5, GL_RGBA, GL_RGBA8, false, {10, 5}},
+    {GL_COMPRESSED_RGBA_ASTC_10x6, GL_RGBA, GL_RGBA8, false, {10, 6}},
+    {GL_COMPRESSED_RGBA_ASTC_10x8, GL_RGBA, GL_RGBA8, false, {10, 8}},
+    {GL_COMPRESSED_RGBA_ASTC_10x10, GL_RGBA, GL_RGBA8, false, {10, 10}},
+    {GL_COMPRESSED_RGBA_ASTC_12x10, GL_RGBA, GL_RGBA8, false, {12, 10}},
+    {GL_COMPRESSED_RGBA_ASTC_12x12, GL_RGBA, GL_RGBA8, false, {12, 12}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4, GL_RGBA, GL_SRGB8_ALPHA8, true, {4, 4}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4, GL_RGBA, GL_SRGB8_ALPHA8, true, {5, 4}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5, GL_RGBA, GL_SRGB8_ALPHA8, true, {5, 5}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5, GL_RGBA, GL_SRGB8_ALPHA8, true, {6, 5}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6, GL_RGBA, GL_SRGB8_ALPHA8, true, {6, 6}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5, GL_RGBA, GL_SRGB8_ALPHA8, true, {8, 5}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6, GL_RGBA, GL_SRGB8_ALPHA8, true, {8, 6}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8, GL_RGBA, GL_SRGB8_ALPHA8, true, {8, 8}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5, GL_RGBA, GL_SRGB8_ALPHA8, true, {10, 5}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6, GL_RGBA, GL_SRGB8_ALPHA8, true, {10, 6}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8, GL_RGBA, GL_SRGB8_ALPHA8, true, {10, 8}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10, GL_RGBA, GL_SRGB8_ALPHA8, true, {10, 10}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10, GL_RGBA, GL_SRGB8_ALPHA8, true, {12, 10}},
+    {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12, GL_RGBA, GL_SRGB8_ALPHA8, true, {12, 12}},
+};
+
+const FormatInfo *getCompressedFormatInfo(GLenum format)
+{
+    for (const FormatInfo &item : compressedFormats)
+    {
+        if (item.internalFormat == format)
+        {
+            return &item;
+        }
+    }
+    return nullptr;
+}
+
 using FormatDesc                  = std::pair<GLenum, GLsizei>;
 using CompressedTextureTestParams = std::tuple<angle::PlatformParameters, FormatDesc>;
 
-class CompressedTextureFormatsTest : public ANGLETestWithParam<CompressedTextureTestParams>
+class CompressedTextureFormatsTest : public ANGLETest<CompressedTextureTestParams>
 {
   public:
     CompressedTextureFormatsTest(const std::string ext1,
@@ -28,12 +98,14 @@ class CompressedTextureFormatsTest : public ANGLETestWithParam<CompressedTexture
                                  const bool supportsUpdates,
                                  const bool supports2DArray,
                                  const bool supports3D,
-                                 const bool alwaysOnES3)
+                                 const bool alwaysOnES3,
+                                 const bool allowsOnlineCompression)
         : mExtNames({ext1, ext2}),
           mSupportsUpdates(supportsUpdates),
           mSupports2DArray(supports2DArray),
           mSupports3D(supports3D),
-          mAlwaysOnES3(alwaysOnES3)
+          mAlwaysOnES3(alwaysOnES3),
+          mAllowsOnlineCompression(allowsOnlineCompression)
     {
         setExtensionsEnabled(false);
     }
@@ -66,6 +138,20 @@ class CompressedTextureFormatsTest : public ANGLETestWithParam<CompressedTexture
 
         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4, format, size, data);
         EXPECT_GL_ERROR(mSupportsUpdates ? GL_NO_ERROR : GL_INVALID_OPERATION);
+
+        const FormatInfo *formatInfo = getCompressedFormatInfo(format);
+        if (formatInfo)
+        {
+            // Try offset which is not aligned with block size. This operation is not supported
+            // in OpenGL ES.
+            glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, formatInfo->blockSize.x - 2, 0, 4, 4,
+                                      formatInfo->internalFormat, size, data);
+            EXPECT_GL_ERROR(GL_INVALID_OPERATION);
+
+            glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, formatInfo->blockSize.y - 2, 4, 4,
+                                      formatInfo->internalFormat, size, data);
+            EXPECT_GL_ERROR(GL_INVALID_OPERATION);
+        }
     }
 
     void checkSubImage3D(GLenum target, GLenum format, GLsizei size)
@@ -104,7 +190,20 @@ class CompressedTextureFormatsTest : public ANGLETestWithParam<CompressedTexture
             // The semantic of this call is to take uncompressed data and compress it on-the-fly.
             // This operation is not supported in OpenGL ES.
             glTexImage2D(GL_TEXTURE_2D, 0, format, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-            EXPECT_GL_ERROR(getClientMajorVersion() >= 3 ? GL_INVALID_OPERATION : GL_INVALID_VALUE);
+
+            // From the OpenGL ES 3.2 spec: GL_INVALID_VALUE error is generated
+            // if internalformat is not one of the valid formats in tables 8.2 or 8.3.
+            // Except formats from EXT_texture_compression_bptc,
+            // EXT_texture_compression_rgtc,
+            // EXT_texture_compression_s3tc and EXT_texture_compression_s3tc_srgb specification
+            if (mAllowsOnlineCompression)
+            {
+                EXPECT_GL_ERROR(GL_INVALID_OPERATION);
+            }
+            else
+            {
+                EXPECT_GL_ERROR(GL_INVALID_VALUE);
+            }
 
             // Try compressed enum as format. Compressed texture extensions never allow this.
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, format, GL_UNSIGNED_BYTE, nullptr);
@@ -179,7 +278,20 @@ class CompressedTextureFormatsTest : public ANGLETestWithParam<CompressedTexture
             // uncompressed data and compress it on-the-fly. This operation is not supported in
             // OpenGL ES.
             glTexImage3D(target, 0, format, 4, 4, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-            EXPECT_GL_ERROR(GL_INVALID_OPERATION);
+
+            // From the OpenGL ES 3.2 spec: GL_INVALID_VALUE error is generated
+            // if internalformat is not one of the valid formats in tables 8.2 or 8.3
+            // Except formats from EXT_texture_compression_bptc,
+            // EXT_texture_compression_rgtc,
+            // EXT_texture_compression_s3tc and EXT_texture_compression_s3tc_srgb specification
+            if (mAllowsOnlineCompression)
+            {
+                EXPECT_GL_ERROR(GL_INVALID_OPERATION);
+            }
+            else
+            {
+                EXPECT_GL_ERROR(GL_INVALID_VALUE);
+            }
 
             // Try compressed enum as format. Compressed texture extensions never allow this.
             glTexImage3D(target, 0, GL_RGB, 4, 4, 1, 0, format, GL_UNSIGNED_BYTE, nullptr);
@@ -278,6 +390,7 @@ class CompressedTextureFormatsTest : public ANGLETestWithParam<CompressedTexture
     const bool mSupports2DArray;
     const bool mSupports3D;
     const bool mAlwaysOnES3;
+    const bool mAllowsOnlineCompression;
 };
 
 template <char const *ext1,
@@ -285,7 +398,8 @@ template <char const *ext1,
           bool supports_updates,
           bool supports_2d_array,
           bool supports_3d,
-          bool always_on_es3>
+          bool always_on_es3,
+          bool allows_online_compression>
 class _Test : public CompressedTextureFormatsTest
 {
   public:
@@ -295,7 +409,8 @@ class _Test : public CompressedTextureFormatsTest
                                        supports_updates,
                                        supports_2d_array,
                                        supports_3d,
-                                       always_on_es3)
+                                       always_on_es3,
+                                       allows_online_compression)
     {}
 };
 
@@ -330,33 +445,33 @@ const char kPVRTCSRGB[] = "GL_EXT_pvrtc_sRGB";
 const char kEmpty[] = "";
 
 // clang-format off
-using CompressedTextureDXT1Test     = _Test<kDXT1,     kEmpty, true, true, false, false>;
-using CompressedTextureDXT3Test     = _Test<kDXT3,     kEmpty, true, true, false, false>;
-using CompressedTextureDXT5Test     = _Test<kDXT5,     kEmpty, true, true, false, false>;
-using CompressedTextureS3TCSRGBTest = _Test<kS3TCSRGB, kEmpty, true, true, false, false>;
-using CompressedTextureRGTCTest     = _Test<kRGTC,     kEmpty, true, true, false, false>;
-using CompressedTextureBPTCTest     = _Test<kBPTC,     kEmpty, true, true, true,  false>;
+using CompressedTextureDXT1Test     = _Test<kDXT1,     kEmpty, true, true, false, false, true>;
+using CompressedTextureDXT3Test     = _Test<kDXT3,     kEmpty, true, true, false, false, true>;
+using CompressedTextureDXT5Test     = _Test<kDXT5,     kEmpty, true, true, false, false, true>;
+using CompressedTextureS3TCSRGBTest = _Test<kS3TCSRGB, kEmpty, true, true, false, false, true>;
+using CompressedTextureRGTCTest     = _Test<kRGTC,     kEmpty, true, true, false, false, true>;
+using CompressedTextureBPTCTest     = _Test<kBPTC,     kEmpty, true, true, true,  false, true>;
 
-using CompressedTextureETC1Test    = _Test<kETC1, kEmpty,   false, false, false, false>;
-using CompressedTextureETC1SubTest = _Test<kETC1, kETC1Sub, true,  false, false, false>;
+using CompressedTextureETC1Test    = _Test<kETC1, kEmpty,   false, false, false, false, false>;
+using CompressedTextureETC1SubTest = _Test<kETC1, kETC1Sub, true,  false, false, false, false>;
 
-using CompressedTextureEACR11UTest  = _Test<kEACR11U,  kEmpty, true, true, false, true>;
-using CompressedTextureEACR11STest  = _Test<kEACR11S,  kEmpty, true, true, false, true>;
-using CompressedTextureEACRG11UTest = _Test<kEACRG11U, kEmpty, true, true, false, true>;
-using CompressedTextureEACRG11STest = _Test<kEACRG11S, kEmpty, true, true, false, true>;
+using CompressedTextureEACR11UTest  = _Test<kEACR11U,  kEmpty, true, true, false, true, false>;
+using CompressedTextureEACR11STest  = _Test<kEACR11S,  kEmpty, true, true, false, true, false>;
+using CompressedTextureEACRG11UTest = _Test<kEACRG11U, kEmpty, true, true, false, true, false>;
+using CompressedTextureEACRG11STest = _Test<kEACRG11S, kEmpty, true, true, false, true, false>;
 
-using CompressedTextureETC2RGB8Test       = _Test<kETC2RGB8,       kEmpty, true, true, false, true>;
-using CompressedTextureETC2RGB8SRGBTest   = _Test<kETC2RGB8SRGB,   kEmpty, true, true, false, true>;
-using CompressedTextureETC2RGB8A1Test     = _Test<kETC2RGB8A1,     kEmpty, true, true, false, true>;
-using CompressedTextureETC2RGB8A1SRGBTest = _Test<kETC2RGB8A1SRGB, kEmpty, true, true, false, true>;
-using CompressedTextureETC2RGBA8Test      = _Test<kETC2RGBA8,      kEmpty, true, true, false, true>;
-using CompressedTextureETC2RGBA8SRGBTest  = _Test<kETC2RGBA8SRGB,  kEmpty, true, true, false, true>;
+using CompressedTextureETC2RGB8Test       = _Test<kETC2RGB8,       kEmpty, true, true, false, true, false>;
+using CompressedTextureETC2RGB8SRGBTest   = _Test<kETC2RGB8SRGB,   kEmpty, true, true, false, true, false>;
+using CompressedTextureETC2RGB8A1Test     = _Test<kETC2RGB8A1,     kEmpty, true, true, false, true, false>;
+using CompressedTextureETC2RGB8A1SRGBTest = _Test<kETC2RGB8A1SRGB, kEmpty, true, true, false, true, false>;
+using CompressedTextureETC2RGBA8Test      = _Test<kETC2RGBA8,      kEmpty, true, true, false, true, false>;
+using CompressedTextureETC2RGBA8SRGBTest  = _Test<kETC2RGBA8SRGB,  kEmpty, true, true, false, true, false>;
 
-using CompressedTextureASTCTest         = _Test<kASTC, kEmpty,        true, true, false, false>;
-using CompressedTextureASTCSliced3DTest = _Test<kASTC, kASTCSliced3D, true, true, true,  false>;
+using CompressedTextureASTCTest         = _Test<kASTC, kEmpty,        true, true, false, false, false>;
+using CompressedTextureASTCSliced3DTest = _Test<kASTC, kASTCSliced3D, true, true, true,  false, false>;
 
-using CompressedTexturePVRTC1Test     = _Test<kPVRTC1, kEmpty,     true, false, false, false>;
-using CompressedTexturePVRTC1SRGBTest = _Test<kPVRTC1, kPVRTCSRGB, true, false, false, false>;
+using CompressedTexturePVRTC1Test     = _Test<kPVRTC1, kEmpty,     true, false, false, false, false>;
+using CompressedTexturePVRTC1SRGBTest = _Test<kPVRTC1, kPVRTCSRGB, true, false, false, false, false>;
 // clang-format on
 
 std::string PrintToStringParamName(

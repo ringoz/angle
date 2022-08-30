@@ -631,6 +631,12 @@ void WriteCppReplayForCall(const CallCapture &call,
         callOut << "gEGLImageMap[" << reinterpret_cast<uintptr_t>(image) << "ul] = ";
     }
 
+    if (call.entryPoint == EntryPoint::EGLCreatePbufferSurface)
+    {
+        EGLSurface surface = call.params.getReturnValue().value.EGLSurfaceVal;
+        callOut << "gSurfaceMap[" << reinterpret_cast<uintptr_t>(surface) << "ul] = ";
+    }
+
     if (call.entryPoint == EntryPoint::EGLCreateNativeClientBufferANDROID)
     {
         EGLClientBuffer buffer = call.params.getReturnValue().value.EGLClientBufferVal;
@@ -6708,10 +6714,10 @@ void FrameCaptureShared::runMidExecutionCapture(const gl::Context *mainContext)
     shareGroup->finishAllContexts();
 
     const gl::State &contextState = mainContext->getState();
-    gl::State mainContextReplayState(nullptr, nullptr, nullptr, nullptr, nullptr, EGL_OPENGL_ES_API,
-                                     contextState.getClientVersion(), false, true, true, true,
-                                     false, EGL_CONTEXT_PRIORITY_MEDIUM_IMG,
-                                     contextState.hasProtectedContent());
+    gl::State mainContextReplayState(
+        nullptr, nullptr, nullptr, nullptr, nullptr, contextState.getClientType(),
+        contextState.getClientVersion(), contextState.getProfileMask(), false, true, true, true,
+        false, EGL_CONTEXT_PRIORITY_MEDIUM_IMG, contextState.hasProtectedContent());
     mainContextReplayState.initializeForCapture(mainContext);
 
     CaptureShareGroupMidExecutionSetup(mainContext, &mShareGroupSetupCalls, &mResourceTracker,
@@ -6735,10 +6741,12 @@ void FrameCaptureShared::runMidExecutionCapture(const gl::Context *mainContext)
         }
         else
         {
+            const gl::State &shareContextState = shareContext->getState();
             gl::State auxContextReplayState(
-                nullptr, nullptr, nullptr, nullptr, nullptr, EGL_OPENGL_ES_API,
-                shareContext->getState().getClientVersion(), false, true, true, true, false,
-                EGL_CONTEXT_PRIORITY_MEDIUM_IMG, shareContext->getState().hasProtectedContent());
+                nullptr, nullptr, nullptr, nullptr, nullptr, shareContextState.getClientType(),
+                shareContextState.getClientVersion(), shareContextState.getProfileMask(), false,
+                true, true, true, false, EGL_CONTEXT_PRIORITY_MEDIUM_IMG,
+                shareContextState.hasProtectedContent());
             auxContextReplayState.initializeForCapture(shareContext);
 
             CaptureMidExecutionSetup(shareContext, &frameCapture->getSetupCalls(),
@@ -7340,6 +7348,7 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
 
             out << proto << "\n";
             out << "{\n";
+            out << "    gContextMap[0] = EGL_NO_CONTEXT;\n";
             out << "    EGLContext context = eglGetCurrentContext();\n";
             out << "    gContextMap[" << context->id().value << "] = context;\n";
             out << "\n";

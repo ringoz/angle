@@ -6,6 +6,8 @@
 #
 # main.star: lucicfg configuration for ANGLE's standalone builders.
 
+lucicfg.check_version(min = "1.31.3", message = "Update depot_tools")
+
 # Use LUCI Scheduler BBv2 names and add Scheduler realms configs.
 lucicfg.enable_experiment("crbug.com/1182002")
 
@@ -137,6 +139,7 @@ _DEFAULT_BUILDERLESS_OS_CATEGORIES = [os_category.LINUX, os_category.WINDOWS]
 _GOMA_RBE_PROD = {
     "server_host": "goma.chromium.org",
     "rpc_extra_params": "?prod",
+    "use_luci_auth": True,
 }
 
 def _recipe_for_package(cipd_package):
@@ -224,6 +227,7 @@ def angle_builder(name, cpu):
 
         # Trace tests are only run on CQ if files in the capture folders change.
         location_regexp = [
+            ".+/[+]/DEPS",
             ".+/[+]/src/libANGLE/capture/.+",
             ".+/[+]/src/tests/angle_end2end_tests_expectations.txt",
             ".+/[+]/src/tests/capture.+",
@@ -389,6 +393,7 @@ angle_builder("android-arm64-dbg-compile", cpu = "arm64")
 angle_builder("android-arm64-exp-test", cpu = "arm64")
 angle_builder("android-arm64-test", cpu = "arm64")
 angle_builder("linux-asan-test", cpu = "x64")
+angle_builder("linux-exp-test", cpu = "x64")
 angle_builder("linux-tsan-test", cpu = "x64")
 angle_builder("linux-ubsan-test", cpu = "x64")
 angle_builder("linux-dbg-compile", cpu = "x64")

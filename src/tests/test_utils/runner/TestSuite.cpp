@@ -68,7 +68,7 @@ constexpr int kDefaultTestTimeout  = 60;
 constexpr int kDefaultBatchTimeout = 300;
 #else
 constexpr int kDefaultTestTimeout  = 120;
-constexpr int kDefaultBatchTimeout = 600;
+constexpr int kDefaultBatchTimeout = 700;
 #endif
 constexpr int kSlowTestTimeoutScale  = 3;
 constexpr int kDefaultBatchSize      = 256;
@@ -1196,15 +1196,8 @@ TestSuite::TestSuite(int *argc, char **argv, std::function<void()> registerTests
             exit(EXIT_FAILURE);
         }
 
-        uint32_t fileSize = 0;
-        if (!GetFileSize(mFilterFile.c_str(), &fileSize))
-        {
-            printf("Error getting filter file size: %s\n", mFilterFile.c_str());
-            exit(EXIT_FAILURE);
-        }
-
-        std::vector<char> fileContents(fileSize + 1, 0);
-        if (!ReadEntireFileToString(mFilterFile.c_str(), fileContents.data(), fileSize))
+        std::string fileContents;
+        if (!ReadEntireFileToString(mFilterFile.c_str(), &fileContents))
         {
             printf("Error loading filter file: %s\n", mFilterFile.c_str());
             exit(EXIT_FAILURE);
@@ -1389,18 +1382,16 @@ void TestSuite::onCrashOrTimeout(TestResultType crashOrTimeout)
 bool TestSuite::launchChildTestProcess(uint32_t batchId,
                                        const std::vector<TestIdentifier> &testsInBatch)
 {
-    constexpr uint32_t kMaxPath = 1000;
-
     // Create a temporary file to store the test list
     ProcessInfo processInfo;
 
-    char filterBuffer[kMaxPath] = {};
-    if (!CreateTemporaryFile(filterBuffer, kMaxPath))
+    Optional<std::string> filterBuffer = CreateTemporaryFile();
+    if (!filterBuffer.valid())
     {
         std::cerr << "Error creating temporary file for test list.\n";
         return false;
     }
-    processInfo.filterFileName.assign(filterBuffer);
+    processInfo.filterFileName.assign(filterBuffer.value());
 
     std::string filterString = GetTestFilter(testsInBatch);
 
@@ -1418,13 +1409,13 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     std::string filterFileArg = kFilterFileArg + processInfo.filterFileName;
 
     // Create a temporary file to store the test output.
-    char resultsBuffer[kMaxPath] = {};
-    if (!CreateTemporaryFile(resultsBuffer, kMaxPath))
+    Optional<std::string> resultsBuffer = CreateTemporaryFile();
+    if (!resultsBuffer.valid())
     {
         std::cerr << "Error creating temporary file for test list.\n";
         return false;
     }
-    processInfo.resultsFileName.assign(resultsBuffer);
+    processInfo.resultsFileName.assign(resultsBuffer.value());
 
     std::string resultsFileArg = kResultFileArg + processInfo.resultsFileName;
 

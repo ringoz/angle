@@ -59,6 +59,11 @@ struct FeaturesVk : FeatureSetBase
         "The depth value is not clamped to [0,1] for floating point depth buffers.", &members,
         "http://anglebug.com/3970"};
 
+    FeatureInfo mutableMipmapTextureUpload = {
+        "mutableMipmapTextureUpload", FeatureCategory::VulkanFeatures,
+        "Enable uploading the previously defined mutable mipmap texture.", &members,
+        "https://anglebug.com/7308"};
+
     FeatureInfo supportsRenderpass2 = {
         "supportsRenderpass2",
         FeatureCategory::VulkanFeatures,
@@ -293,6 +298,11 @@ struct FeaturesVk : FeatureSetBase
         "persistentlyMappedBuffers", FeatureCategory::VulkanFeatures,
         "Persistently map buffer memory to reduce map/unmap IOCTL overhead.", &members,
         "http://anglebug.com/2162"};
+
+    FeatureInfo extraBufferLoggingAndChecking = {
+        "extraBufferLoggingAndChecking", FeatureCategory::VulkanFeatures,
+        "Enable extra buffer logging and checking to catch rare crashes", &members,
+        "https://issuetracker.google.com/236098131"};
 
     FeatureInfo enablePreRotateSurfaces = {"enablePreRotateSurfaces",
                                            FeatureCategory::VulkanFeatures,
@@ -563,6 +573,14 @@ struct FeaturesVk : FeatureSetBase
         &members,
     };
 
+    FeatureInfo permanentlySwitchToFramebufferFetchMode = {
+        "permanentlySwitchToFramebufferFetchMode",
+        FeatureCategory::VulkanFeatures,
+        "Whether the context should permanently switch to framebuffer fetch mode on first"
+        "encounter",
+        &members,
+    };
+
     FeatureInfo supportsLockSurfaceExtension = {
         "supportsLockSurfaceExtension",
         FeatureCategory::VulkanFeatures,
@@ -572,8 +590,8 @@ struct FeaturesVk : FeatureSetBase
 
     FeatureInfo swapbuffersOnFlushOrFinishWithSingleBuffer = {
         "swapbuffersOnFlushOrFinishWithSingleBuffer", FeatureCategory::VulkanFeatures,
-        "Bypass deferredFlush with calling swapbuffers on flush or finish when in Shared Present "
-        "mode",
+        "Bypass deferredFlush with calling swapbuffers on flush or finish when in Shared "
+        "Present mode",
         &members, "http://anglebug.com/6878"};
 
     FeatureInfo emulateDithering = {"emulateDithering", FeatureCategory::VulkanFeatures,
@@ -588,6 +606,14 @@ struct FeaturesVk : FeatureSetBase
     FeatureInfo emulateAdvancedBlendEquations = {
         "emulateAdvancedBlendEquations", FeatureCategory::VulkanFeatures,
         "Emulate GL_KHR_blend_equation_advanced", &members, "http://anglebug.com/3586"};
+
+    FeatureInfo precisionSafeDivision = {
+        "precisionSafeDivision",
+        FeatureCategory::VulkanWorkarounds,
+        "Special case handling for platforms that do not generate 1.0f even when the dividend and"
+        "divisor have the same value",
+        &members,
+    };
 
     FeatureInfo bottomLeftOriginPresentRegionRectangles = {
         "bottomLeftOriginPresentRegionRectangles",
@@ -605,10 +631,9 @@ struct FeaturesVk : FeatureSetBase
                                         "Retain debug info in SPIR-V blob.", &members,
                                         "http://anglebug.com/5901"};
 
-    FeatureInfo createPipelineDuringLink = {
-        "createPipelineDuringLink", FeatureCategory::VulkanFeatures,
-        "Create pipeline with default state during glLinkProgram", &members,
-        "http://anglebug.com/7046"};
+    FeatureInfo warmUpPipelineCacheAtLink = {
+        "warmUpPipelineCacheAtLink", FeatureCategory::VulkanFeatures,
+        "Warm up the Vulkan pipeline cache at link time", &members, "http://anglebug.com/5881"};
 
     FeatureInfo preferDeviceLocalMemoryHostVisible = {
         "preferDeviceLocalMemoryHostVisible", FeatureCategory::VulkanFeatures,

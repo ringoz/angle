@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstdlib>
 
+#include "common/PackedEnums.h"
 #include "common/platform.h"
 #include "gpu_info_util/SystemInfo.h"
 #include "test_utils/runner/TestSuite.h"
@@ -356,6 +357,16 @@ void LoadEntryPointsWithUtilLoader(angle::GLESDriverType driverType)
     LoadGLES(getProcAddress);
 #endif  // defined(ANGLE_USE_UTIL_LOADER)
 }
+
+bool IsFormatEmulated(GLenum target)
+{
+    GLint readFormat;
+    glGetTexParameteriv(target, GL_IMPLEMENTATION_COLOR_READ_FORMAT, &readFormat);
+
+    // This helper only works for compressed formats
+    return gl::IsEmulatedCompressedFormat(readFormat);
+}
+
 }  // namespace angle
 
 using namespace angle;
@@ -542,7 +553,8 @@ void ANGLETestBase::initOSWindow()
         case GLESDriverType::SystemEGL:
         {
             mFixture->eglWindow =
-                EGLWindow::New(mCurrentParams->majorVersion, mCurrentParams->minorVersion);
+                EGLWindow::New(mCurrentParams->clientType, mCurrentParams->majorVersion,
+                               mCurrentParams->minorVersion, mCurrentParams->profileMask);
             break;
         }
 
@@ -717,6 +729,12 @@ void ANGLETestBase::ANGLETestSetUp()
                 // If the test requests an extension that isn't supported, automatically skip the
                 // test.
                 GTEST_SKIP() << "Test skipped due to missing extension";
+            }
+            else if (mFixture->configParams.multisample)
+            {
+                // If the test requests a multisampled window that isn't supported, automatically
+                // skip the test.
+                GTEST_SKIP() << "Test skipped due to no multisampled configs available";
             }
             else
             {

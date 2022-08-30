@@ -53,6 +53,14 @@
             "issue": "http://anglebug.com/3970"
         },
         {
+            "name": "mutable_mipmap_texture_upload",
+            "category": "Features",
+            "description": [
+                "Enable uploading the previously defined mutable mipmap texture."
+            ],
+            "issue": "https://anglebug.com/7308"
+        },
+        {
             "name": "supports_renderpass2",
             "category": "Features",
             "description": [
@@ -365,6 +373,14 @@
             "issue": "http://anglebug.com/2162"
         },
         {
+            "name": "extra_buffer_logging_and_checking",
+            "category": "Features",
+            "description": [
+                "Enable extra buffer logging and checking to catch rare crashes"
+            ],
+            "issue": "https://issuetracker.google.com/236098131"
+        },
+        {
             "name": "enable_pre_rotate_surfaces",
             "category": "Features",
             "description": [
@@ -444,7 +460,8 @@
             "name": "disallow_mixed_depth_stencil_load_op_none_and_load",
             "category": "Workarounds",
             "description": [
-                "Disallow use of LOAD_OP_NONE for only one of the depth or stencil aspects of a depth/stencil attachment"
+                "Disallow use of LOAD_OP_NONE for only one of the depth or stencil aspects of a ",
+                "depth/stencil attachment"
             ],
             "issue": "http://anglebug.com/7370"
         },
@@ -742,6 +759,14 @@
             ]
         },
         {
+            "name": "permanently_switch_to_framebuffer_fetch_mode",
+            "category": "Features",
+            "description": [
+                "Whether the context should permanently switch to framebuffer fetch mode on first",
+                "encounter"
+            ]
+        },
+        {
             "name": "supports_lock_surface_extension",
             "category": "Features",
             "description": [
@@ -752,8 +777,8 @@
             "name": "swapbuffers_on_flush_or_finish_with_single_buffer",
             "category": "Features",
             "description": [
-                "Bypass deferredFlush with calling swapbuffers on flush or finish when in Shared Present ",
-                "mode"
+                "Bypass deferredFlush with calling swapbuffers on flush or finish when in Shared ",
+                "Present mode"
             ],
             "issue": "http://anglebug.com/6878"
         },
@@ -782,6 +807,14 @@
             "issue": "http://anglebug.com/3586"
         },
         {
+            "name": "precision_safe_division",
+            "category": "Workarounds",
+            "description": [
+                "Special case handling for platforms that do not generate 1.0f even when the dividend and",
+                "divisor have the same value"
+            ]
+        },
+        {
             "name": "bottom_left_origin_present_region_rectangles",
             "category": "Workarounds",
             "description": [
@@ -806,12 +839,12 @@
             "issue": "http://anglebug.com/5901"
         },
         {
-            "name": "create_pipeline_during_link",
+            "name": "warm_up_pipeline_cache_at_link",
             "category": "Features",
             "description": [
-                "Create pipeline with default state during glLinkProgram"
+                "Warm up the Vulkan pipeline cache at link time"
             ],
-            "issue": "http://anglebug.com/7046"
+            "issue": "http://anglebug.com/5881"
         },
         {
             "name": "prefer_device_local_memory_host_visible",

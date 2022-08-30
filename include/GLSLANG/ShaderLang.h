@@ -26,7 +26,7 @@
 
 // Version number for shader translation API.
 // It is incremented every time the API changes.
-#define ANGLE_SH_VERSION 280
+#define ANGLE_SH_VERSION 282
 
 enum ShShaderSpec
 {
@@ -352,6 +352,10 @@ const ShCompileOptions SH_ADD_EXPLICIT_BOOL_CASTS = UINT64_C(1) << 59;
 // ceil()ed instead.
 const ShCompileOptions SH_ROUND_OUTPUT_AFTER_DITHERING = UINT64_C(1) << 60;
 
+// Even when the dividend and divisor have the same value some platforms do not return 1.0f.
+// Need to emit different division code for such platforms.
+const ShCompileOptions SH_PRECISION_SAFE_DIVISION = UINT64_C(1) << 61;
+
 // The 64 bits hash function. The first parameter is the input string; the
 // second parameter is the string length.
 using ShHashFunction64 = khronos_uint64_t (*)(const char *, size_t);
@@ -401,6 +405,7 @@ struct ShBuiltInResources
     int EXT_shader_non_constant_global_initializers;
     int OES_texture_storage_multisample_2d_array;
     int OES_texture_3D;
+    int ANGLE_shader_pixel_local_storage;
     int ANGLE_texture_multisample;
     int ANGLE_multi_draw;
     // TODO(angleproject:3402) remove after chromium side removal to pass compilation

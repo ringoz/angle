@@ -344,8 +344,7 @@ void ProgramInfo::release(ContextVk *contextVk)
 }
 
 ProgramExecutableVk::ProgramExecutableVk()
-    : mEmptyDescriptorSets{},
-      mNumDefaultUniformDescriptors(0),
+    : mNumDefaultUniformDescriptors(0),
       mImmutableSamplersMaxDescriptorCount(1),
       mUniformBufferDescriptorType(VK_DESCRIPTOR_TYPE_MAX_ENUM),
       mDynamicUniformDescriptorOffsets{}
@@ -372,7 +371,6 @@ void ProgramExecutableVk::resetLayout(ContextVk *contextVk)
     mPipelineLayout.reset();
 
     mDescriptorSets.fill(VK_NULL_HANDLE);
-    mEmptyDescriptorSets.fill(VK_NULL_HANDLE);
     mNumDefaultUniformDescriptors = 0;
 
     for (vk::RefCountedDescriptorPoolBinding &binding : mDescriptorPoolBindings)
@@ -479,8 +477,8 @@ std::unique_ptr<rx::LinkEvent> ProgramExecutableVk::load(ContextVk *contextVk,
                     LoadShaderInterfaceVariableXfbInfo(stream, &xfb);
                 }
                 info.useRelaxedPrecision     = stream->readBool();
-                info.varyingIsInput          = stream->readBool();
-                info.varyingIsOutput         = stream->readBool();
+                info.builtinIsInput          = stream->readBool();
+                info.builtinIsOutput         = stream->readBool();
                 info.attributeComponentCount = stream->readInt<uint8_t>();
                 info.attributeLocationCount  = stream->readInt<uint8_t>();
                 info.isDuplicate             = stream->readBool();
@@ -596,8 +594,8 @@ void ProgramExecutableVk::save(ContextVk *contextVk,
                     SaveShaderInterfaceVariableXfbInfo(xfb, stream);
                 }
                 stream->writeBool(info.useRelaxedPrecision);
-                stream->writeBool(info.varyingIsInput);
-                stream->writeBool(info.varyingIsOutput);
+                stream->writeBool(info.builtinIsInput);
+                stream->writeBool(info.builtinIsOutput);
                 stream->writeInt(info.attributeComponentCount);
                 stream->writeInt(info.attributeLocationCount);
                 stream->writeBool(info.isDuplicate);
@@ -1077,7 +1075,10 @@ angle::Result ProgramExecutableVk::getGraphicsPipeline(ContextVk *contextVk,
     transformOptions.removeTransformFeedbackEmulation =
         contextVk->getFeatures().emulateTransformFeedback.enabled &&
         !glState.isTransformFeedbackActiveUnpaused();
-    transformOptions.multiSampleFramebufferFetch = false;
+    FramebufferVk *drawFrameBuffer = vk::GetImpl(contextVk->getState().getDrawFramebuffer());
+    const bool hasFramebufferFetch = glExecutable.usesFramebufferFetch();
+    const bool isMultisampled      = drawFrameBuffer->getSamples() > 1;
+    transformOptions.multiSampleFramebufferFetch = hasFramebufferFetch && isMultisampled;
 
     const gl::DrawBufferMask framebufferMask = glState.getDrawFramebuffer()->getDrawBufferMask();
 
@@ -1213,21 +1214,22 @@ angle::Result ProgramExecutableVk::createPipelineLayout(
     ANGLE_TRY(contextVk->getDescriptorSetLayoutCache().getDescriptorSetLayout(
         contextVk, texturesSetDesc, &mDescriptorSetLayouts[DescriptorSetIndex::Texture]));
 
-    // Driver uniforms
-    vk::DescriptorSetLayoutDesc driverUniformsSetDesc =
-        contextVk->getDriverUniformsDescriptorSetDesc();
-    ANGLE_TRY(contextVk->getDescriptorSetLayoutCache().getDescriptorSetLayout(
-        contextVk, driverUniformsSetDesc, &mDescriptorSetLayouts[DescriptorSetIndex::Internal]));
-
-    // Create pipeline layout with these 4 descriptor sets.
+    // Create pipeline layout with these 3 descriptor sets.
     vk::PipelineLayoutDesc pipelineLayoutDesc;
     pipelineLayoutDesc.updateDescriptorSetLayout(DescriptorSetIndex::UniformsAndXfb,
                                                  uniformsAndXfbSetDesc);
     pipelineLayoutDesc.updateDescriptorSetLayout(DescriptorSetIndex::ShaderResource,
                                                  resourcesSetDesc);
     pipelineLayoutDesc.updateDescriptorSetLayout(DescriptorSetIndex::Texture, texturesSetDesc);
-    pipelineLayoutDesc.updateDescriptorSetLayout(DescriptorSetIndex::Internal,
-                                                 driverUniformsSetDesc);
+
+    // Set up driver uniforms as push constants. The size is set for a graphics pipeline, as there
+    // are more driver uniforms for a graphics pipeline than there are for a compute pipeline. As
+    // for the shader stages, both graphics and compute stages are used.
+    VkShaderStageFlags pushConstantShaderStageFlags =
+        contextVk->getRenderer()->getSupportedVulkanShaderStageMask();
+
+    uint32_t pushConstantSize = contextVk->getDriverUniformSize(PipelineType::Graphics);
+    pipelineLayoutDesc.updatePushConstantRange(pushConstantShaderStageFlags, 0, pushConstantSize);
 
     ANGLE_TRY(contextVk->getPipelineLayoutCache().getPipelineLayout(
         contextVk, pipelineLayoutDesc, mDescriptorSetLayouts, &mPipelineLayout));
@@ -1259,47 +1261,6 @@ angle::Result ProgramExecutableVk::createPipelineLayout(
     }
 
     return angle::Result::Continue;
-}
-
-void ProgramExecutableVk::resolvePrecisionMismatch(const gl::ProgramMergedVaryings &mergedVaryings)
-{
-    for (const gl::ProgramVaryingRef &mergedVarying : mergedVaryings)
-    {
-        if (!mergedVarying.frontShader || !mergedVarying.backShader)
-        {
-            continue;
-        }
-
-        GLenum frontPrecision = mergedVarying.frontShader->precision;
-        GLenum backPrecision  = mergedVarying.backShader->precision;
-        if (frontPrecision == backPrecision)
-        {
-            continue;
-        }
-
-        ASSERT(frontPrecision >= GL_LOW_FLOAT && frontPrecision <= GL_HIGH_INT);
-        ASSERT(backPrecision >= GL_LOW_FLOAT && backPrecision <= GL_HIGH_INT);
-
-        if (frontPrecision > backPrecision)
-        {
-            // The output is higher precision than the input
-            ShaderInterfaceVariableInfo &info = mVariableInfoMap.getMutable(
-                mergedVarying.frontShaderStage, ShaderVariableType::Varying,
-                mergedVarying.frontShader->mappedName);
-            info.varyingIsOutput     = true;
-            info.useRelaxedPrecision = true;
-        }
-        else
-        {
-            // The output is lower precision than the input, adjust the input
-            ASSERT(backPrecision > frontPrecision);
-            ShaderInterfaceVariableInfo &info = mVariableInfoMap.getMutable(
-                mergedVarying.backShaderStage, ShaderVariableType::Varying,
-                mergedVarying.backShader->mappedName);
-            info.varyingIsInput      = true;
-            info.useRelaxedPrecision = true;
-        }
-    }
 }
 
 angle::Result ProgramExecutableVk::getOrAllocateDescriptorSet(
@@ -1427,10 +1388,6 @@ angle::Result ProgramExecutableVk::bindDescriptorSets(
     DescriptorSetIndex lastNonNullDescriptorSetIndex = DescriptorSetIndex::InvalidEnum;
     for (DescriptorSetIndex descriptorSetIndex : angle::AllEnums<DescriptorSetIndex>())
     {
-        if (descriptorSetIndex == DescriptorSetIndex::Internal)
-        {
-            continue;
-        }
         if (mDescriptorSets[descriptorSetIndex] != VK_NULL_HANDLE)
         {
             lastNonNullDescriptorSetIndex = descriptorSetIndex;
@@ -1443,8 +1400,7 @@ angle::Result ProgramExecutableVk::bindDescriptorSets(
 
     for (DescriptorSetIndex descriptorSetIndex : angle::AllEnums<DescriptorSetIndex>())
     {
-        if (descriptorSetIndex == DescriptorSetIndex::Internal ||
-            ToUnderlying(descriptorSetIndex) > ToUnderlying(lastNonNullDescriptorSetIndex))
+        if (ToUnderlying(descriptorSetIndex) > ToUnderlying(lastNonNullDescriptorSetIndex))
         {
             continue;
         }
@@ -1452,21 +1408,7 @@ angle::Result ProgramExecutableVk::bindDescriptorSets(
         VkDescriptorSet descSet = mDescriptorSets[descriptorSetIndex];
         if (descSet == VK_NULL_HANDLE)
         {
-            if (!context->getRenderer()->getFeatures().bindEmptyForUnusedDescriptorSets.enabled)
-            {
-                continue;
-            }
-
-            // Workaround a driver bug where missing (though unused) descriptor sets indices cause
-            // later sets to misbehave.
-            if (mEmptyDescriptorSets[descriptorSetIndex] == VK_NULL_HANDLE)
-            {
-                ANGLE_TRY(mDescriptorPools[descriptorSetIndex].get().allocateDescriptorSet(
-                    context, commandBufferHelper, mDescriptorSetLayouts[descriptorSetIndex].get(),
-                    &mDescriptorPoolBindings[descriptorSetIndex],
-                    &mEmptyDescriptorSets[descriptorSetIndex]));
-            }
-            descSet = mEmptyDescriptorSets[descriptorSetIndex];
+            continue;
         }
 
         // Default uniforms are encompassed in a block per shader stage, and they are assigned

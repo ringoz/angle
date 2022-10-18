@@ -53,8 +53,6 @@
 7291 VULKAN : BlitFramebufferTest.Blit3D/* = SKIP
 7291 VULKAN : BlitFramebufferTest.Blit3DTo2DArray/* = SKIP
 7291 VULKAN : BlitFramebufferTest.Blit2DArrayTo3D/* = SKIP
-7512 VULKAN : RenderbufferMultisampleTestES31.ColorBurnBlend/* = SKIP
-7512 VULKAN : FramebufferFetchES31.SingleSampledMultiSampledMixedTest/* = SKIP
 235877059 VULKAN : MultisampleTestES3.ResolveToFBO/ES3_Vulkan_EmulatedPrerotation180 = SKIP
 235877059 VULKAN : MultisampleTestES3.ResolveToFBO/ES3_Vulkan_EmulatedPrerotation270 = SKIP
 
@@ -428,6 +426,8 @@
 7414 PIXEL4ORXL GLES : MultithreadingTestES3.ThreadCWaitBeforeThreadBSyncFinish/* = SKIP
 7414 PIXEL4ORXL GLES : EGLMultiContextTest.ThreadB*BeforeThreadASync* = SKIP
 
+3423 PIXEL4ORXL VULKAN : ClearTestES3.MaskedClearBufferBug/* = SKIP
+3423 PIXEL4ORXL VULKAN : DrawBuffersWebGL2Test.TwoProgramsWithDifferentOutputsAndClear/* = SKIP
 5946 PIXEL4ORXL VULKAN : TransformFeedbackTestES32.PrimitivesWrittenAndGenerated/* = SKIP
 5947 PIXEL4ORXL VULKAN : FramebufferFetchES31.DrawFetchBlitDrawFetch_NonCoherent/* = SKIP
 5947 PIXEL4ORXL VULKAN : FramebufferFetchES31.DrawNonFetchDrawFetchWithDifferentAttachments_NonCoherent/* = SKIP
@@ -537,6 +537,7 @@
 7158 PIXEL6 VULKAN : ImageTestES31.SourceAHBCubeArrayTargetCubeArray/* = SKIP
 7158 PIXEL6 VULKAN : ImageTestES3.SourceAHBMipTarget2DMip/* = SKIP
 7158 PIXEL6 VULKAN : ImageTestES3.SourceAHBMipTarget2DMipGenerateMipmap/* = SKIP
+7279 PIXEL6 VULKAN : PixelLocalStorageTest.EarlyFragmentTests/ES3_1_Vulkan_EmulatePixelLocalStorage* = SKIP
 
 // ARM drivers cannot support xfb emulation because they lack support for the
 // vertexPipelineStoresAndAtomics Vulkan feature.  The tests that force-enable this feature are
@@ -602,6 +603,10 @@
 // Regression after a buffer change.
 6881 INTEL VULKAN LINUX : Texture2DTest.TexStorageWithPBOMiddlePixelDifferent/* = SKIP
 
+// Flaky on Linux/Vulkan/NV/Async Command Queue.
+7548 NVIDIA LINUX VULKAN : TimerQueriesTest.TimeElapsed/*_AsyncCommandQueue = SKIP
+7548 NVIDIA LINUX VULKAN : TimerQueriesTest.Timestamp/*_AsyncCommandQueue = SKIP
+
 // Cubemap sampling with explicit derivatives
 3814 PIXEL4ORXL VULKAN : CubeMapTextureTest.SampleCoordinateTransformGrad/* = SKIP
 3814 PIXEL4ORXL VULKAN : CubeMapTextureTest.SampleCoordinateTransformGrad_ES3/* = SKIP
@@ -662,14 +667,12 @@
 7484 OpenGL : GLSLTest_ES31.*Image2DAsFunctionArg/* = SKIP
 7484 GLES : GLSLTest_ES31.*Image2DAsFunctionArg/* = SKIP
 
-// imageLoad after imageStore with barrier is not coherent on Pixel 4 GLES.
-7388 ANDROID GLES : PixelLocalStorageTest.*/ES3_1_OpenGLES_EmulatePixelLocalStorage = SKIP
-
 // Flaky hangs on Linux SwANGLE
 7431 LINUX SWIFTSHADER : MultithreadingTestES3.ThreadB*BeforeThreadASyncFinish/ES3_Vulkan_SwiftShader = SKIP
 7431 LINUX SWIFTSHADER : MultithreadingTestES3.ThreadB*BeforeThreadASyncFlush/ES3_Vulkan_SwiftShader = SKIP
 7419 SWIFTSHADER : MultithreadingTestES3.CreateFramebufferFetchBeforeRenderPass/* = SKIP
 7419 WIN SWIFTSHADER : MultithreadingTestES3.CreateFramebufferFetchMidRenderPass/* = SKIP
+7419 SWIFTSHADER : MultithreadingTestES3.ThreadCWaitBeforeThreadBSyncFinish/* = SKIP
 
 // Timeout with SwiftShader and MAC OpenGL due to large workloads
 7389 SWIFTSHADER : Texture2DTest.ManySupersedingTextureUpdates/* = SKIP
@@ -678,6 +681,8 @@
 // GL, GLES run into issues with cleanup
 7495 WIN OpenGL : EGLMultiContextTest.ReuseUnterminatedDisplay/* = SKIP
 7495 WIN GLES : EGLMultiContextTest.ReuseUnterminatedDisplay/* = SKIP
+
+7546 LINUX VULKAN : FramebufferTest_ES3.SurfaceDimensionsChangeAndFragCoord/* = SKIP
 
 // Slow tests, should appear last in this file
 5076 : GLSLTest.VerifyMaxVertexUniformVectors* = TIMEOUT

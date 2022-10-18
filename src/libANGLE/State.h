@@ -603,6 +603,11 @@ class State : angle::NonCopyable
 
     bool isRobustResourceInitEnabled() const { return mRobustResourceInit; }
 
+    bool isDrawFramebufferBindingDirty() const
+    {
+        return mDirtyBits.test(DIRTY_BIT_DRAW_FRAMEBUFFER_BINDING);
+    }
+
     // Sets the dirty bit for the program executable.
     angle::Result onProgramExecutableChange(const Context *context, Program *program);
     // Sets the dirty bit for the program pipeline executable.
@@ -1008,6 +1013,8 @@ class State : angle::NonCopyable
     RasterizerState mRasterizer;
     bool mScissorTest;
     Rectangle mScissor;
+
+    bool mNoUnclampedBlendColor;
 
     BlendState mBlendState;  // Buffer zero blend state legacy struct
     BlendStateExt mBlendStateExt;

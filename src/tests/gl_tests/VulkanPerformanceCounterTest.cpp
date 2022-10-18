@@ -40,7 +40,8 @@ class VulkanPerformanceCounterTest : public ANGLETest<>
           mMutableMipmapTextureUpload(ANGLEFeature::Unknown),
           mPreferDrawOverClearAttachments(ANGLEFeature::Unknown),
           mSupportsPipelineCreationFeedback(ANGLEFeature::Unknown),
-          mWarmUpPipelineCacheAtLink(ANGLEFeature::Unknown)
+          mWarmUpPipelineCacheAtLink(ANGLEFeature::Unknown),
+          mPreferCPUForBufferSubData(ANGLEFeature::Unknown)
     {
         // Depth/Stencil required for SwapShouldInvalidate*.
         // Also RGBA8 is required to avoid the clear for emulated alpha.
@@ -120,6 +121,10 @@ class VulkanPerformanceCounterTest : public ANGLETest<>
             {
                 mWarmUpPipelineCacheAtLink = isSupported;
             }
+            else if (strcmp(featureName, GetFeatureName(Feature::PreferCPUForBufferSubData)) == 0)
+            {
+                mPreferCPUForBufferSubData = isSupported;
+            }
         }
 
         // Make sure feature renames are caught
@@ -129,6 +134,7 @@ class VulkanPerformanceCounterTest : public ANGLETest<>
         ASSERT_NE(mPreferDrawOverClearAttachments, ANGLEFeature::Unknown);
         ASSERT_NE(mSupportsPipelineCreationFeedback, ANGLEFeature::Unknown);
         ASSERT_NE(mWarmUpPipelineCacheAtLink, ANGLEFeature::Unknown);
+        ASSERT_NE(mPreferCPUForBufferSubData, ANGLEFeature::Unknown);
 
         // Impossible to have LOAD_OP_NONE but not STORE_OP_NONE
         ASSERT_FALSE(mLoadOpNoneSupport == ANGLEFeature::Supported &&
@@ -447,6 +453,7 @@ class VulkanPerformanceCounterTest : public ANGLETest<>
     ANGLEFeature mPreferDrawOverClearAttachments;
     ANGLEFeature mSupportsPipelineCreationFeedback;
     ANGLEFeature mWarmUpPipelineCacheAtLink;
+    ANGLEFeature mPreferCPUForBufferSubData;
 };
 
 class VulkanPerformanceCounterTest_ES31 : public VulkanPerformanceCounterTest
@@ -1412,6 +1419,52 @@ TEST_P(VulkanPerformanceCounterTest_ES31, MultisampleResolveWithBlit)
     EXPECT_PIXEL_NEAR(0, kSize - 1, kHalfPixelGradient, 255 - kHalfPixelGradient, 0, 255, 1.0);
     EXPECT_PIXEL_NEAR(kSize - 1, kSize - 1, 255 - kHalfPixelGradient, 255 - kHalfPixelGradient, 0,
                       255, 1.0);
+}
+
+// Test resolving a multisampled texture with blit and then invalidate the msaa buffer
+TEST_P(VulkanPerformanceCounterTest_ES31, ResolveToFBOWithInvalidate)
+{
+    constexpr int kWindowWidth  = 4;
+    constexpr int kWindowHeight = 4;
+    GLTexture resolveTexture;
+    glBindTexture(GL_TEXTURE_2D, resolveTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kWindowWidth, kWindowHeight, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    GLFramebuffer resolveFBO;
+    glBindFramebuffer(GL_FRAMEBUFFER, resolveFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolveTexture, 0);
+
+    GLTexture msaaTexture;
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, msaaTexture);
+    glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, kWindowWidth, kWindowHeight,
+                              GL_FALSE);
+
+    GLFramebuffer msaaFBO;
+    glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, msaaFBO,
+                           0);
+    ANGLE_GL_PROGRAM(redprogram, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+
+    drawQuad(redprogram, essl1_shaders::PositionAttrib(), 0.5f);
+    // Resolve into FBO
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFBO);
+    glBlitFramebuffer(0, 0, kWindowWidth, kWindowHeight, 0, 0, kWindowWidth, kWindowHeight,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    GLenum attachment = GL_COLOR_ATTACHMENT0;
+    glInvalidateFramebuffer(GL_READ_FRAMEBUFFER, 1, &attachment);
+    glBindFramebuffer(GL_FRAMEBUFFER, resolveFBO);
+
+    // right now RP closed at glBlitFramebuffer, we can not expect 1 color stores.
+    // EXPECT_EQ(getPerfCounters().colorStoreOpStores, 1u);
+
+    // Top-left pixels should be all red.
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
 }
 
 // Ensures a read-only depth-stencil feedback loop works in a single RenderPass.
@@ -4784,6 +4837,106 @@ void main()
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::cyan);
 }
 
+// Verifies that BufferSubData calls don't cause a render pass break when it only uses the buffer
+// read-only.
+TEST_P(VulkanPerformanceCounterTest, BufferSubDataShouldNotBreakRenderPass)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled(kPerfMonitorExtensionName));
+    initANGLEFeatures();
+
+    uint64_t expectedRenderPassCount = getPerfCounters().renderPasses + 1;
+    if (mPreferCPUForBufferSubData != ANGLEFeature::Supported)
+    {
+        ++expectedRenderPassCount;
+    }
+
+    const std::array<GLColor, 4> kInitialData = {GLColor::red, GLColor::green, GLColor::blue,
+                                                 GLColor::yellow};
+    const std::array<GLColor, 1> kUpdateData1 = {GLColor::cyan};
+    const std::array<GLColor, 3> kUpdateData2 = {GLColor::magenta, GLColor::black, GLColor::white};
+
+    GLBuffer buffer;
+    glBindBuffer(GL_UNIFORM_BUFFER, buffer);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(kInitialData), kInitialData.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, buffer);
+    ASSERT_GL_NO_ERROR();
+
+    constexpr char kVS[] = R"(#version 300 es
+precision highp float;
+uniform float height;
+void main()
+{
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, 0, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 colorOut;
+uniform block {
+    uvec4 data;
+} ubo;
+uniform uvec4 expect;
+uniform vec4 successColor;
+void main()
+{
+    if (all(equal(ubo.data, expect)))
+        colorOut = successColor;
+    else
+        colorOut = vec4(0);
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    GLint expectLoc = glGetUniformLocation(program, "expect");
+    ASSERT_NE(-1, expectLoc);
+    GLint successLoc = glGetUniformLocation(program, "successColor");
+    ASSERT_NE(-1, successLoc);
+
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+
+    // Draw once, using the buffer in the render pass.
+    glUniform4ui(expectLoc, kInitialData[0].asUint(), kInitialData[1].asUint(),
+                 kInitialData[2].asUint(), kInitialData[3].asUint());
+    glUniform4f(successLoc, 1, 0, 0, 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Upload a small part of the buffer, and draw again.
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(kUpdateData1), kUpdateData1.data());
+
+    glUniform4ui(expectLoc, kUpdateData1[0].asUint(), kInitialData[1].asUint(),
+                 kInitialData[2].asUint(), kInitialData[3].asUint());
+    glUniform4f(successLoc, 0, 1, 0, 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Upload a large part of the buffer, and draw again.
+    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(kUpdateData1), sizeof(kUpdateData2),
+                    kUpdateData2.data());
+
+    glUniform4ui(expectLoc, kUpdateData1[0].asUint(), kUpdateData2[0].asUint(),
+                 kUpdateData2[1].asUint(), kUpdateData2[2].asUint());
+    glUniform4f(successLoc, 0, 0, 1, 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Verify results
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+    ASSERT_GL_NO_ERROR();
+
+    // Only one render pass should have been used.
+    EXPECT_EQ(getPerfCounters().renderPasses, expectedRenderPassCount);
+}
+
 // Verifies that BufferSubData calls don't trigger state updates for non-translated formats.
 TEST_P(VulkanPerformanceCounterTest, BufferSubDataShouldNotTriggerSyncState)
 {
@@ -6694,6 +6847,81 @@ TEST_P(VulkanPerformanceCounterTest, FenceThenSwapBuffers)
 
     EXPECT_EQ(getPerfCounters().vkQueueSubmitCallsTotal, expected.vkQueueSubmitCallsTotal);
     compareDepthOpCounters(getPerfCounters(), expected);
+}
+
+// Verify that ending transform feedback after a render pass is closed, doesn't cause the following
+// render pass to close when the transform feedback buffer is used.
+TEST_P(VulkanPerformanceCounterTest, EndXfbAfterRenderPassClosed)
+{
+    // There should be two render passes; one for the transform feedback draw, one for the other two
+    // draw calls.
+    uint64_t expectedRenderPassCount = getPerfCounters().renderPasses + 2;
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Set the program's transform feedback varyings (just gl_Position)
+    std::vector<std::string> tfVaryings;
+    tfVaryings.push_back("gl_Position");
+    ANGLE_GL_PROGRAM_TRANSFORM_FEEDBACK(drawRed, essl3_shaders::vs::Simple(),
+                                        essl3_shaders::fs::Red(), tfVaryings,
+                                        GL_INTERLEAVED_ATTRIBS);
+
+    glUseProgram(drawRed);
+    GLint positionLocation = glGetAttribLocation(drawRed, essl1_shaders::PositionAttrib());
+
+    const GLfloat vertices[] = {
+        -0.5f, 0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f,
+        -0.5f, 0.5f, 0.5f, 0.5f,  -0.5f, 0.5f, 0.5f, 0.5f,  0.5f,
+    };
+
+    glVertexAttribPointer(positionLocation, 3, GL_FLOAT, GL_FALSE, 0, vertices);
+    glEnableVertexAttribArray(positionLocation);
+
+    // Bind the buffer for transform feedback output and start transform feedback
+    GLBuffer xfbBuffer;
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, xfbBuffer);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, 100, nullptr, GL_STATIC_DRAW);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, xfbBuffer);
+    glBeginTransformFeedback(GL_POINTS);
+
+    glDrawArrays(GL_POINTS, 0, 6);
+
+    // Break the render pass
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::black);
+
+    // End transform feedback after the render pass is closed
+    glEndTransformFeedback();
+
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+    EXPECT_GL_NO_ERROR();
+
+    // Issue an unrelated draw call.
+    ANGLE_GL_PROGRAM(drawGreen, essl3_shaders::vs::Simple(), essl3_shaders::fs::Green());
+    drawQuad(drawGreen, essl3_shaders::PositionAttrib(), 0.0f);
+
+    // Issue a draw call using the transform feedback buffer.
+    glBindBuffer(GL_ARRAY_BUFFER, xfbBuffer);
+    glVertexAttribPointer(positionLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(positionLocation);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(drawRed);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w, h / 4, GLColor::black);
+    EXPECT_PIXEL_RECT_EQ(0, 3 * h / 4, w, h / 4, GLColor::black);
+    EXPECT_PIXEL_RECT_EQ(0, h / 4, w / 4, h / 2, GLColor::black);
+    EXPECT_PIXEL_RECT_EQ(3 * w / 4, h / 4, w / 4, h / 2, GLColor::black);
+
+    EXPECT_PIXEL_RECT_EQ(w / 4, h / 4, w / 2, h / 2, GLColor::red);
+    EXPECT_GL_NO_ERROR();
+
+    EXPECT_EQ(getPerfCounters().renderPasses, expectedRenderPassCount);
 }
 
 ANGLE_INSTANTIATE_TEST(VulkanPerformanceCounterTest, ES3_VULKAN(), ES3_VULKAN_SWIFTSHADER());

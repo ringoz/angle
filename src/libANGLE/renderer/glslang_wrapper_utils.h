@@ -125,8 +125,8 @@ struct ShaderInterfaceVariableInfo
     bool useRelaxedPrecision = false;
     // Indicate if varying is input or output, or both (in case of for example gl_Position in a
     // geometry shader)
-    bool varyingIsInput  = false;
-    bool varyingIsOutput = false;
+    bool builtinIsInput  = false;
+    bool builtinIsOutput = false;
     // For vertex attributes, this is the number of components / locations.  These are used by the
     // vertex attribute aliasing transformation only.
     uint8_t attributeComponentCount = 0;
@@ -158,7 +158,8 @@ void GlslangAssignTransformFeedbackLocations(gl::ShaderType shaderType,
                                              ShaderInterfaceVariableInfoMap *variableInfoMapOut);
 
 // Retrieves the compiled SPIR-V code for each shader stage, and calls |GlslangAssignLocations|.
-void GlslangGetShaderSpirvCode(const GlslangSourceOptions &options,
+void GlslangGetShaderSpirvCode(const gl::Context *context,
+                               const GlslangSourceOptions &options,
                                const gl::ProgramState &programState,
                                const gl::ProgramLinkedResources &resources,
                                GlslangProgramInterfaceInfo *programInterfaceInfo,

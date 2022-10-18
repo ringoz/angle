@@ -257,14 +257,20 @@ void UnpackDepthStencilResolveAttachmentDesc(VkAttachmentDescription *desc,
     desc->finalLayout   = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 }
 
-void UnpackStencilState(const PackedStencilOpState &packedState, VkStencilOpState *stateOut)
+void UnpackStencilState(const PackedStencilOpState &packedState,
+                        VkStencilOpState *stateOut,
+                        bool writeMaskWorkaround)
 {
+    // Any non-zero value works for the purposes of the useNonZeroStencilWriteMaskStaticState driver
+    // bug workaround.
+    constexpr uint32_t kNonZeroWriteMaskForWorkaround = 1;
+
     stateOut->failOp      = static_cast<VkStencilOp>(packedState.ops.fail);
     stateOut->passOp      = static_cast<VkStencilOp>(packedState.ops.pass);
     stateOut->depthFailOp = static_cast<VkStencilOp>(packedState.ops.depthFail);
     stateOut->compareOp   = static_cast<VkCompareOp>(packedState.ops.compare);
     stateOut->compareMask = 0;
-    stateOut->writeMask   = 0;
+    stateOut->writeMask   = writeMaskWorkaround ? kNonZeroWriteMaskForWorkaround : 0;
     stateOut->reference   = 0;
 }
 
@@ -1036,7 +1042,8 @@ angle::Result InitializeRenderPassFromDesc(ContextVk *contextVk,
     bool isStencilInvalidated = false;
     const bool hasUnresolveAttachments =
         desc.getColorUnresolveAttachmentMask().any() || desc.hasDepthStencilUnresolveAttachment();
-    const bool canRemoveResolveAttachments = !hasUnresolveAttachments;
+    const bool canRemoveResolveAttachments =
+        isRenderToTextureThroughEmulation && !hasUnresolveAttachments;
 
     // Pack color attachments
     PackedAttachmentIndex attachmentCount(0);
@@ -1636,7 +1643,7 @@ void UnpackPipelineState(const vk::GraphicsPipelineDesc &state, UnpackedPipeline
     const PackedInputAssemblyAndRasterizationStateInfo &inputAndRaster =
         state.getInputAssemblyAndRasterizationStateInfoForLog();
     const PackedColorBlendStateInfo &colorBlend = state.getColorBlendStateInfoForLog();
-    const PackedDither &dither                  = state.getDitherForLog();
+    const PackedDitherAndWorkarounds &dither    = state.getDitherForLog();
     const PackedDynamicState &dynamicState      = state.getDynamicStateForLog();
 
     valuesOut->fill(0);
@@ -2397,16 +2404,16 @@ void ReleaseCachedObject(ContextVk *contextVk, const DescriptorSetDescAndPool &d
     descAndPool.mPool->releaseCachedDescriptorSet(contextVk, descAndPool.mDesc);
 }
 
-void DestroyCachedObject(const FramebufferDesc &desc)
+void DestroyCachedObject(RendererVk *renderer, const FramebufferDesc &desc)
 {
     // Framebuffer cache are implemented in a way that each cache entry tracks GPU progress and we
     // always guarantee cache entries are released before calling destroy.
 }
 
-void DestroyCachedObject(const DescriptorSetDescAndPool &descAndPool)
+void DestroyCachedObject(RendererVk *renderer, const DescriptorSetDescAndPool &descAndPool)
 {
     ASSERT(descAndPool.mPool != nullptr);
-    descAndPool.mPool->destroyCachedDescriptorSet(descAndPool.mDesc);
+    descAndPool.mPool->destroyCachedDescriptorSet(renderer, descAndPool.mDesc);
 }
 }  // anonymous namespace
 
@@ -2668,8 +2675,9 @@ void GraphicsPipelineDesc::initDefaults(const ContextVk *contextVk)
               &mColorBlendStateInfo.attachments[gl::IMPLEMENTATION_MAX_DRAW_BUFFERS],
               blendAttachmentState);
 
-    mDither.emulatedDitherControl = 0;
-    mDither.unused                = 0;
+    mDitherAndWorkarounds.emulatedDitherControl             = 0;
+    mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround = 0;
+    mDitherAndWorkarounds.unused                            = 0;
 
     SetBitField(mDynamicState.ds1And2.cullMode, VK_CULL_MODE_NONE);
     SetBitField(mDynamicState.ds1And2.frontFace, VK_FRONT_FACE_COUNTER_CLOCKWISE);
@@ -3031,8 +3039,10 @@ angle::Result GraphicsPipelineDesc::initializePipeline(
     depthStencilState.depthBoundsTestEnable =
         static_cast<VkBool32>(inputAndRaster.misc.depthBoundsTest);
     depthStencilState.stencilTestEnable = static_cast<VkBool32>(mDynamicState.ds1And2.stencilTest);
-    UnpackStencilState(mDynamicState.ds1.front, &depthStencilState.front);
-    UnpackStencilState(mDynamicState.ds1.back, &depthStencilState.back);
+    UnpackStencilState(mDynamicState.ds1.front, &depthStencilState.front,
+                       mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround);
+    UnpackStencilState(mDynamicState.ds1.back, &depthStencilState.back,
+                       mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround);
     depthStencilState.minDepthBounds = 0;
     depthStencilState.maxDepthBounds = 0;
 
@@ -3702,10 +3712,18 @@ void GraphicsPipelineDesc::updateEmulatedDitherControl(GraphicsPipelineTransitio
                                                        uint16_t value)
 {
     // Make sure we don't waste time resetting this to zero in the common no-dither case.
-    ASSERT(value != 0 || mDither.emulatedDitherControl != 0);
+    ASSERT(value != 0 || mDitherAndWorkarounds.emulatedDitherControl != 0);
 
-    mDither.emulatedDitherControl = value;
-    transition->set(ANGLE_GET_TRANSITION_BIT(mDither, emulatedDitherControl));
+    mDitherAndWorkarounds.emulatedDitherControl = value;
+    transition->set(ANGLE_GET_TRANSITION_BIT(mDitherAndWorkarounds, emulatedDitherControl));
+}
+
+void GraphicsPipelineDesc::updateNonZeroStencilWriteMaskWorkaround(
+    GraphicsPipelineTransitionBits *transition,
+    bool enabled)
+{
+    mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround = enabled;
+    transition->set(ANGLE_GET_TRANSITION_BIT(mDitherAndWorkarounds, emulatedDitherControl));
 }
 
 void GraphicsPipelineDesc::updateRenderPassDesc(GraphicsPipelineTransitionBits *transition,
@@ -5515,7 +5533,7 @@ void SharedCacheKeyManager<SharedCacheKeyT>::releaseKeys(ContextVk *contextVk)
 }
 
 template <class SharedCacheKeyT>
-void SharedCacheKeyManager<SharedCacheKeyT>::destroyKeys()
+void SharedCacheKeyManager<SharedCacheKeyT>::destroyKeys(RendererVk *renderer)
 {
     for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
@@ -5523,7 +5541,7 @@ void SharedCacheKeyManager<SharedCacheKeyT>::destroyKeys()
         if (*sharedCacheKey.get() != nullptr)
         {
             // Immediate destroy the cached object and the key
-            DestroyCachedObject(*(*sharedCacheKey.get()));
+            DestroyCachedObject(renderer, *(*sharedCacheKey.get()));
             *sharedCacheKey.get() = nullptr;
         }
     }

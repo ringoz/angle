@@ -10,8 +10,6 @@
 
 #include "common/debug.h"
 
-bool gUseAndroidOpenGLTlsSlot = false;
-
 TLSIndex CreateTLSIndex(PthreadKeyDestructor destructor)
 {
     TLSIndex index;

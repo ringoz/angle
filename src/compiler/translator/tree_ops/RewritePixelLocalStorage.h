@@ -7,7 +7,7 @@
 #ifndef COMPILER_TRANSLATOR_TREEOPS_REWRITE_PIXELLOCALSTORAGE_H_
 #define COMPILER_TRANSLATOR_TREEOPS_REWRITE_PIXELLOCALSTORAGE_H_
 
-#include "common/angleutils.h"
+#include <GLSLANG/ShaderLang.h>
 
 namespace sh
 {
@@ -21,6 +21,7 @@ class TSymbolTable;
 [[nodiscard]] bool RewritePixelLocalStorageToImages(TCompiler *compiler,
                                                     TIntermBlock *root,
                                                     TSymbolTable &symbolTable,
+                                                    const ShCompileOptions &compileOptions,
                                                     int shaderVersion);
 
 }  // namespace sh

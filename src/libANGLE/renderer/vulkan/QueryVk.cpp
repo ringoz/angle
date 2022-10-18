@@ -52,7 +52,8 @@ bool IsEmulatedTransformFeedbackQuery(ContextVk *contextVk, gl::QueryType type)
 
 bool IsPrimitivesGeneratedQueryShared(ContextVk *contextVk)
 {
-    return !contextVk->getFeatures().supportsPipelineStatisticsQuery.enabled;
+    return !contextVk->getFeatures().supportsPrimitivesGeneratedQuery.enabled &&
+           !contextVk->getFeatures().supportsPipelineStatisticsQuery.enabled;
 }
 
 QueryVk *GetShareQuery(ContextVk *contextVk, gl::QueryType type)
@@ -301,6 +302,13 @@ angle::Result QueryVk::setupBegin(ContextVk *contextVk)
 angle::Result QueryVk::begin(const gl::Context *context)
 {
     ContextVk *contextVk = vk::GetImpl(context);
+
+    // Ensure that we start with the right RenderPass when we begin a new query.
+    if (contextVk->getState().isDrawFramebufferBindingDirty())
+    {
+        ANGLE_TRY(contextVk->flushCommandsAndEndRenderPass(
+            RenderPassClosureReason::FramebufferBindingChange));
+    }
 
     mCachedResultValid = false;
 

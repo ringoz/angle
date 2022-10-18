@@ -420,8 +420,7 @@ void DisplayVk::populateFeatureList(angle::FeatureList *features)
 
 ShareGroupVk::ShareGroupVk() : mOrphanNonEmptyBufferBlock(false)
 {
-    mLastPruneTime              = angle::GetCurrentSystemTime();
-    mPrevUploadedMutableTexture = nullptr;
+    mLastPruneTime = angle::GetCurrentSystemTime();
 }
 
 void ShareGroupVk::addContext(ContextVk *contextVk)
@@ -459,12 +458,9 @@ void ShareGroupVk::onDestroy(const egl::Display *display)
     mPipelineLayoutCache.destroy(renderer);
     mDescriptorSetLayoutCache.destroy(renderer);
 
-    mMetaDescriptorPools[DescriptorSetIndex::UniformsAndXfb].destroy(
-        renderer, VulkanCacheType::UniformsAndXfbDescriptors);
-    mMetaDescriptorPools[DescriptorSetIndex::Texture].destroy(renderer,
-                                                              VulkanCacheType::TextureDescriptors);
-    mMetaDescriptorPools[DescriptorSetIndex::ShaderResource].destroy(
-        renderer, VulkanCacheType::ShaderResourcesDescriptors);
+    mMetaDescriptorPools[DescriptorSetIndex::UniformsAndXfb].destroy(renderer);
+    mMetaDescriptorPools[DescriptorSetIndex::Texture].destroy(renderer);
+    mMetaDescriptorPools[DescriptorSetIndex::ShaderResource].destroy(renderer);
 
     mFramebufferCache.destroy(renderer);
     resetPrevTexture();
@@ -485,6 +481,16 @@ void ShareGroupVk::releaseResourceUseLists(const Serial &submitSerial)
 }
 
 angle::Result ShareGroupVk::onMutableTextureUpload(ContextVk *contextVk, TextureVk *newTexture)
+{
+    return mTextureUpload.onMutableTextureUpload(contextVk, newTexture);
+}
+
+void ShareGroupVk::onTextureRelease(TextureVk *textureVk)
+{
+    mTextureUpload.onTextureRelease(textureVk);
+}
+
+angle::Result TextureUpload::onMutableTextureUpload(ContextVk *contextVk, TextureVk *newTexture)
 {
     // This feature is currently disabled in the case of display-level texture sharing.
     ASSERT(!contextVk->hasDisplayTextureShareGroup());
@@ -518,7 +524,7 @@ angle::Result ShareGroupVk::onMutableTextureUpload(ContextVk *contextVk, Texture
     return angle::Result::Continue;
 }
 
-void ShareGroupVk::onTextureRelease(TextureVk *textureVk)
+void TextureUpload::onTextureRelease(TextureVk *textureVk)
 {
     if (mPrevUploadedMutableTexture == textureVk)
     {

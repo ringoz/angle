@@ -451,6 +451,7 @@ set(libangle_common_sources
   "src/common/android_util.h"
   "src/common/angleutils.cpp"
   "src/common/angleutils.h"
+  "src/common/apple_platform_utils.mm"
   "src/common/apple_platform_utils.h"
   "src/common/bitset_utils.h"
   "src/common/debug.cpp"

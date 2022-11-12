@@ -451,7 +451,6 @@ set(libangle_common_sources
   "src/common/android_util.h"
   "src/common/angleutils.cpp"
   "src/common/angleutils.h"
-  "src/common/apple_platform_utils.mm"
   "src/common/apple_platform_utils.h"
   "src/common/bitset_utils.h"
   "src/common/debug.cpp"
@@ -1095,6 +1094,7 @@ elseif(APPLE)
     PRIVATE 
       ${angle_translator_glsl_base_sources}
       ${angle_translator_lib_metal_sources}
+      "src/common/apple_platform_utils.mm"
       "src/common/system_utils_posix.cpp"
       "src/common/system_utils_apple.cpp"
       "src/common/system_utils_ios.cpp"

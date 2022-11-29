@@ -526,6 +526,7 @@ set(libangle_image_util_sources
   "src/image_util/loadimage.cpp"
   "src/image_util/loadimage_etc.cpp"
   "src/image_util/loadimage_astc.cpp"
+  "src/image_util/loadimage_paletted.cpp"
 )
 
 set(libangle_gpu_info_util_sources
@@ -557,7 +558,6 @@ set(libangle_includes
   "include/platform/FeaturesMtl_autogen.h"
   "include/platform/FeaturesVk_autogen.h"
   "include/platform/FrontendFeatures_autogen.h"
-  "include/platform/Platform.h"
   "include/platform/PlatformMethods.h"
   "include/vulkan/vulkan_fuchsia_ext.h"
 )
@@ -602,6 +602,7 @@ set(libangle_headers
   "src/libANGLE/IndexRangeCache.h"
   "src/libANGLE/InfoLog.h"
   "src/libANGLE/LoggingAnnotator.h"
+  "src/libANGLE/PixelLocalStorage.h"
   "src/libANGLE/MemoryObject.h"
   "src/libANGLE/MemoryProgramCache.h"
   "src/libANGLE/MemoryShaderCache.h"
@@ -732,6 +733,7 @@ set(libangle_sources
   "src/libANGLE/ImageIndex.cpp"
   "src/libANGLE/IndexRangeCache.cpp"
   "src/libANGLE/LoggingAnnotator.cpp"
+  "src/libANGLE/PixelLocalStorage.cpp"
   "src/libANGLE/MemoryObject.cpp"
   "src/libANGLE/MemoryProgramCache.cpp"
   "src/libANGLE/MemoryShaderCache.cpp"

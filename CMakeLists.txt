@@ -323,12 +323,12 @@ set(angle_translator_hlsl_sources
 set(angle_translator_lib_metal_sources
   "src/compiler/translator/DriverUniformMetal.cpp"
   "src/compiler/translator/DriverUniformMetal.h"
-  "src/compiler/translator/ConstantNames.cpp"
   "src/compiler/translator/TranslatorMetalDirect.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.h"
   "src/compiler/translator/TranslatorMetalDirect/AstHelpers.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AstHelpers.h"
+  "src/compiler/translator/TranslatorMetalDirect/ConstantNames.cpp"
   "src/compiler/translator/TranslatorMetalDirect/DebugSink.h"
   "src/compiler/translator/TranslatorMetalDirect/DiscoverDependentFunctions.cpp"
   "src/compiler/translator/TranslatorMetalDirect/DiscoverDependentFunctions.h"

@@ -3652,6 +3652,77 @@ TEST_P(GLSLTest, NestedPowStatements)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
+// This test covers a crash seen in an application during SPIR-V compilation
+TEST_P(GLSLTest_ES3, NestedPowFromUniform)
+{
+    constexpr char kVS[] = R"(#version 300 es
+in vec2 position;
+void main()
+{
+    gl_Position = vec4(position, 0, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+precision mediump float;
+precision mediump int;
+
+uniform highp vec4 scale;
+out mediump vec4 out_FragColor;
+void main()
+{
+    highp vec4 v0;
+    v0 = scale;
+    highp vec3 v1;
+    v1.xyz = v0.xyz;
+    if ((v0.y!=1.0))
+    {
+        vec3 v3;
+        v3.xyz = pow(v0.xyz,v0.xxx);
+        float h0;
+        if ((v3.x < 3.13))
+        {
+            h0 = (v3.x * 1.29);
+        }
+        else
+        {
+            h0 = ((pow(v3.x,4.16)*1.055)+-5.5);
+        }
+        float h1;
+        if ((v3.y<3.13))
+        {
+            h1 = (v3.y*1.29);
+        }
+        else
+        {
+            h1 = ((pow(v3.y,4.16)*1.055)+-5.5);
+        }
+        float h2;
+        if ((v3.z<3.13))
+        {
+            h2 = (v3.z*1.29);
+        }
+        else
+        {
+            h2 = ((pow(v3.z,4.16)*1.055)+-5.5);
+        }
+        v1.xyz = vec3(h0, h1, h2);
+    }
+    out_FragColor = vec4(v1, v0.w);
+}
+)";
+
+    ANGLE_GL_PROGRAM(prog, kVS, kFS);
+
+    GLint scaleIndex = glGetUniformLocation(prog.get(), "scale");
+    ASSERT_NE(-1, scaleIndex);
+
+    glUseProgram(prog.get());
+    glUniform4f(scaleIndex, 0.5, 0.5, 0.5, 0.5);
+
+    // Don't crash
+    drawQuad(prog.get(), "position", 0.5f);
+}
+
 // Test that -float calculation is correct.
 TEST_P(GLSLTest_ES3, UnaryMinusOperatorFloat)
 {
@@ -10529,45 +10600,45 @@ void main() {
 
     constexpr size_t kMatrixCount = 6;
     mat4 data[]                   = {
-                          {
-                              {0, 1, 2, 3},      //
-                              {4, 5, 6, 7},      //
-                              {8, 9, 10, 11},    //
-                              {12, 13, 14, 15},  //
+        {
+            {0, 1, 2, 3},      //
+            {4, 5, 6, 7},      //
+            {8, 9, 10, 11},    //
+            {12, 13, 14, 15},  //
         },
-                          {
-                              //     +-- we should be looking up this column
+        {
+            //     +-- we should be looking up this column
             //     V
             {0, 4, 8, 12},   //
             {1, 5, 9, 13},   //
             {2, 6, 10, 14},  //
             {3, 7, 11, 15},  //
         },
-                          {
-                              {0, 2, 4, 6},      //
-                              {8, 10, 12, 14},   //
-                              {16, 18, 20, 22},  //
-                              {24, 26, 28, 30},  //
+        {
+            {0, 2, 4, 6},      //
+            {8, 10, 12, 14},   //
+            {16, 18, 20, 22},  //
+            {24, 26, 28, 30},  //
         },
-                          {
-                              {0, 0, 0, 0},  //
-                              {0, 0, 0, 0},  //
-                              {0, 0, 0, 0},  //
-                              {0, 0, 0, 0},  //
+        {
+            {0, 0, 0, 0},  //
+            {0, 0, 0, 0},  //
+            {0, 0, 0, 0},  //
+            {0, 0, 0, 0},  //
         },
-                          {
-                              {0, 0, 0, 0},  //
-                              {0, 0, 0, 2},  //
-                              {0, 0, 0, 0},  //
-                              {0, 1, 0, 0},
-                              //  ^
-                              //  +-- we should be using this element
+        {
+            {0, 0, 0, 0},  //
+            {0, 0, 0, 2},  //
+            {0, 0, 0, 0},  //
+            {0, 1, 0, 0},
+            //  ^
+            //  +-- we should be using this element
         },
-                          {
-                              {0, 0, 0, 0},  //
-                              {0, 0, 0, 0},  //
-                              {0, 0, 0, 0},  //
-                              {0, 0, 0, 0},  //
+        {
+            {0, 0, 0, 0},  //
+            {0, 0, 0, 0},  //
+            {0, 0, 0, 0},  //
+            {0, 0, 0, 0},  //
         },
     };
 
@@ -12801,9 +12872,9 @@ void main() { v_varying = a_position.x; gl_Position = a_position; })";
     EXPECT_EQ(0u, program);
 }
 
-// Test that reusing the same variable name for different uses across stages links fine.  Glslang
-// wrapper's SPIR-V transformation should ignore all names for non-shader-interface variables and
-// not get confused by them.
+// Test that reusing the same variable name for different uses across stages links fine.  The SPIR-V
+// transformation should ignore all names for non-shader-interface variables and not get confused by
+// them.
 TEST_P(GLSLTest_ES31, VariableNameReuseAcrossStages)
 {
     constexpr char kVS[] = R"(#version 310 es
@@ -16000,6 +16071,36 @@ TEST_P(GLSLTest_ES3, MonomorphizeForAndContinue)
     ASSERT_GL_NO_ERROR();
 }
 
+// Tests inout parameters with array references.
+TEST_P(GLSLTest_ES3, InoutWithArrayRefs)
+{
+    const char kVS[] = R"(#version 300 es
+precision highp float;
+void swap(inout float a, inout float b)
+{
+    float tmp = a;
+    a = b;
+    b = tmp;
+}
+
+void main(void)
+{
+    vec3 testVec = vec3(0.0, 1.0, 1.0);
+    swap(testVec[0], testVec[1]);
+    gl_Position = vec4(testVec[0], testVec[1], testVec[2], 1.0);
+})";
+
+    const char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 color;
+void main()
+{
+    color = vec4(0,1,0,0);
+})";
+
+    ANGLE_GL_PROGRAM(testProgram, kVS, kFS);
+}
+
 // Test that shader caching maintains uniforms across compute shader compilations.
 TEST_P(GLSLTest_ES31, ShaderCacheComputeWithUniform)
 {
@@ -16130,7 +16231,7 @@ void main() {
     ASSERT_GL_NO_ERROR();
 
     auto outputData                       = static_cast<const GLuint *>(glMapBufferRange(
-                              GL_SHADER_STORAGE_BUFFER, 0, sizeof(GLuint) * kOutputInitData.size(), GL_MAP_READ_BIT));
+        GL_SHADER_STORAGE_BUFFER, 0, sizeof(GLuint) * kOutputInitData.size(), GL_MAP_READ_BIT));
     constexpr std::array<GLuint, 6> kWant = {kInput1Data, kInput1Data, kInput1Data,
                                              kInput2Data, kInput2Data, kInput2Data};
     for (int i = 0; i < static_cast<int>(kWant.size()); ++i)
@@ -17253,29 +17354,23 @@ void main()
 
 }  // anonymous namespace
 
-ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(GLSLTest,
-                                       ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(GLSLTest);
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(GLSLTestNoValidation);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES3);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTest_ES3,
-                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES3(GLSLTest_ES3);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTestLoops);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTestLoops,
-                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES3(GLSLTestLoops);
 
-ANGLE_INSTANTIATE_TEST_ES2_AND(WebGLGLSLTest,
-                               ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES2(WebGLGLSLTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WebGL2GLSLTest);
-ANGLE_INSTANTIATE_TEST_ES3_AND(WebGL2GLSLTest,
-                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES3(WebGL2GLSLTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31);
-ANGLE_INSTANTIATE_TEST_ES31_AND(GLSLTest_ES31,
-                                ES31_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES31(GLSLTest_ES31);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31_InitShaderVariables);
 ANGLE_INSTANTIATE_TEST(GLSLTest_ES31_InitShaderVariables,

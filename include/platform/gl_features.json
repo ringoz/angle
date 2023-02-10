@@ -645,6 +645,13 @@
             "issue": "http://anglebug.com/7527"
         },
         {
+            "name": "emulate_clip_distance_state",
+            "category": "Workarounds",
+            "description": [
+                "Some drivers ignore GL_CLIP_DISTANCEi_EXT state."
+            ]
+        },
+        {
             "name": "supports_fragment_shader_interlock_NV",
             "category": "Features",
             "description": [
@@ -681,6 +688,14 @@
             "category": "Features",
             "description": [
                 "Backend GL context supports EXT_shader_framebuffer_fetch_non_coherent extension"
+            ],
+            "issue": "http://anglebug.com/7279"
+        },
+        {
+            "name": "supports_shader_pixel_local_storage_EXT",
+            "category": "Features",
+            "description": [
+                "Backend GL context supports EXT_shader_pixel_local_storage extension"
             ],
             "issue": "http://anglebug.com/7279"
         }

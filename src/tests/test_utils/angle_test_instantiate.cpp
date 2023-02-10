@@ -15,10 +15,10 @@
 #include <map>
 
 #include "angle_gl.h"
+#include "common/base/anglebase/no_destructor.h"
 #include "common/debug.h"
 #include "common/platform.h"
 #include "common/system_utils.h"
-#include "common/third_party/base/anglebase/no_destructor.h"
 #include "gpu_info_util/SystemInfo.h"
 #include "test_utils/angle_test_configs.h"
 #include "util/EGLWindow.h"
@@ -38,7 +38,9 @@ namespace angle
 {
 namespace
 {
-bool IsAngleEGLConfigSupported(const PlatformParameters &param, OSWindow *osWindow)
+bool IsEGLConfigSupported(const PlatformParameters &param,
+                          OSWindow *osWindow,
+                          const char *eglLibraryName)
 {
     std::unique_ptr<angle::Library> eglLibrary;
 
@@ -56,6 +58,16 @@ bool IsAngleEGLConfigSupported(const PlatformParameters &param, OSWindow *osWind
     eglWindow->destroyGL();
     EGLWindow::Delete(&eglWindow);
     return result;
+}
+
+bool IsAngleEGLConfigSupported(const PlatformParameters &param, OSWindow *osWindow)
+{
+    return IsEGLConfigSupported(param, osWindow, ANGLE_EGL_LIBRARY_NAME);
+}
+
+bool IsAngleVulkanSecondariesEGLConfigSupported(const PlatformParameters &param, OSWindow *osWindow)
+{
+    return IsEGLConfigSupported(param, osWindow, ANGLE_VULKAN_SECONDARIES_EGL_LIBRARY_NAME);
 }
 
 bool IsSystemWGLConfigSupported(const PlatformParameters &param, OSWindow *osWindow)
@@ -98,6 +110,11 @@ bool IsSystemEGLConfigSupported(const PlatformParameters &param, OSWindow *osWin
 #else
     return false;
 #endif
+}
+
+bool IsZinkEGLConfigSupported(const PlatformParameters &param, OSWindow *osWindow)
+{
+    return IsEGLConfigSupported(param, osWindow, ANGLE_MESA_EGL_LIBRARY_NAME);
 }
 
 bool IsAndroidDevice(const std::string &deviceName)
@@ -350,6 +367,11 @@ bool IsPixel4XL()
     return IsAndroidDevice("Pixel 4 XL");
 }
 
+bool IsPixel6()
+{
+    return IsAndroidDevice("Pixel 6");
+}
+
 bool IsNVIDIAShield()
 {
     return IsAndroidDevice("SHIELD Android TV");
@@ -412,6 +434,15 @@ bool Is64Bit()
 #endif  // defined(ANGLE_IS_64_BIT_CPU)
 }
 
+bool HasMesa()
+{
+#if defined(ANGLE_HAS_MESA)
+    return true;
+#else
+    return false;
+#endif  // defined(ANGLE_HAS_MESA)
+}
+
 bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters &param)
 {
     VendorID vendorID =
@@ -446,6 +477,20 @@ bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters 
         return false;
     }
 #endif
+
+    if (param.driver == GLESDriverType::AngleVulkanSecondariesEGL)
+    {
+        if (param.getRenderer() != EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE)
+        {
+            return false;
+        }
+        if (IsAndroid() &&
+            param.getDeviceType() == EGL_PLATFORM_ANGLE_DEVICE_TYPE_SWIFTSHADER_ANGLE)
+        {
+            return false;
+        }
+        return true;
+    }
 
     if (IsWindows())
     {
@@ -567,6 +612,8 @@ bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters 
                 return param.getRenderer() == EGL_PLATFORM_ANGLE_TYPE_DEFAULT_ANGLE;
             case GLESDriverType::SystemWGL:
                 return false;
+            case GLESDriverType::ZinkEGL:
+                return HasMesa();
             default:
                 break;
         }
@@ -643,11 +690,17 @@ bool IsConfigSupported(const PlatformParameters &param)
             case GLESDriverType::AngleEGL:
                 result = IsAngleEGLConfigSupported(param, osWindow);
                 break;
+            case GLESDriverType::AngleVulkanSecondariesEGL:
+                result = IsAngleVulkanSecondariesEGLConfigSupported(param, osWindow);
+                break;
             case GLESDriverType::SystemEGL:
                 result = IsSystemEGLConfigSupported(param, osWindow);
                 break;
             case GLESDriverType::SystemWGL:
                 result = IsSystemWGLConfigSupported(param, osWindow);
+                break;
+            case GLESDriverType::ZinkEGL:
+                result = IsZinkEGLConfigSupported(param, osWindow);
                 break;
         }
 
@@ -663,7 +716,7 @@ bool IsPlatformAvailable(const PlatformParameters &param)
     // Disable "null" device when not on ANGLE or in D3D9.
     if (param.getDeviceType() == EGL_PLATFORM_ANGLE_DEVICE_TYPE_NULL_ANGLE)
     {
-        if (param.driver != GLESDriverType::AngleEGL)
+        if (!IsANGLE(param.driver))
             return false;
         if (param.getRenderer() == EGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE)
             return false;
@@ -797,5 +850,43 @@ void SetSelectedConfig(const char *selectedConfig)
 {
     gSelectedConfig.fill(0);
     strncpy(gSelectedConfig.data(), selectedConfig, kMaxConfigNameLen - 1);
+}
+
+GLESDriverType GetDriverTypeFromString(const char *driverName, GLESDriverType defaultDriverType)
+{
+    if (!driverName)
+    {
+        return defaultDriverType;
+    }
+
+    if (strcmp(driverName, "angle") == 0)
+    {
+        return GLESDriverType::AngleEGL;
+    }
+
+    if (strcmp(driverName, "angle-vulkan-secondaries") == 0)
+    {
+        return GLESDriverType::AngleVulkanSecondariesEGL;
+    }
+
+    if (strcmp(driverName, "zink") == 0)
+    {
+        return GLESDriverType::ZinkEGL;
+    }
+
+    if (strcmp(driverName, "native") == 0 || strcmp(driverName, "system") == 0)
+    {
+        if (IsWindows())
+        {
+            return GLESDriverType::SystemWGL;
+        }
+        else
+        {
+            return GLESDriverType::SystemEGL;
+        }
+    }
+
+    printf("Unknown driver type: %s\n", driverName);
+    exit(EXIT_FAILURE);
 }
 }  // namespace angle

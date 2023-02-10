@@ -143,6 +143,11 @@ bool ImageSibling::isCreatedWithAHB() const
     return mTargetOf.get() && mTargetOf->isCreatedWithAHB();
 }
 
+bool ImageSibling::hasFrontBufferUsage() const
+{
+    return mTargetOf.get() && mTargetOf->hasFrontBufferUsage();
+}
+
 bool ImageSibling::hasProtectedContent() const
 {
     return mTargetOf.get() && mTargetOf->hasProtectedContent();
@@ -221,6 +226,11 @@ bool ExternalImageSibling::isYUV() const
     return mImplementation->isYUV();
 }
 
+bool ExternalImageSibling::hasFrontBufferUsage() const
+{
+    return mImplementation->hasFrontBufferUsage();
+}
+
 bool ExternalImageSibling::isCubeMap() const
 {
     return mImplementation->isCubeMap();
@@ -231,9 +241,11 @@ bool ExternalImageSibling::hasProtectedContent() const
     return mImplementation->hasProtectedContent();
 }
 
-void ExternalImageSibling::onAttach(const gl::Context *context, rx::Serial framebufferSerial) {}
+void ExternalImageSibling::onAttach(const gl::Context *context, rx::UniqueSerial framebufferSerial)
+{}
 
-void ExternalImageSibling::onDetach(const gl::Context *context, rx::Serial framebufferSerial) {}
+void ExternalImageSibling::onDetach(const gl::Context *context, rx::UniqueSerial framebufferSerial)
+{}
 
 GLuint ExternalImageSibling::getId() const
 {
@@ -268,8 +280,12 @@ rx::FramebufferAttachmentObjectImpl *ExternalImageSibling::getAttachmentImpl() c
     return mImplementation.get();
 }
 
-ImageState::ImageState(EGLenum target, ImageSibling *buffer, const AttributeMap &attribs)
-    : label(nullptr),
+ImageState::ImageState(ImageID id,
+                       EGLenum target,
+                       ImageSibling *buffer,
+                       const AttributeMap &attribs)
+    : id(id),
+      label(nullptr),
       target(target),
       imageIndex(GetImageIndex(target, attribs)),
       source(buffer),
@@ -288,11 +304,12 @@ ImageState::ImageState(EGLenum target, ImageSibling *buffer, const AttributeMap 
 ImageState::~ImageState() {}
 
 Image::Image(rx::EGLImplFactory *factory,
+             ImageID id,
              const gl::Context *context,
              EGLenum target,
              ImageSibling *buffer,
              const AttributeMap &attribs)
-    : mState(target, buffer, attribs),
+    : mState(id, target, buffer, attribs),
       mImplementation(factory->createImage(mState, context, target, attribs)),
       mOrphanedAndNeedsInit(false)
 {
@@ -438,6 +455,17 @@ bool Image::isYUV() const
 bool Image::isCreatedWithAHB() const
 {
     return mState.target == EGL_NATIVE_BUFFER_ANDROID;
+}
+
+bool Image::hasFrontBufferUsage() const
+{
+    if (IsExternalImageTarget(mState.target))
+    {
+        ExternalImageSibling *externalSibling = rx::GetAs<ExternalImageSibling>(mState.source);
+        return externalSibling->hasFrontBufferUsage();
+    }
+
+    return false;
 }
 
 bool Image::isCubeMap() const

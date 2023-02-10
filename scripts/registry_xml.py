@@ -47,6 +47,7 @@ angle_toggleable_extensions = [
 angle_requestable_extensions = [
     "GL_ANGLE_base_vertex_base_instance",
     "GL_ANGLE_base_vertex_base_instance_shader_builtin",
+    "GL_ANGLE_clip_cull_distance",
     "GL_ANGLE_compressed_texture_etc",
     "GL_ANGLE_copy_texture_3d",
     "GL_ANGLE_framebuffer_multisample",
@@ -83,6 +84,7 @@ gles_requestable_extensions = [
     "GL_ANGLE_texture_usage",
     "GL_APPLE_clip_distance",
     "GL_ARB_sync",
+    "GL_ARM_shader_framebuffer_fetch",
     "GL_EXT_base_instance",
     "GL_EXT_blend_func_extended",
     "GL_EXT_blend_minmax",
@@ -113,6 +115,7 @@ gles_requestable_extensions = [
     "GL_EXT_multisampled_render_to_texture",
     "GL_EXT_multisampled_render_to_texture2",
     "GL_EXT_occlusion_query_boolean",
+    "GL_EXT_polygon_offset_clamp",
     "GL_EXT_protected_textures",
     "GL_EXT_pvrtc_sRGB",
     "GL_EXT_read_format_bgra",
@@ -319,6 +322,7 @@ supported_egl_extensions = [
     "EGL_ANGLE_swap_with_frame_token",
     "EGL_ANGLE_sync_control_rate",
     "EGL_ANGLE_vulkan_image",
+    "EGL_ANGLE_wait_until_work_scheduled",
     "EGL_ANGLE_window_fixed_size",
     "EGL_CHROMIUM_sync_control",
     "EGL_EXT_create_context_robustness",
@@ -584,6 +588,15 @@ class RegistryXML:
             self.ext_dupes[extension_name] = dupes
             self.all_cmd_names.add_commands(ext_annotations[extension_name], ext_cmd_names)
 
+    def GetEnums(self, override_prefix=None):
+        cmd_names = []
+        for cmd in self.all_cmd_names.get_all_commands():
+            stripped = strip_api_prefix(cmd)
+            prefix = override_prefix or cmd[:(len(cmd) - len(stripped))]
+            cmd_names.append(
+                ('%s%s' % (prefix.upper(), stripped), '%s%s' % (prefix.lower(), stripped)))
+        return cmd_names
+
 
 class EntryPoints:
 
@@ -613,3 +626,27 @@ class EntryPoints:
 
     def get_infos(self):
         return self._cmd_info
+
+
+def GetEGL():
+    egl = RegistryXML('egl.xml', 'egl_angle_ext.xml')
+    for major_version, minor_version in EGL_VERSIONS:
+        version = "%d_%d" % (major_version, minor_version)
+        name_prefix = "EGL_VERSION_"
+        feature_name = "%s%s" % (name_prefix, version)
+        egl.AddCommands(feature_name, version)
+    egl.AddExtensionCommands(supported_egl_extensions, ['egl'])
+    return egl
+
+
+def GetGLES():
+    gles = RegistryXML('gl.xml', 'gl_angle_ext.xml')
+    for major_version, minor_version in GLES_VERSIONS:
+        version = "{}_{}".format(major_version, minor_version)
+        name_prefix = "GL_ES_VERSION_"
+        if major_version == 1:
+            name_prefix = "GL_VERSION_ES_CM_"
+        feature_name = "{}{}".format(name_prefix, version)
+        gles.AddCommands(feature_name, version)
+    gles.AddExtensionCommands(supported_extensions, ['gles2', 'gles1'])
+    return gles

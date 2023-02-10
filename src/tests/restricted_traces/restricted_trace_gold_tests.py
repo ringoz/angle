@@ -11,7 +11,6 @@
 
 import argparse
 import contextlib
-import fnmatch
 import json
 import logging
 import os
@@ -38,9 +37,8 @@ angle_path_util.AddDepsDirToPath('testing/scripts')
 import common
 
 
-ANGLE_PERFTESTS = 'angle_perftests'
-DEFAULT_TEST_PREFIX = 'TracePerfTest.Run/vulkan_'
-SWIFTSHADER_TEST_PREFIX = 'TracePerfTest.Run/vulkan_swiftshader_'
+DEFAULT_TEST_SUITE = angle_test_util.ANGLE_TRACE_TEST_SUITE
+DEFAULT_TEST_PREFIX = 'TraceTest.'
 DEFAULT_SCREENSHOT_PREFIX = 'angle_vulkan_'
 SWIFTSHADER_SCREENSHOT_PREFIX = 'angle_vulkan_swiftshader_'
 DEFAULT_BATCH_SIZE = 5
@@ -226,13 +224,6 @@ def upload_test_result_to_skia_gold(args, gold_session_manager, gold_session, go
     if not os.path.isfile(png_file_name):
         raise Exception('Screenshot not found: ' + png_file_name)
 
-    # TODO(anglebug.com/7550): temporary logging of skia_gold_session's RunComparison internals
-    auth_rc, auth_stdout = gold_session.Authenticate(use_luci=use_luci)
-    if auth_rc == 0:
-        init_rc, init_stdout = gold_session.Initialize()
-        if init_stdout is not None:
-            logging.info('gold_session.Initialize stdout: %s', init_stdout)
-
     status, error = gold_session.RunComparison(
         name=image_name, png_file=png_file_name, use_luci=use_luci)
 
@@ -281,15 +272,14 @@ def _get_batches(traces, batch_size):
 
 
 def _get_gtest_filter_for_batch(args, batch):
-    prefix = SWIFTSHADER_TEST_PREFIX if args.swiftshader else DEFAULT_TEST_PREFIX
-    expanded = ['%s%s' % (prefix, trace) for trace in batch]
+    expanded = ['%s%s' % (DEFAULT_TEST_PREFIX, trace) for trace in batch]
     return '--gtest_filter=%s' % ':'.join(expanded)
 
 
 def _run_tests(args, tests, extra_flags, env, screenshot_dir, results, test_results):
     keys = get_skia_gold_keys(args, env)
 
-    if angle_test_util.IsAndroid() and args.test_suite == ANGLE_PERFTESTS:
+    if angle_test_util.IsAndroid() and args.test_suite == DEFAULT_TEST_SUITE:
         android_helper.RunSmokeTest()
 
     with temporary_dir('angle_skia_gold_') as skia_gold_temp_dir:
@@ -301,16 +291,7 @@ def _run_tests(args, tests, extra_flags, env, screenshot_dir, results, test_resu
         traces = [trace.split(' ')[0] for trace in tests]
 
         if args.isolated_script_test_filter:
-            filtered = []
-            for trace in traces:
-                # Apply test filter if present.
-                full_name = 'angle_restricted_trace_gold_tests.%s' % trace
-                if not fnmatch.fnmatch(full_name, args.isolated_script_test_filter):
-                    logging.info('Skipping test %s because it does not match filter %s' %
-                                 (full_name, args.isolated_script_test_filter))
-                else:
-                    filtered += [trace]
-            traces = filtered
+            traces = angle_test_util.FilterTests(traces, args.isolated_script_test_filter)
 
         batches = _get_batches(traces, args.batch_size)
 
@@ -331,10 +312,11 @@ def _run_tests(args, tests, extra_flags, env, screenshot_dir, results, test_resu
                     gtest_filter,
                     '--one-frame-only',
                     '--verbose-logging',
-                    '--enable-all-trace-tests',
                     '--render-test-output-dir=%s' % screenshot_dir,
                     '--save-screenshots',
                 ] + extra_flags
+                if args.swiftshader:
+                    cmd_args += ['--use-angle=swiftshader']
                 result, _, json_results = angle_test_util.RunTestSuite(
                     args.test_suite, cmd_args, env, use_xvfb=args.xvfb)
                 batch_result = PASS if result == 0 else FAIL
@@ -344,8 +326,7 @@ def _run_tests(args, tests, extra_flags, env, screenshot_dir, results, test_resu
                     artifacts = {}
 
                     if batch_result == PASS:
-                        test_prefix = SWIFTSHADER_TEST_PREFIX if args.swiftshader else DEFAULT_TEST_PREFIX
-                        test_name = test_prefix + trace
+                        test_name = DEFAULT_TEST_PREFIX + trace
                         if json_results['tests'][test_name]['actual'] == 'SKIP':
                             logging.info('Test skipped by suite: %s' % test_name)
                             result = SKIP
@@ -385,7 +366,7 @@ def main():
     parser.add_argument('--isolated-script-test-output', type=str)
     parser.add_argument('--isolated-script-test-perf-output', type=str)
     parser.add_argument('-f', '--isolated-script-test-filter', '--filter', type=str)
-    parser.add_argument('--test-suite', help='Test suite to run.', default=ANGLE_PERFTESTS)
+    parser.add_argument('--test-suite', help='Test suite to run.', default=DEFAULT_TEST_SUITE)
     parser.add_argument('--render-test-output-dir', help='Directory to store screenshots')
     parser.add_argument('--xvfb', help='Start xvfb.', action='store_true')
     parser.add_argument(

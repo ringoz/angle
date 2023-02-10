@@ -24890,9 +24890,17 @@ constexpr SymbolRule kRules[] = {
     Rule::Get<Spec::ESSL, 0, Shader::ALL, EXT_INDEX(APPLE_clip_distance)>(
         &TableBase::m_gl_MaxClipDistancesAPPLE),
     Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_MaxCullDistancesEXT),
+        &TableBase::m_gl_MaxClipDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_MaxClipDistances),
     Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_MaxCombinedClipAndCullDistancesEXT),
+        &TableBase::m_gl_MaxCullDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_MaxCullDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(EXT_clip_cull_distance)>(
+        &TableBase::m_gl_MaxCombinedClipAndCullDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_MaxCombinedClipAndCullDistances),
     Rule::Get<Spec::ESSL, 100, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_FragCoord),
     Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_FragCoord300),
     Rule::Get<Spec::ESSL, 0, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_FrontFacing),
@@ -24917,7 +24925,7 @@ constexpr SymbolRule kRules[] = {
         &TableBase::m_gl_LastFragDataNV),
     Rule::Get<Spec::ESSL, 100, Shader::FRAGMENT, EXT_INDEX(NV_shader_framebuffer_fetch)>(
         &BuiltInVariable::kgl_LastFragColor),
-    Rule::Get<Spec::ESSL, 100, Shader::FRAGMENT, EXT_INDEX(ARM_shader_framebuffer_fetch)>(
+    Rule::Get<Spec::ESSL, 0, Shader::FRAGMENT, EXT_INDEX(ARM_shader_framebuffer_fetch)>(
         &BuiltInVariable::kgl_LastFragColorARM),
     Rule::Get<Spec::ESSL, 320, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_PrimitiveIDES3_2),
     Rule::Get<Spec::ESSL, 320, Shader::GEOMETRY_EXT, 0>(&BuiltInVariable::kgl_PrimitiveIDGSES3_2),
@@ -24959,14 +24967,6 @@ constexpr SymbolRule kRules[] = {
     Rule::Get<Spec::ESSL, 320, Shader::FRAGMENT, 0>(&TableBase::m_gl_SampleMaskES3_2),
     Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, EXT_INDEX(OES_sample_variables)>(
         &TableBase::m_gl_SampleMask),
-    Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_CullDistance),
-    Rule::Get<Spec::ESSL, 300, Shader::VERTEX, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_CullDistanceEXT),
-    Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_ClipDistance),
-    Rule::Get<Spec::ESSL, 0, Shader::VERTEX, EXT_INDEX(APPLE_clip_distance)>(
-        &TableBase::m_gl_ClipDistanceAPPLE),
     Rule::Get<Spec::ESSL, 0, Shader::VERTEX, 0>(&BuiltInVariable::kgl_Position),
     Rule::Get<Spec::ESSL, 320, Shader::GEOMETRY_EXT, 0>(&TableBase::m_gl_PositionGSES3_2),
     Rule::Get<Spec::ESSL, 320, Shader::TESS_CONTROL_EXT, 0>(&TableBase::m_gl_PositionTCSES3_2),
@@ -25005,6 +25005,12 @@ constexpr SymbolRule kRules[] = {
               Shader::VERTEX,
               EXT_INDEX(ANGLE_base_vertex_base_instance_shader_builtin)>(
         &BuiltInVariable::kangle_BaseInstance),
+    Rule::Get<Spec::ESSL, 0, Shader::VERTEX, EXT_INDEX(APPLE_clip_distance)>(
+        &TableBase::m_gl_ClipDistanceAPPLE),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(EXT_clip_cull_distance)>(
+        &TableBase::m_gl_ClipDistance),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_ClipDistance),
     Rule::Get<Spec::ESSL, 310, Shader::COMPUTE, 0>(&BuiltInVariable::kgl_NumWorkGroups),
     Rule::Get<Spec::ESSL, 310, Shader::COMPUTE, 0>(&BuiltInVariable::kgl_WorkGroupSize),
     Rule::Get<Spec::ESSL, 310, Shader::COMPUTE, 0>(&BuiltInVariable::kgl_WorkGroupID),
@@ -25090,7 +25096,11 @@ constexpr SymbolRule kRules[] = {
         &TableBase::m_gl_BoundingBoxOESTCS),
     Rule::Get<Spec::ESSL, 310, Shader::TESS_EVALUATION_EXT, 0>(&BuiltInVariable::kgl_TessCoord),
     Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(OVR_multiview)>(
-        &BuiltInVariable::kgl_ViewID_OVR)};
+        &BuiltInVariable::kgl_ViewID_OVR),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(EXT_clip_cull_distance)>(
+        &TableBase::m_gl_CullDistance),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_CullDistance)};
 
 // Flat array of all mangled names.
 constexpr const char *kMangledNames[] = {"radians(00B",
@@ -26705,8 +26715,6 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "gl_SamplePosition",
                                          "gl_SampleMaskIn",
                                          "gl_SampleMask",
-                                         "gl_CullDistance",
-                                         "gl_ClipDistance",
                                          "gl_Position",
                                          "gl_PointSize",
                                          "gl_InstanceID",
@@ -26719,6 +26727,7 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "gl_BaseInstance",
                                          "angle_BaseVertex",
                                          "angle_BaseInstance",
+                                         "gl_ClipDistance",
                                          "gl_NumWorkGroups",
                                          "gl_WorkGroupSize",
                                          "gl_WorkGroupID",
@@ -26737,7 +26746,8 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "gl_BoundingBoxEXT",
                                          "gl_BoundingBoxOES",
                                          "gl_TessCoord",
-                                         "gl_ViewID_OVR"};
+                                         "gl_ViewID_OVR",
+                                         "gl_CullDistance"};
 
 // Flat array of offsets from a symbol into the rules table.
 constexpr uint16_t kMangledOffsets[] = {
@@ -28332,29 +28342,27 @@ constexpr uint16_t kMangledOffsets[] = {
     2344,  // gl_MaxTessEvaluationAtomicCounterBuffers
     2346,  // gl_MaxSamples
     2348,  // gl_MaxClipDistances
-    2349,  // gl_MaxCullDistances
-    2350,  // gl_MaxCombinedClipAndCullDistances
-    2351,  // gl_FragCoord
-    2353,  // gl_FrontFacing
-    2354,  // gl_PointCoord
-    2355,  // gl_FragColor
-    2356,  // gl_FragData
-    2357,  // gl_FragDepth
-    2358,  // gl_HelperInvocation
-    2359,  // gl_SecondaryFragColorEXT
-    2360,  // gl_SecondaryFragDataEXT
-    2361,  // gl_FragDepthEXT
-    2362,  // gl_LastFragData
-    2365,  // gl_LastFragColor
-    2366,  // gl_LastFragColorARM
-    2367,  // gl_PrimitiveID
-    2377,  // gl_Layer
-    2383,  // gl_SampleID
-    2385,  // gl_SamplePosition
-    2387,  // gl_SampleMaskIn
-    2389,  // gl_SampleMask
-    2391,  // gl_CullDistance
-    2393,  // gl_ClipDistance
+    2351,  // gl_MaxCullDistances
+    2353,  // gl_MaxCombinedClipAndCullDistances
+    2355,  // gl_FragCoord
+    2357,  // gl_FrontFacing
+    2358,  // gl_PointCoord
+    2359,  // gl_FragColor
+    2360,  // gl_FragData
+    2361,  // gl_FragDepth
+    2362,  // gl_HelperInvocation
+    2363,  // gl_SecondaryFragColorEXT
+    2364,  // gl_SecondaryFragDataEXT
+    2365,  // gl_FragDepthEXT
+    2366,  // gl_LastFragData
+    2369,  // gl_LastFragColor
+    2370,  // gl_LastFragColorARM
+    2371,  // gl_PrimitiveID
+    2381,  // gl_Layer
+    2387,  // gl_SampleID
+    2389,  // gl_SamplePosition
+    2391,  // gl_SampleMaskIn
+    2393,  // gl_SampleMask
     2395,  // gl_Position
     2403,  // gl_PointSize
     2405,  // gl_InstanceID
@@ -28367,25 +28375,27 @@ constexpr uint16_t kMangledOffsets[] = {
     2409,  // gl_BaseInstance
     2410,  // angle_BaseVertex
     2411,  // angle_BaseInstance
-    2412,  // gl_NumWorkGroups
-    2413,  // gl_WorkGroupSize
-    2414,  // gl_WorkGroupID
-    2415,  // gl_LocalInvocationID
-    2416,  // gl_GlobalInvocationID
-    2417,  // gl_LocalInvocationIndex
-    2418,  // gl_PrimitiveIDIn
-    2421,  // gl_InvocationID
-    2426,  // gl_PerVertex
-    2433,  // gl_in
-    2440,  // gl_PatchVerticesIn
-    2444,  // gl_TessLevelOuter
-    2448,  // gl_TessLevelInner
-    2452,  // gl_out
-    2456,  // gl_BoundingBox
-    2458,  // gl_BoundingBoxEXT
-    2460,  // gl_BoundingBoxOES
-    2462,  // gl_TessCoord
-    2463,  // gl_ViewID_OVR
+    2412,  // gl_ClipDistance
+    2415,  // gl_NumWorkGroups
+    2416,  // gl_WorkGroupSize
+    2417,  // gl_WorkGroupID
+    2418,  // gl_LocalInvocationID
+    2419,  // gl_GlobalInvocationID
+    2420,  // gl_LocalInvocationIndex
+    2421,  // gl_PrimitiveIDIn
+    2424,  // gl_InvocationID
+    2429,  // gl_PerVertex
+    2436,  // gl_in
+    2443,  // gl_PatchVerticesIn
+    2447,  // gl_TessLevelOuter
+    2451,  // gl_TessLevelInner
+    2455,  // gl_out
+    2459,  // gl_BoundingBox
+    2461,  // gl_BoundingBoxEXT
+    2463,  // gl_BoundingBoxOES
+    2465,  // gl_TessCoord
+    2466,  // gl_ViewID_OVR
+    2467,  // gl_CullDistance
 };
 
 using Ext = TExtension;
@@ -29622,24 +29632,36 @@ void TSymbolTable::initializeBuiltInVariables(sh::GLenum shaderType,
         unionArray[0].setIConst(resources.MaxClipDistances);
         static_cast<TVariable *>(m_gl_MaxClipDistancesAPPLE)->shareConstPointer(unionArray);
     }
-    m_gl_MaxCullDistancesEXT = new TVariable(
-        BuiltInId::gl_MaxCullDistancesEXT, BuiltInName::gl_MaxCullDistances, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}},
+    m_gl_MaxClipDistances = new TVariable(
+        BuiltInId::gl_MaxClipDistances, BuiltInName::gl_MaxClipDistances, SymbolType::BuiltIn,
+        std::array<TExtension, 2u>{
+            {TExtension::EXT_clip_cull_distance, TExtension::ANGLE_clip_cull_distance}},
+        StaticType::Get<EbtInt, EbpMedium, EvqConst, 1, 1>());
+    {
+        TConstantUnion *unionArray = new TConstantUnion[1];
+        unionArray[0].setIConst(resources.MaxClipDistances);
+        static_cast<TVariable *>(m_gl_MaxClipDistances)->shareConstPointer(unionArray);
+    }
+    m_gl_MaxCullDistances = new TVariable(
+        BuiltInId::gl_MaxCullDistances, BuiltInName::gl_MaxCullDistances, SymbolType::BuiltIn,
+        std::array<TExtension, 2u>{
+            {TExtension::EXT_clip_cull_distance, TExtension::ANGLE_clip_cull_distance}},
         StaticType::Get<EbtInt, EbpMedium, EvqConst, 1, 1>());
     {
         TConstantUnion *unionArray = new TConstantUnion[1];
         unionArray[0].setIConst(resources.MaxCullDistances);
-        static_cast<TVariable *>(m_gl_MaxCullDistancesEXT)->shareConstPointer(unionArray);
+        static_cast<TVariable *>(m_gl_MaxCullDistances)->shareConstPointer(unionArray);
     }
-    m_gl_MaxCombinedClipAndCullDistancesEXT =
-        new TVariable(BuiltInId::gl_MaxCombinedClipAndCullDistancesEXT,
+    m_gl_MaxCombinedClipAndCullDistances =
+        new TVariable(BuiltInId::gl_MaxCombinedClipAndCullDistances,
                       BuiltInName::gl_MaxCombinedClipAndCullDistances, SymbolType::BuiltIn,
-                      std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}},
+                      std::array<TExtension, 2u>{{TExtension::EXT_clip_cull_distance,
+                                                  TExtension::ANGLE_clip_cull_distance}},
                       StaticType::Get<EbtInt, EbpMedium, EvqConst, 1, 1>());
     {
         TConstantUnion *unionArray = new TConstantUnion[1];
         unionArray[0].setIConst(resources.MaxCombinedClipAndCullDistances);
-        static_cast<TVariable *>(m_gl_MaxCombinedClipAndCullDistancesEXT)
+        static_cast<TVariable *>(m_gl_MaxCombinedClipAndCullDistances)
             ->shareConstPointer(unionArray);
     }
     TType *type_gl_FragData = new TType(EbtFloat, EbpMedium, EvqFragData, 4);
@@ -29708,30 +29730,12 @@ void TSymbolTable::initializeBuiltInVariables(sh::GLenum shaderType,
     m_gl_SampleMaskES3_2 = new TVariable(
         BuiltInId::gl_SampleMaskES3_2, BuiltInName::gl_SampleMask, SymbolType::BuiltIn,
         std::array<TExtension, 1u>{{TExtension::UNDEFINED}}, type_gl_SampleMaskES3_2);
-    TType *type_gl_CullDistance = new TType(EbtFloat, EbpHigh, EvqCullDistance, 1);
-    type_gl_CullDistance->makeArray(resources.MaxCullDistances);
-    type_gl_CullDistance->realize();
-    m_gl_CullDistance = new TVariable(
-        BuiltInId::gl_CullDistance, BuiltInName::gl_CullDistance, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}}, type_gl_CullDistance);
-    TType *type_gl_ClipDistance = new TType(EbtFloat, EbpHigh, EvqClipDistance, 1);
-    type_gl_ClipDistance->makeArray(resources.MaxClipDistances);
-    type_gl_ClipDistance->realize();
-    m_gl_ClipDistance = new TVariable(
-        BuiltInId::gl_ClipDistance, BuiltInName::gl_ClipDistance, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}}, type_gl_ClipDistance);
     TType *type_gl_ClipDistanceAPPLE = new TType(EbtFloat, EbpHigh, EvqClipDistance, 1);
     type_gl_ClipDistanceAPPLE->makeArray(resources.MaxClipDistances);
     type_gl_ClipDistanceAPPLE->realize();
     m_gl_ClipDistanceAPPLE = new TVariable(
         BuiltInId::gl_ClipDistanceAPPLE, BuiltInName::gl_ClipDistance, SymbolType::BuiltIn,
         std::array<TExtension, 1u>{{TExtension::APPLE_clip_distance}}, type_gl_ClipDistanceAPPLE);
-    TType *type_gl_CullDistanceEXT = new TType(EbtFloat, EbpHigh, EvqCullDistance, 1);
-    type_gl_CullDistanceEXT->makeArray(resources.MaxCullDistances);
-    type_gl_CullDistanceEXT->realize();
-    m_gl_CullDistanceEXT = new TVariable(
-        BuiltInId::gl_CullDistanceEXT, BuiltInName::gl_CullDistance, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}}, type_gl_CullDistanceEXT);
     TFieldList *fields_gl_PerVertex = new TFieldList();
     fields_gl_PerVertex->push_back(new TField(new TType(EbtFloat, EbpHigh, EvqPosition, 4, 1),
                                               BuiltInName::gl_Position, zeroSourceLoc,
@@ -30019,6 +30023,22 @@ void TSymbolTable::initializeBuiltInVariables(sh::GLenum shaderType,
     m_gl_PositionTESES3_2 = new TVariable(
         BuiltInId::gl_PositionTESES3_2, BuiltInName::gl_Position, SymbolType::BuiltIn,
         std::array<TExtension, 1u>{{TExtension::UNDEFINED}}, type_gl_PositionTESES3_2);
+    TType *type_gl_ClipDistance = new TType(EbtFloat, EbpHigh, EvqClipDistance, 1);
+    type_gl_ClipDistance->makeArray(resources.MaxClipDistances);
+    type_gl_ClipDistance->realize();
+    m_gl_ClipDistance =
+        new TVariable(BuiltInId::gl_ClipDistance, BuiltInName::gl_ClipDistance, SymbolType::BuiltIn,
+                      std::array<TExtension, 2u>{{TExtension::EXT_clip_cull_distance,
+                                                  TExtension::ANGLE_clip_cull_distance}},
+                      type_gl_ClipDistance);
+    TType *type_gl_CullDistance = new TType(EbtFloat, EbpHigh, EvqCullDistance, 1);
+    type_gl_CullDistance->makeArray(resources.MaxCullDistances);
+    type_gl_CullDistance->realize();
+    m_gl_CullDistance =
+        new TVariable(BuiltInId::gl_CullDistance, BuiltInName::gl_CullDistance, SymbolType::BuiltIn,
+                      std::array<TExtension, 2u>{{TExtension::EXT_clip_cull_distance,
+                                                  TExtension::ANGLE_clip_cull_distance}},
+                      type_gl_CullDistance);
 }
 
 namespace

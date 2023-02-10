@@ -52,6 +52,7 @@ class ImageSibling : public gl::FramebufferAttachmentObject
                       const gl::ImageIndex &imageIndex) const override;
     bool isYUV() const override;
     bool isCreatedWithAHB() const override;
+    bool hasFrontBufferUsage() const override;
     bool hasProtectedContent() const override;
 
   protected:
@@ -103,11 +104,12 @@ class ExternalImageSibling : public ImageSibling
                       const gl::ImageIndex &imageIndex) const override;
     bool isTextureable(const gl::Context *context) const;
     bool isYUV() const override;
+    bool hasFrontBufferUsage() const override;
     bool isCubeMap() const;
     bool hasProtectedContent() const override;
 
-    void onAttach(const gl::Context *context, rx::Serial framebufferSerial) override;
-    void onDetach(const gl::Context *context, rx::Serial framebufferSerial) override;
+    void onAttach(const gl::Context *context, rx::UniqueSerial framebufferSerial) override;
+    void onDetach(const gl::Context *context, rx::UniqueSerial framebufferSerial) override;
     GLuint getId() const override;
 
     gl::InitState initState(GLenum binding, const gl::ImageIndex &imageIndex) const override;
@@ -130,8 +132,10 @@ class ExternalImageSibling : public ImageSibling
 
 struct ImageState : private angle::NonCopyable
 {
-    ImageState(EGLenum target, ImageSibling *buffer, const AttributeMap &attribs);
+    ImageState(ImageID id, EGLenum target, ImageSibling *buffer, const AttributeMap &attribs);
     ~ImageState();
+
+    ImageID id;
 
     EGLLabelKHR label;
     EGLenum target;
@@ -158,6 +162,7 @@ class Image final : public RefCountObject, public LabeledObject
 {
   public:
     Image(rx::EGLImplFactory *factory,
+          ImageID id,
           const gl::Context *context,
           EGLenum target,
           ImageSibling *buffer,
@@ -165,6 +170,8 @@ class Image final : public RefCountObject, public LabeledObject
 
     void onDestroy(const Display *display) override;
     ~Image() override;
+
+    ImageID id() const { return mState.id; }
 
     void setLabel(EGLLabelKHR label) override;
     EGLLabelKHR getLabel() const override;
@@ -174,6 +181,7 @@ class Image final : public RefCountObject, public LabeledObject
     bool isTexturable(const gl::Context *context) const;
     bool isYUV() const;
     bool isCreatedWithAHB() const;
+    bool hasFrontBufferUsage() const;
     // Returns true only if the eglImage contains a complete cubemap
     bool isCubeMap() const;
     size_t getWidth() const;

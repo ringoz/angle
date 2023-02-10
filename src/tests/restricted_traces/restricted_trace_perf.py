@@ -50,7 +50,6 @@ SELECTED_DEVICE = ''
 
 Result = namedtuple('Result', ['process', 'time'])
 
-
 def run_command(args):
     logging.debug('Running %s' % args)
 
@@ -191,17 +190,16 @@ def run_trace(trace, args):
 
     adb_command = 'shell am instrument -w '
     adb_command += '-e org.chromium.native_test.NativeTestInstrumentationTestRunner.StdoutFile /sdcard/Download/out.txt '
-    adb_command += '-e org.chromium.native_test.NativeTest.CommandLineFlags "--gtest_filter=TracePerfTest.Run/native' + mode + '_' + trace + '\ '
+    adb_command += '-e org.chromium.native_test.NativeTest.CommandLineFlags "--gtest_filter=TraceTest.' + trace + '\ '
+    adb_command += '--use-gl=native\ '
     if args.maxsteps != '':
         adb_command += '--max-steps-performed\ ' + args.maxsteps + '\ '
     if args.fixedtime != '':
-        adb_command += '--fixed-test-time\ ' + args.fixedtime + '\ '
+        adb_command += '--fixed-test-time-with-warmup\ ' + args.fixedtime + '\ '
     if args.minimizegpuwork:
         adb_command += '--minimize-gpu-work\ '
     adb_command += '--verbose\ '
-    adb_command += '--verbose-logging\ '
-    adb_command += '--warmup-trials\ 1\ '
-    adb_command += '--enable-all-trace-tests"\ '
+    adb_command += '--verbose-logging\"\ '
     adb_command += '-e org.chromium.native_test.NativeTestInstrumentationTestRunner.ShardNanoTimeout "1000000000000000000" '
     adb_command += '-e org.chromium.native_test.NativeTestInstrumentationTestRunner.NativeTestActivity com.android.angle.test.AngleUnitTestActivity '
     adb_command += 'com.android.angle.test/org.chromium.build.gtest_apk.NativeTestInstrumentationTestRunner'

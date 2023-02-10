@@ -131,6 +131,8 @@ void ShaderD3D::uncompile()
     mUsesDiscardRewriting        = false;
     mUsesNestedBreak             = false;
     mRequiresIEEEStrictCompiling = false;
+    mClipDistanceSize            = 0;
+    mCullDistanceSize            = 0;
 
     mDebugInfo.clear();
 }
@@ -289,12 +291,7 @@ std::shared_ptr<WaitableCompileEvent> ShaderD3D::compile(const gl::Context *cont
     }
     if (extensions.shaderPixelLocalStorageANGLE)
     {
-        options->pls.type = mRenderer->getNativePixelLocalStorageType();
-        if (extensions.shaderPixelLocalStorageCoherentANGLE)
-        {
-            options->pls.fragmentSynchronizationType =
-                ShFragmentSynchronizationType::RasterizerOrderViews_D3D;
-        }
+        options->pls = mRenderer->getNativePixelLocalStorageOptions();
     }
 
     auto postTranslateFunctor = [this](gl::ShCompilerInstance *compiler, std::string *infoLog) {
@@ -327,6 +324,8 @@ std::shared_ptr<WaitableCompileEvent> ShaderD3D::compile(const gl::Context *cont
 
         ShHandle compilerHandle = compiler->getHandle();
 
+        mClipDistanceSize   = sh::GetClipDistanceArraySize(compilerHandle);
+        mCullDistanceSize   = sh::GetCullDistanceArraySize(compilerHandle);
         mUniformRegisterMap = GetUniformRegisterMap(sh::GetUniformRegisterMap(compilerHandle));
         mReadonlyImage2DRegisterIndex = sh::GetReadonlyImage2DRegisterIndex(compilerHandle);
         mImage2DRegisterIndex         = sh::GetImage2DRegisterIndex(compilerHandle);
@@ -379,7 +378,7 @@ std::shared_ptr<WaitableCompileEvent> ShaderD3D::compile(const gl::Context *cont
                                                             source, sourcePath);
 
     return std::make_shared<WaitableCompileEventD3D>(
-        angle::WorkerThreadPool::PostWorkerTask(workerThreadPool, translateTask), compilerInstance,
+        workerThreadPool->postWorkerTask(translateTask), compilerInstance,
         std::move(postTranslateFunctor), translateTask);
 }
 

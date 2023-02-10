@@ -120,6 +120,10 @@ angle::Result GLES1Renderer::prepareForDraw(PrimitiveMode mode, Context *context
         {
             tex2DFormats[i] = gl::GetUnsizedFormat(
                 curr2DTexture->getFormat(TextureTarget::_2D, 0).info->internalFormat);
+
+            // Handle GL_BGRA the same way we do GL_RGBA
+            if (tex2DFormats[i] == GL_BGRA_EXT)
+                tex2DFormats[i] = GL_RGBA;
         }
 
         Texture *currCubeTexture = glState->getSamplerTexture(i, TextureType::CubeMap);
@@ -620,7 +624,7 @@ angle::Result GLES1Renderer::compileShader(Context *context,
     Shader *shaderObject = getShader(shader);
     ANGLE_CHECK(context, shaderObject, "Missing shader object", GL_INVALID_OPERATION);
 
-    shaderObject->setSource(1, &src, nullptr);
+    shaderObject->setSource(context, 1, &src, nullptr);
     shaderObject->compile(context);
 
     *shaderOut = shader;
@@ -903,11 +907,23 @@ angle::Result GLES1Renderer::initializeRendererProgram(Context *context, State *
     ShaderProgramID vertexShader;
     ShaderProgramID fragmentShader;
 
+    // Set the count of texture units to a minimum (at least one for simplicity), to avoid requiring
+    // unnecessary vertex attributes and take up varying slots.
+    uint32_t maxTexUnitsEnabled = 1;
+    for (int i = 0; i < kTexUnitCount; i++)
+    {
+        if (mShaderState.texCubeEnables[i] || mShaderState.tex2DEnables[i])
+        {
+            maxTexUnitsEnabled = i + 1;
+        }
+    }
+
     std::stringstream GLES1DrawVShaderStateDefs;
     addVertexShaderDefs(GLES1DrawVShaderStateDefs);
 
     std::stringstream vertexStream;
     vertexStream << kGLES1DrawVShaderHeader;
+    vertexStream << kGLES1TexUnitsDefine << maxTexUnitsEnabled << "\n";
     vertexStream << GLES1DrawVShaderStateDefs.str();
     vertexStream << kGLES1DrawVShader;
 
@@ -931,6 +947,7 @@ angle::Result GLES1Renderer::initializeRendererProgram(Context *context, State *
         }
     }
     fragmentStream << kGLES1DrawFShaderHeader;
+    fragmentStream << kGLES1TexUnitsDefine << maxTexUnitsEnabled << "\n";
     fragmentStream << GLES1DrawFShaderStateDefs.str();
     fragmentStream << kGLES1DrawFShaderUniformDefs;
     if (mShaderState.mGLES1StateEnabled[GLES1StateEnables::LogicOpThroughFramebufferFetch])

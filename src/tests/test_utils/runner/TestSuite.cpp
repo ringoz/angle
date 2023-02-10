@@ -36,19 +36,12 @@ namespace angle
 {
 namespace
 {
-constexpr char kBatchId[]              = "--batch-id=";
-constexpr char kFilterFileArg[]        = "--filter-file=";
-constexpr char kFlakyRetries[]         = "--flaky-retries=";
-constexpr char kGTestListTests[]       = "--gtest_list_tests";
-constexpr char kHistogramJsonFileArg[] = "--histogram-json-file=";
-constexpr char kListTests[]            = "--list-tests";
-constexpr char kPrintTestStdout[]      = "--print-test-stdout";
-constexpr char kResultFileArg[]        = "--results-file=";
-constexpr char kTestTimeoutArg[]       = "--test-timeout=";
-constexpr char kDisableCrashHandler[]  = "--disable-crash-handler";
-constexpr char kIsolatedOutDir[]       = "--isolated-outdir=";
-constexpr char kMaxFailures[]          = "--max-failures=";
-constexpr char kRenderTestOutputDir[]  = "--render-test-output-dir=";
+constexpr char kBatchId[]             = "--batch-id";
+constexpr char kFilterFileArg[]       = "--filter-file";
+constexpr char kResultFileArg[]       = "--results-file";
+constexpr char kTestTimeoutArg[]      = "--test-timeout";
+constexpr char kDisableCrashHandler[] = "--disable-crash-handler";
+constexpr char kIsolatedOutDir[]      = "--isolated-outdir";
 
 constexpr char kStartedTestString[] = "[ RUN      ] ";
 constexpr char kPassedTestString[]  = "[       OK ] ";
@@ -75,90 +68,6 @@ constexpr int kDefaultBatchSize      = 256;
 constexpr double kIdleMessageTimeout = 15.0;
 constexpr int kDefaultMaxProcesses   = 16;
 constexpr int kDefaultMaxFailures    = 100;
-
-const char *ParseFlagValue(const char *flag, const char *argument)
-{
-    if (strstr(argument, flag) == argument)
-    {
-        return argument + strlen(flag);
-    }
-
-    return nullptr;
-}
-
-bool ParseIntArg(const char *flag, const char *argument, int *valueOut)
-{
-    const char *value = ParseFlagValue(flag, argument);
-    if (!value)
-    {
-        return false;
-    }
-
-    char *end            = nullptr;
-    const long longValue = strtol(value, &end, 10);
-
-    if (*end != '\0')
-    {
-        printf("Error parsing integer flag value.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (longValue == LONG_MAX || longValue == LONG_MIN || static_cast<int>(longValue) != longValue)
-    {
-        printf("Overflow when parsing integer flag value.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    *valueOut = static_cast<int>(longValue);
-    return true;
-}
-
-bool ParseIntArgNoDelete(const char *flag, const char *argument, int *valueOut)
-{
-    ParseIntArg(flag, argument, valueOut);
-    return false;
-}
-
-bool ParseFlag(const char *expected, const char *actual, bool *flagOut)
-{
-    if (strcmp(expected, actual) == 0)
-    {
-        *flagOut = true;
-        return true;
-    }
-    return false;
-}
-
-bool ParseStringArg(const char *flag, const char *argument, std::string *valueOut)
-{
-    const char *value = ParseFlagValue(flag, argument);
-    if (!value)
-    {
-        return false;
-    }
-
-    *valueOut = value;
-    return true;
-}
-
-void DeleteArg(int *argc, char **argv, int argIndex)
-{
-    // Shift the remainder of the argv list left by one.  Note that argv has (*argc + 1) elements,
-    // the last one always being NULL.  The following loop moves the trailing NULL element as well.
-    for (int index = argIndex; index < *argc; ++index)
-    {
-        argv[index] = argv[index + 1];
-    }
-    (*argc)--;
-}
-
-void AddArg(int *argc, char **argv, const char *arg)
-{
-    // This unsafe const_cast is necessary to work around gtest limitations.
-    argv[*argc]     = const_cast<char *>(arg);
-    argv[*argc + 1] = nullptr;
-    (*argc)++;
-}
 
 const char *ResultTypeToString(TestResultType type)
 {
@@ -898,6 +807,61 @@ bool UsesExternalBatching()
 }
 }  // namespace
 
+void MetricWriter::enable(const std::string &testArtifactDirectory)
+{
+    mPath = testArtifactDirectory + GetPathSeparator() + "angle_metrics";
+}
+
+void MetricWriter::writeInfo(const std::string &name,
+                             const std::string &backend,
+                             const std::string &story,
+                             const std::string &metric,
+                             const std::string &units)
+{
+    if (mPath.empty())
+    {
+        return;
+    }
+
+    if (mFile == nullptr)
+    {
+        mFile = fopen(mPath.c_str(), "w");
+    }
+    ASSERT(mFile != nullptr);
+
+    fprintf(mFile, "{\"name\":\"%s\",", name.c_str());
+    fprintf(mFile, "\"backend\":\"%s\",", backend.c_str());
+    fprintf(mFile, "\"story\":\"%s\",", story.c_str());
+    fprintf(mFile, "\"metric\":\"%s\",", metric.c_str());
+    fprintf(mFile, "\"units\":\"%s\",", units.c_str());
+    // followed by writing value, so no closing bracket yet
+}
+
+void MetricWriter::writeDoubleValue(double value)
+{
+    if (mFile != nullptr)
+    {
+        fprintf(mFile, "\"value\":\"%lf\"}\n", value);
+    }
+}
+
+void MetricWriter::writeIntegerValue(size_t value)
+{
+    if (mFile != nullptr)
+    {
+        fprintf(mFile, "\"value\":\"%zu\"}\n", value);
+    }
+}
+
+void MetricWriter::close()
+{
+    if (mFile != nullptr)
+    {
+        fclose(mFile);
+        mFile = nullptr;
+    }
+}
+
 // static
 TestSuite *TestSuite::mInstance = nullptr;
 
@@ -1038,13 +1002,12 @@ TestSuite::TestSuite(int *argc, char **argv, std::function<void()> registerTests
 
     for (int argIndex = 1; argIndex < *argc;)
     {
-        if (parseSingleArg(argv[argIndex]))
+        if (parseSingleArg(argc, argv, argIndex))
         {
-            DeleteArg(argc, argv, argIndex);
             continue;
         }
 
-        if (ParseFlagValue("--gtest_filter=", argv[argIndex]))
+        if (strstr(argv[argIndex], "--gtest_filter=") == argv[argIndex])
         {
             filterArgIndex = argIndex;
         }
@@ -1059,6 +1022,11 @@ TestSuite::TestSuite(int *argc, char **argv, std::function<void()> registerTests
             mChildProcessArgs.push_back(argv[argIndex]);
         }
         ++argIndex;
+    }
+
+    if (mTestArtifactDirectory.empty())
+    {
+        mTestArtifactDirectory = GetEnvironmentVar("ISOLATED_OUTDIR");
     }
 
 #if defined(ANGLE_PLATFORM_FUCHSIA)
@@ -1270,6 +1238,11 @@ TestSuite::TestSuite(int *argc, char **argv, std::function<void()> registerTests
         mResultsFile = resultFileName.str();
     }
 
+    if (!mTestArtifactDirectory.empty())
+    {
+        mMetricWriter.enable(mTestArtifactDirectory);
+    }
+
     if (!mBotMode)
     {
         testing::TestEventListeners &listeners = testing::UnitTest::GetInstance()->listeners();
@@ -1297,36 +1270,40 @@ TestSuite::~TestSuite()
     TerminateCrashHandler();
 }
 
-bool TestSuite::parseSingleArg(const char *argument)
+bool TestSuite::parseSingleArg(int *argc, char **argv, int argIndex)
 {
     // Note: Flags should be documented in README.md.
-    return (ParseIntArg("--shard-count=", argument, &mShardCount) ||
-            ParseIntArg("--shard-index=", argument, &mShardIndex) ||
-            ParseIntArg("--batch-size=", argument, &mBatchSize) ||
-            ParseIntArg("--max-processes=", argument, &mMaxProcesses) ||
-            ParseIntArg(kTestTimeoutArg, argument, &mTestTimeout) ||
-            ParseIntArg("--batch-timeout=", argument, &mBatchTimeout) ||
-            ParseIntArg(kFlakyRetries, argument, &mFlakyRetries) ||
-            ParseIntArg(kMaxFailures, argument, &mMaxFailures) ||
-            // Other test functions consume the batch ID, so keep it in the list.
-            ParseIntArgNoDelete(kBatchId, argument, &mBatchId) ||
-            ParseStringArg("--results-directory=", argument, &mResultsDirectory) ||
-            ParseStringArg(kResultFileArg, argument, &mResultsFile) ||
-            ParseStringArg("--isolated-script-test-output=", argument, &mResultsFile) ||
-            ParseStringArg(kFilterFileArg, argument, &mFilterFile) ||
-            ParseStringArg(kHistogramJsonFileArg, argument, &mHistogramJsonFile) ||
-            // We need these overloads to work around technical debt in the Android test runner.
-            ParseStringArg("--isolated-script-test-perf-output=", argument, &mHistogramJsonFile) ||
-            ParseStringArg("--isolated_script_test_perf_output=", argument, &mHistogramJsonFile) ||
-            ParseStringArg(kRenderTestOutputDir, argument, &mTestArtifactDirectory) ||
-            ParseStringArg(kIsolatedOutDir, argument, &mTestArtifactDirectory) ||
-            ParseFlag("--test-launcher-bot-mode", argument, &mBotMode) ||
-            ParseFlag("--bot-mode", argument, &mBotMode) ||
-            ParseFlag("--debug-test-groups", argument, &mDebugTestGroups) ||
-            ParseFlag(kGTestListTests, argument, &mGTestListTests) ||
-            ParseFlag(kListTests, argument, &mListTests) ||
-            ParseFlag(kPrintTestStdout, argument, &mPrintTestStdout) ||
-            ParseFlag(kDisableCrashHandler, argument, &mDisableCrashHandler));
+    return ParseIntArg("--shard-count", argc, argv, argIndex, &mShardCount) ||
+           ParseIntArg("--shard-index", argc, argv, argIndex, &mShardIndex) ||
+           ParseIntArg("--batch-size", argc, argv, argIndex, &mBatchSize) ||
+           ParseIntArg("--max-processes", argc, argv, argIndex, &mMaxProcesses) ||
+           ParseIntArg(kTestTimeoutArg, argc, argv, argIndex, &mTestTimeout) ||
+           ParseIntArg("--batch-timeout", argc, argv, argIndex, &mBatchTimeout) ||
+           ParseIntArg("--flaky-retries", argc, argv, argIndex, &mFlakyRetries) ||
+           ParseIntArg("--max-failures", argc, argv, argIndex, &mMaxFailures) ||
+           // Other test functions consume the batch ID, so keep it in the list.
+           ParseIntArgWithHandling(kBatchId, argc, argv, argIndex, &mBatchId,
+                                   ArgHandling::Preserve) ||
+           ParseStringArg("--results-directory", argc, argv, argIndex, &mResultsDirectory) ||
+           ParseStringArg(kResultFileArg, argc, argv, argIndex, &mResultsFile) ||
+           ParseStringArg("--isolated-script-test-output", argc, argv, argIndex, &mResultsFile) ||
+           ParseStringArg(kFilterFileArg, argc, argv, argIndex, &mFilterFile) ||
+           ParseStringArg("--histogram-json-file", argc, argv, argIndex, &mHistogramJsonFile) ||
+           // We need these overloads to work around technical debt in the Android test runner.
+           ParseStringArg("--isolated-script-test-perf-output", argc, argv, argIndex,
+                          &mHistogramJsonFile) ||
+           ParseStringArg("--isolated_script_test_perf_output", argc, argv, argIndex,
+                          &mHistogramJsonFile) ||
+           ParseStringArg("--render-test-output-dir", argc, argv, argIndex,
+                          &mTestArtifactDirectory) ||
+           ParseStringArg("--isolated-outdir", argc, argv, argIndex, &mTestArtifactDirectory) ||
+           ParseFlag("--test-launcher-bot-mode", argc, argv, argIndex, &mBotMode) ||
+           ParseFlag("--bot-mode", argc, argv, argIndex, &mBotMode) ||
+           ParseFlag("--debug-test-groups", argc, argv, argIndex, &mDebugTestGroups) ||
+           ParseFlag("--gtest_list_tests", argc, argv, argIndex, &mGTestListTests) ||
+           ParseFlag("--list-tests", argc, argv, argIndex, &mListTests) ||
+           ParseFlag("--print-test-stdout", argc, argv, argIndex, &mPrintTestStdout) ||
+           ParseFlag(kDisableCrashHandler, argc, argv, argIndex, &mDisableCrashHandler);
 }
 
 void TestSuite::onCrashOrTimeout(TestResultType crashOrTimeout)
@@ -1375,7 +1352,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
 
     processInfo.filterString = filterString;
 
-    std::string filterFileArg = kFilterFileArg + processInfo.filterFileName;
+    std::string filterFileArg = kFilterFileArg + std::string("=") + processInfo.filterFileName;
 
     // Create a temporary file to store the test output.
     Optional<std::string> resultsBuffer = CreateTemporaryFile();
@@ -1386,7 +1363,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     }
     processInfo.resultsFileName.assign(resultsBuffer.value());
 
-    std::string resultsFileArg = kResultFileArg + processInfo.resultsFileName;
+    std::string resultsFileArg = kResultFileArg + std::string("=") + processInfo.resultsFileName;
 
     // Construct command line for child process.
     std::vector<const char *> args;
@@ -1396,7 +1373,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     args.push_back(resultsFileArg.c_str());
 
     std::stringstream batchIdStream;
-    batchIdStream << kBatchId << batchId;
+    batchIdStream << kBatchId << "=" << batchId;
     std::string batchIdString = batchIdStream.str();
     args.push_back(batchIdString.c_str());
 
@@ -1414,7 +1391,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     if (mTestTimeout != kDefaultTestTimeout)
     {
         std::stringstream timeoutStream;
-        timeoutStream << kTestTimeoutArg << mTestTimeout;
+        timeoutStream << kTestTimeoutArg << "=" << mTestTimeout;
         timeoutStr = timeoutStream.str();
         args.push_back(timeoutStr.c_str());
     }
@@ -1423,7 +1400,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     if (!mTestArtifactDirectory.empty())
     {
         std::stringstream artifactsDirStream;
-        artifactsDirStream << kIsolatedOutDir << mTestArtifactDirectory;
+        artifactsDirStream << kIsolatedOutDir << "=" << mTestArtifactDirectory;
         artifactsDir = artifactsDirStream.str();
         args.push_back(artifactsDir.c_str());
     }
@@ -2015,6 +1992,8 @@ void TestSuite::writeOutputFiles(bool interrupted)
     {
         WriteHistogramJson(mHistogramWriter, mHistogramJsonFile);
     }
+
+    mMetricWriter.close();
 }
 
 const char *TestResultTypeToString(TestResultType type)

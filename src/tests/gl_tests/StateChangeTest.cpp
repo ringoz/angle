@@ -7136,9 +7136,9 @@ TEST_P(ImageRespecificationTest, ImageTarget2DOESSwitch)
 
     EGLWindow *window = getEGLWindow();
     EGLint attribs[]  = {
-         EGL_IMAGE_PRESERVED,
-         EGL_TRUE,
-         EGL_NONE,
+        EGL_IMAGE_PRESERVED,
+        EGL_TRUE,
+        EGL_NONE,
     };
     EGLImageKHR firstEGLImage = eglCreateImageKHR(
         window->getDisplay(), window->getContext(), EGL_GL_TEXTURE_2D_KHR,
@@ -8466,7 +8466,7 @@ void main()
     //          | __/__/   _|/
     //          |/__/   __/ |
     //          |/   __/    |
-    //          | __/    Draw 3 (blue): factor width/2, offset -1, depth test: Less
+    //          | __/    Draw 3 (blue): factor width/2, offset -2, depth test: Less
     //          |/
     //          |
     //          |
@@ -8493,6 +8493,88 @@ void main()
 
     EXPECT_PIXEL_RECT_EQ(0, 0, w / 2 - 1, h, GLColor::blue);
     EXPECT_PIXEL_RECT_EQ(w / 2 + 1, 0, w / 4 - 1, h, GLColor::green);
+    EXPECT_PIXEL_RECT_EQ(3 * w / 4 + 1, 0, w / 4 - 1, h, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests state change for glPolygonOffsetClampEXT.
+TEST_P(StateChangeTestES3, PolygonOffsetClamp)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_polygon_offset_clamp"));
+
+    constexpr char kVS[] = R"(#version 300 es
+precision highp float;
+uniform float height;
+void main()
+{
+    // gl_VertexID    x    y
+    //      0        -1   -1
+    //      1         1   -1
+    //      2        -1    1
+    //      3         1    1
+    int bit0 = gl_VertexID & 1;
+    int bit1 = gl_VertexID >> 1;
+    gl_Position = vec4(bit0 * 2 - 1, bit1 * 2 - 1, gl_VertexID % 2 == 0 ? -1 : 1, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 colorOut;
+uniform vec4 color;
+void main()
+{
+    colorOut = color;
+})";
+
+    glEnable(GL_POLYGON_OFFSET_FILL);
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    GLint colorLoc = glGetUniformLocation(program, "color");
+    ASSERT_NE(-1, colorLoc);
+
+    glClearColor(0, 0, 0, 1);
+    glClearDepthf(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    // The shader creates a depth slope from left (0) to right (1).
+    //
+    // This test issues two draw calls:
+    //
+    //           Draw 2 (green): factor width, offset 0, clamp 0.5, depth test: Greater
+    //          ^     |       __________________
+    //          |     |    __/      __/
+    //          |     V __/      __/  <--- Draw 1 (red): factor width, offset 0, clamp 0.25
+    //          |    __/      __/
+    //          | __/      __/
+    //          |/      __/
+    //          |    __/
+    //          | __/
+    //          |/
+    //          |
+    //          |
+    //          +------------------------------->
+    //
+    // Result:  <---------green--------><--red-->
+
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    glUniform4f(colorLoc, 1, 0, 0, 1);
+    glPolygonOffsetClampEXT(getWindowWidth(), 0, 0.25);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glUniform4f(colorLoc, 0, 1, 0, 1);
+    glPolygonOffsetClampEXT(getWindowWidth(), 0, 0.5);
+    glDepthFunc(GL_GREATER);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, 3 * w / 4 - 1, h, GLColor::green);
     EXPECT_PIXEL_RECT_EQ(3 * w / 4 + 1, 0, w / 4 - 1, h, GLColor::red);
 
     ASSERT_GL_NO_ERROR();
@@ -9795,6 +9877,109 @@ void main()
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     EXPECT_PIXEL_RECT_EQ(0, 0, w, h, GLColor::green);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test for a bug with the VK_EXT_graphics_pipeline_library implementation in a scenario such as
+// this:
+//
+// - Use blend function A, draw  <-- a new pipeline is created
+// - Use blend function B, draw  <-- a new pipeline is created,
+//                                   new transition from A to B
+// - Switch to program 2
+// - Use blend function A, draw  <-- a new pipeline is created
+// - Switch to program 1
+// -                       draw  <-- the first pipeline is retrieved from cache,
+//                                   new transition from B to A
+// - Use blend function B, draw  <-- the second pipeline is retrieved from transition
+// - Switch to program 3
+// -                       draw  <-- a new pipeline is created
+//
+// With graphics pipeline library, the fragment output partial pipeline changes as follows:
+//
+// - Use blend function A, draw  <-- a new fragment output pipeline is created
+// - Use blend function B, draw  <-- a new fragment output pipeline is created,
+//                                   new transition from A to B
+// - Switch to program 2
+// - Use blend function A, draw  <-- the first fragment output pipeline is retrieved from cache
+// - Switch to program 1
+// -                       draw  <-- the first monolithic pipeline is retrieved from cache
+// - Use blend function B, draw  <-- the second monolithic pipeline is retrieved from transition
+// - Switch to program 3
+// -                       draw  <-- the second fragment output pipeline is retrieved from cache
+//
+// The bug was that the dirty blend state was discarded when the monolithic pipeline was retrieved
+// through the transition graph, and the last draw call used a stale fragment output pipeline (from
+// the last draw call with function A)
+//
+TEST_P(StateChangeTestES3, FragmentOutputStateChangeAfterCachedPipelineTransition)
+{
+    // Program 1
+    ANGLE_GL_PROGRAM(drawColor, essl1_shaders::vs::Simple(), essl1_shaders::fs::UniformColor());
+    // Program 2
+    ANGLE_GL_PROGRAM(drawColor2, essl3_shaders::vs::Simple(), R"(#version 300 es
+precision mediump float;
+out vec4 colorOut;
+uniform vec4 colorIn;
+void main()
+{
+    colorOut = colorIn;
+}
+)");
+    // Program 3
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+
+    glUseProgram(drawColor2);
+    GLint color2UniformLocation = glGetUniformLocation(drawColor2, "colorIn");
+    ASSERT_NE(color2UniformLocation, -1);
+
+    glUseProgram(drawColor);
+    GLint colorUniformLocation =
+        glGetUniformLocation(drawColor, angle::essl1_shaders::ColorUniform());
+    ASSERT_NE(colorUniformLocation, -1);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    // Framebuffer color is now (0, 0, 0, 0)
+
+    glUniform4f(colorUniformLocation, 0, 0, 1, 0.25f);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0, 0, 0.25, 0.25*0.25)
+
+    glBlendFunc(GL_ONE, GL_ONE);
+    glUniform4f(colorUniformLocation, 0, 0, 0.25, 0.5 - 0.0625);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0, 0, 0.5, 0.5)
+
+    // Draw with a different program, but same fragment output state.  The fragment output pipeline
+    // is retrieved from cache.
+    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+    glUseProgram(drawColor2);
+    glUniform4f(color2UniformLocation, 1, 0, 0, 0.5);
+    drawQuad(drawColor2, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.5, 0, 0.25, 0.5)
+
+    // Draw with the original program and the first fragment output state, so it's retrieved from
+    // cache.
+    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+    glUseProgram(drawColor);
+    glUniform4f(colorUniformLocation, 0, 0, 0.5, 0.25);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.25, 0, 0.25, 0.25+0.25*0.25)
+
+    // Change to the second fragment output state, so it's retrieved through the transition graph.
+    glBlendFunc(GL_ONE, GL_ONE);
+    glUniform4f(colorUniformLocation, 0, 0, 0.5, 0.25 - 0.25 * 0.25);
+    drawQuad(drawColor, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.25, 0, 0.75, 0.5)
+
+    // Draw with the third program, not changing the fragment output state.
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.5f);
+    // Framebuffer color is now (0.25, 1, 0.75, 1)
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor(64, 255, 192, 255), 1);
     ASSERT_GL_NO_ERROR();
 }
 

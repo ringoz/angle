@@ -240,6 +240,8 @@ IGNORED_INCLUDES = {
     # Validation layers support building with robin hood hashing, but we are not enabling that
     # See http://anglebug.com/5791
     b'robin_hood.h',
+    # Validation layers optionally use mimalloc
+    b'mimalloc-new-delete.h',
     # From the Vulkan-Loader
     b'winres.h',
     # From the ANGLE desktop GL frontend, since it is only enabled conditionally
@@ -251,6 +253,8 @@ IGNORED_INCLUDES = {
     # From a comment in vulkan-validation-layers/src/layers/vk_mem_alloc.h
     b'my_custom_assert.h',
     b'my_custom_min.h',
+    # https://bugs.chromium.org/p/gn/issues/detail?id=311
+    b'spirv/unified1/spirv.hpp11',
 }
 
 IGNORED_INCLUDE_PREFIXES = {

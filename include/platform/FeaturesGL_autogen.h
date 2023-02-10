@@ -467,6 +467,13 @@ struct FeaturesGL : FeatureSetBase
         "packUnorm4x8 fails on Pixel 4 if it is not passed a highp vec4.", &members,
         "http://anglebug.com/7527"};
 
+    FeatureInfo emulateClipDistanceState = {
+        "emulateClipDistanceState",
+        FeatureCategory::OpenGLWorkarounds,
+        "Some drivers ignore GL_CLIP_DISTANCEi_EXT state.",
+        &members,
+    };
+
     FeatureInfo supportsFragmentShaderInterlockNV = {
         "supportsFragmentShaderInterlockNV", FeatureCategory::OpenGLFeatures,
         "Backend GL context supports NV_fragment_shader_interlock extension", &members,
@@ -490,6 +497,11 @@ struct FeaturesGL : FeatureSetBase
     FeatureInfo supportsShaderFramebufferFetchNonCoherentEXT = {
         "supportsShaderFramebufferFetchNonCoherentEXT", FeatureCategory::OpenGLFeatures,
         "Backend GL context supports EXT_shader_framebuffer_fetch_non_coherent extension", &members,
+        "http://anglebug.com/7279"};
+
+    FeatureInfo supportsShaderPixelLocalStorageEXT = {
+        "supportsShaderPixelLocalStorageEXT", FeatureCategory::OpenGLFeatures,
+        "Backend GL context supports EXT_shader_pixel_local_storage extension", &members,
         "http://anglebug.com/7279"};
 };
 

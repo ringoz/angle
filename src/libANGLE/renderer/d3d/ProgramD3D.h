@@ -169,6 +169,8 @@ class ProgramD3DMetadata final : angle::NonCopyable
     bool usesMultipleFragmentOuts() const;
     bool usesCustomOutVars() const;
     const ShaderD3D *getFragmentShader() const;
+    uint8_t getClipDistanceArraySize() const;
+    uint8_t getCullDistanceArraySize() const;
 
   private:
     const int mRendererMajorShaderModel;
@@ -323,7 +325,7 @@ class ProgramD3D : public ProgramImpl
         return mAttribLocationToD3DSemantic;
     }
 
-    void updateCachedInputLayout(Serial associatedSerial, const gl::State &state);
+    void updateCachedInputLayout(UniqueSerial associatedSerial, const gl::State &state);
     void updateCachedOutputLayout(const gl::Context *context, const gl::Framebuffer *framebuffer);
     void updateCachedComputeImage2DBindLayout(const gl::Context *context);
 
@@ -606,7 +608,7 @@ class ProgramD3D : public ProgramImpl
     static unsigned int issueSerial();
     static unsigned int mCurrentSerial;
 
-    Serial mCurrentVertexArrayStateSerial;
+    UniqueSerial mCurrentVertexArrayStateSerial;
 };
 }  // namespace rx
 

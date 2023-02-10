@@ -312,6 +312,8 @@ OutputHLSL::OutputHLSL(sh::GLenum shaderType,
                        PerformanceDiagnostics *perfDiagnostics,
                        const std::map<int, const TInterfaceBlock *> &uniformBlockOptimizedMap,
                        const std::vector<InterfaceBlock> &shaderStorageBlocks,
+                       uint8_t clipDistanceSize,
+                       uint8_t cullDistanceSize,
                        bool isEarlyFragmentTestsSpecified)
     : TIntermTraverser(true, true, true, symbolTable),
       mShaderType(shaderType),
@@ -329,6 +331,8 @@ OutputHLSL::OutputHLSL(sh::GLenum shaderType,
       mCurrentFunctionMetadata(nullptr),
       mWorkGroupSize(workGroupSize),
       mPerfDiagnostics(perfDiagnostics),
+      mClipDistanceSize(clipDistanceSize),
+      mCullDistanceSize(cullDistanceSize),
       mIsEarlyFragmentTestsSpecified(isEarlyFragmentTestsSpecified),
       mNeedStructMapping(false)
 {
@@ -905,6 +909,28 @@ void OutputHLSL::header(TInfoSinkBase &out,
                    "\n";
         }
 
+        if (mClipDistanceSize)
+        {
+            out << "static float gl_ClipDistance[" << static_cast<int>(mClipDistanceSize)
+                << "] = {0";
+            for (unsigned int i = 1; i < mClipDistanceSize; i++)
+            {
+                out << ", 0";
+            }
+            out << "};\n";
+        }
+
+        if (mCullDistanceSize)
+        {
+            out << "static float gl_CullDistance[" << static_cast<int>(mCullDistanceSize)
+                << "] = {0";
+            for (unsigned int i = 1; i < mCullDistanceSize; i++)
+            {
+                out << ", 0";
+            }
+            out << "};\n";
+        }
+
         if (usingMRTExtension && mNumRenderTargets > 1)
         {
             out << "#define GL_USES_MRT\n";
@@ -931,6 +957,28 @@ void OutputHLSL::header(TInfoSinkBase &out,
         writeReferencedAttributes(out);
         out << "\n"
                "static float4 gl_Position = float4(0, 0, 0, 0);\n";
+
+        if (mClipDistanceSize)
+        {
+            out << "static float gl_ClipDistance[" << static_cast<int>(mClipDistanceSize)
+                << "] = {0";
+            for (size_t i = 1; i < mClipDistanceSize; i++)
+            {
+                out << ", 0";
+            }
+            out << "};\n";
+        }
+
+        if (mCullDistanceSize)
+        {
+            out << "static float gl_CullDistance[" << static_cast<int>(mCullDistanceSize)
+                << "] = {0";
+            for (size_t i = 1; i < mCullDistanceSize; i++)
+            {
+                out << ", 0";
+            }
+            out << "};\n";
+        }
 
         if (mUsesPointSize)
         {
@@ -999,6 +1047,11 @@ void OutputHLSL::header(TInfoSinkBase &out,
             if (mUsesVertexID)
             {
                 out << "    uint dx_VertexID : packoffset(c4.y);\n";
+            }
+
+            if (mClipDistanceSize)
+            {
+                out << "    uint clipDistancesEnabled : packoffset(c4.z);\n";
             }
 
             out << "};\n"
@@ -1263,6 +1316,14 @@ void OutputHLSL::visitSymbol(TIntermSymbol *node)
         {
             mReferencedOutputVariables[uniqueId.get()] = &variable;
             out << "out_" << name;
+        }
+        else if (qualifier == EvqClipDistance)
+        {
+            out << name;
+        }
+        else if (qualifier == EvqCullDistance)
+        {
+            out << name;
         }
         else if (qualifier == EvqFragColor)
         {

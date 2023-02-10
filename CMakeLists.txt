@@ -11,9 +11,9 @@ target_include_directories(angle
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
   PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/third_party/base
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/base
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/third_party/xxhash
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib/google
     ${CMAKE_CURRENT_SOURCE_DIR}/../os/include
   )
@@ -98,7 +98,6 @@ set(angle_translator_sources
   "src/compiler/translator/TranslatorESSL.h"
   "src/compiler/translator/TranslatorGLSL.h"
   "src/compiler/translator/TranslatorHLSL.h"
-  "src/compiler/translator/TranslatorMetal.h"
   "src/compiler/translator/TranslatorMetalDirect.h"
   "src/compiler/translator/TranslatorVulkan.h"
   "src/compiler/translator/Types.cpp"
@@ -131,7 +130,6 @@ set(angle_translator_sources
   "src/compiler/translator/glslang_lex_autogen.cpp"
   "src/compiler/translator/glslang_tab_autogen.cpp"
   "src/compiler/translator/glslang_tab_autogen.h"
-  "src/compiler/translator/glslang_wrapper.h"
   "src/compiler/translator/length_limits.h"
   "src/compiler/translator/tree_ops/ClampIndirectIndices.cpp"
   "src/compiler/translator/tree_ops/ClampIndirectIndices.h"
@@ -141,6 +139,8 @@ set(angle_translator_sources
   "src/compiler/translator/tree_ops/ConvertUnsupportedConstructorsToFunctionCalls.h"
   "src/compiler/translator/tree_ops/DeclareAndInitBuiltinsForInstancedMultiview.cpp"
   "src/compiler/translator/tree_ops/DeclareAndInitBuiltinsForInstancedMultiview.h"
+  "src/compiler/translator/tree_ops/DeclarePerVertexBlocks.cpp"
+  "src/compiler/translator/tree_ops/DeclarePerVertexBlocks.h"
   "src/compiler/translator/tree_ops/DeferGlobalInitializers.cpp"
   "src/compiler/translator/tree_ops/DeferGlobalInitializers.h"
   "src/compiler/translator/tree_ops/EmulateGLFragColorBroadcast.cpp"
@@ -323,7 +323,7 @@ set(angle_translator_hlsl_sources
 set(angle_translator_lib_metal_sources
   "src/compiler/translator/DriverUniformMetal.cpp"
   "src/compiler/translator/DriverUniformMetal.h"
-  "src/compiler/translator/TranslatorMetalConstantNames.cpp"
+  "src/compiler/translator/ConstantNames.cpp"
   "src/compiler/translator/TranslatorMetalDirect.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.cpp"
   "src/compiler/translator/TranslatorMetalDirect/AddExplicitTypeCasts.h"
@@ -423,12 +423,12 @@ set(angle_preprocessor_sources
 )
 
 set(libangle_common_sources
-  "src/common/angle_version.h"
-  "src/common/angle_version_info.cpp"
-  "src/common/angle_version_info.h"
+  "src/common/BinaryStream.h"
   "src/common/CircularBuffer.h"
   "src/common/Color.h"
   "src/common/Color.inc"
+  "src/common/CompiledShaderState.cpp"
+  "src/common/CompiledShaderState.h"
   "src/common/FastVector.h"
   "src/common/FixedVector.h"
   "src/common/Float16ToFloat32.cpp"
@@ -443,6 +443,8 @@ set(libangle_common_sources
   "src/common/PackedGLEnums_autogen.h"
   "src/common/PoolAlloc.cpp"
   "src/common/PoolAlloc.h"
+  "src/common/RingBufferAllocator.cpp"
+  "src/common/RingBufferAllocator.h"
   "src/common/Spinlock.h"
   "src/common/SynchronizedValue.h"
   "src/common/aligned_memory.cpp"
@@ -451,7 +453,31 @@ set(libangle_common_sources
   "src/common/android_util.h"
   "src/common/angleutils.cpp"
   "src/common/angleutils.h"
+  "src/common/angle_version.h"
+  "src/common/angle_version_info.cpp"
+  "src/common/angle_version_info.h"
   "src/common/apple_platform_utils.h"
+  "src/common/base/anglebase/base_export.h"
+  "src/common/base/anglebase/containers/mru_cache.h"
+  "src/common/base/anglebase/logging.h"
+  "src/common/base/anglebase/macros.h"
+  "src/common/base/anglebase/no_destructor.h"
+  "src/common/base/anglebase/numerics/checked_math.h"
+  "src/common/base/anglebase/numerics/checked_math_impl.h"
+  "src/common/base/anglebase/numerics/clamped_math.h"
+  "src/common/base/anglebase/numerics/clamped_math_impl.h"
+  "src/common/base/anglebase/numerics/math_constants.h"
+  "src/common/base/anglebase/numerics/ranges.h"
+  "src/common/base/anglebase/numerics/safe_conversions.h"
+  "src/common/base/anglebase/numerics/safe_conversions_arm_impl.h"
+  "src/common/base/anglebase/numerics/safe_conversions_impl.h"
+  "src/common/base/anglebase/numerics/safe_math.h"
+  "src/common/base/anglebase/numerics/safe_math_arm_impl.h"
+  "src/common/base/anglebase/numerics/safe_math_clang_gcc_impl.h"
+  "src/common/base/anglebase/numerics/safe_math_shared_impl.h"
+  "src/common/base/anglebase/sha1.cc"
+  "src/common/base/anglebase/sha1.h"
+  "src/common/base/anglebase/sys_byteorder.h"
   "src/common/bitset_utils.h"
   "src/common/debug.cpp"
   "src/common/debug.h"
@@ -469,29 +495,8 @@ set(libangle_common_sources
   "src/common/string_utils.h"
   "src/common/system_utils.cpp"
   "src/common/system_utils.h"
-  "src/common/third_party/base/anglebase/base_export.h"
-  "src/common/third_party/base/anglebase/containers/mru_cache.h"
-  "src/common/third_party/base/anglebase/logging.h"
-  "src/common/third_party/base/anglebase/macros.h"
-  "src/common/third_party/base/anglebase/no_destructor.h"
-  "src/common/third_party/base/anglebase/numerics/checked_math.h"
-  "src/common/third_party/base/anglebase/numerics/checked_math_impl.h"
-  "src/common/third_party/base/anglebase/numerics/clamped_math.h"
-  "src/common/third_party/base/anglebase/numerics/clamped_math_impl.h"
-  "src/common/third_party/base/anglebase/numerics/math_constants.h"
-  "src/common/third_party/base/anglebase/numerics/ranges.h"
-  "src/common/third_party/base/anglebase/numerics/safe_conversions.h"
-  "src/common/third_party/base/anglebase/numerics/safe_conversions_arm_impl.h"
-  "src/common/third_party/base/anglebase/numerics/safe_conversions_impl.h"
-  "src/common/third_party/base/anglebase/numerics/safe_math.h"
-  "src/common/third_party/base/anglebase/numerics/safe_math_arm_impl.h"
-  "src/common/third_party/base/anglebase/numerics/safe_math_clang_gcc_impl.h"
-  "src/common/third_party/base/anglebase/numerics/safe_math_shared_impl.h"
-  "src/common/third_party/base/anglebase/sha1.cc"
-  "src/common/third_party/base/anglebase/sha1.h"
-  "src/common/third_party/base/anglebase/sys_byteorder.h"
-  "src/common/third_party/smhasher/src/PMurHash.cpp"
-  "src/common/third_party/smhasher/src/PMurHash.h"
+  "src/common/WorkerThread.cpp"
+  "src/common/WorkerThread.h"
   "src/common/tls.cpp"
   "src/common/tls.h"
   "src/common/uniform_type_info_autogen.cpp"
@@ -511,6 +516,7 @@ set(xxhash_sources
 )
 
 set(libangle_image_util_headers
+  "src/image_util/AstcDecompressor.h"
   "src/image_util/copyimage.h"
   "src/image_util/copyimage.inc"
   "src/image_util/generatemip.h"
@@ -521,6 +527,7 @@ set(libangle_image_util_headers
 )
 
 set(libangle_image_util_sources
+  "src/image_util/AstcDecompressorNoOp.cpp"
   "src/image_util/copyimage.cpp"
   "src/image_util/imageformats.cpp"
   "src/image_util/loadimage.cpp"
@@ -564,7 +571,6 @@ set(libangle_includes
 
 set(libangle_headers
   "src/libANGLE/AttributeMap.h"
-  "src/libANGLE/BinaryStream.h"
   "src/libANGLE/BlobCache.h"
   "src/libANGLE/Buffer.h"
   "src/libANGLE/Caps.h"
@@ -637,7 +643,6 @@ set(libangle_headers
   "src/libANGLE/VertexArray.h"
   "src/libANGLE/VertexAttribute.h"
   "src/libANGLE/VertexAttribute.inc"
-  "src/libANGLE/WorkerThread.h"
   "src/libANGLE/angletypes.h"
   "src/libANGLE/angletypes.inc"
   "src/libANGLE/entry_points_utils.h"
@@ -705,7 +710,7 @@ set(libangle_headers
   "src/libANGLE/validationGL2_autogen.h"
   "src/libANGLE/validationGL3_autogen.h"
   "src/libANGLE/validationGL4_autogen.h"
-  "src/third_party/trace_event/trace_event.h"
+  "src/common/base/anglebase/trace_event/trace_event.h"
 )
 
 set(libangle_sources
@@ -763,8 +768,8 @@ set(libangle_sources
   "src/libANGLE/VaryingPacking.cpp"
   "src/libANGLE/VertexArray.cpp"
   "src/libANGLE/VertexAttribute.cpp"
-  "src/libANGLE/WorkerThread.cpp"
   "src/libANGLE/angletypes.cpp"
+  "src/libANGLE/entry_points_utils.cpp"
   "src/libANGLE/es3_copy_conversion_table_autogen.cpp"
   "src/libANGLE/format_map_autogen.cpp"
   "src/libANGLE/format_map_desktop.cpp"
@@ -809,7 +814,8 @@ set(libangle_sources
 
 set(libangle_capture_sources
   "src/libANGLE/capture/FrameCapture_mock.cpp"
-  "src/libANGLE/capture/frame_capture_utils_mock.cpp"
+  "src/libANGLE/capture/serialize_mock.cpp"
+  "src/common/frame_capture_utils.cpp"
 )
 
 set(libglesv2_sources
@@ -1146,6 +1152,8 @@ elseif(APPLE)
       "src/libANGLE/renderer/metal/VertexArrayMtl.mm"
       "src/libANGLE/renderer/metal/mtl_buffer_pool.h"
       "src/libANGLE/renderer/metal/mtl_buffer_pool.mm"
+      "src/libANGLE/renderer/metal/mtl_buffer_manager.h"
+      "src/libANGLE/renderer/metal/mtl_buffer_manager.mm"
       "src/libANGLE/renderer/metal/mtl_command_buffer.h"
       "src/libANGLE/renderer/metal/mtl_command_buffer.mm"
       "src/libANGLE/renderer/metal/mtl_common.h"
@@ -1156,8 +1164,8 @@ elseif(APPLE)
       "src/libANGLE/renderer/metal/mtl_format_table_autogen.mm"
       "src/libANGLE/renderer/metal/mtl_format_utils.h"
       "src/libANGLE/renderer/metal/mtl_format_utils.mm"
-      "src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.h"
-      "src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm"
+      "src/libANGLE/renderer/metal/mtl_msl_utils.h"
+      "src/libANGLE/renderer/metal/mtl_msl_utils.mm"
       "src/libANGLE/renderer/metal/mtl_occlusion_query_pool.h"
       "src/libANGLE/renderer/metal/mtl_occlusion_query_pool.mm"
       "src/libANGLE/renderer/metal/mtl_render_utils.h"

@@ -215,11 +215,18 @@ std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
         case GLESDriverType::AngleEGL:
             stream << GetRendererName(pp.eglParameters.renderer);
             break;
+        case GLESDriverType::AngleVulkanSecondariesEGL:
+            ASSERT(pp.eglParameters.renderer == EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE);
+            stream << "ANGLE_Vulkan_Secondaries";
+            break;
         case GLESDriverType::SystemWGL:
             stream << "WGL";
             break;
         case GLESDriverType::SystemEGL:
             stream << "EGL";
+            break;
+        case GLESDriverType::ZinkEGL:
+            stream << "Zink";
             break;
         default:
             stream << "Error";
@@ -887,4 +894,55 @@ PlatformParameters ES3_EGL()
 {
     return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, GLESDriverType::SystemEGL);
 }
+
+PlatformParameters ES1_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES1_VULKAN());
+}
+
+PlatformParameters ES2_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES2_VULKAN());
+}
+
+PlatformParameters ES3_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES3_VULKAN());
+}
+
+PlatformParameters ES31_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES31_VULKAN());
+}
+
+PlatformParameters ES32_ANGLE_Vulkan_Secondaries()
+{
+    return WithVulkanSecondaries(ES32_VULKAN());
+}
+
+PlatformParameters ES1_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 1, 0, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES2_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 2, 0, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES3_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 0, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES31_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 1, 0, GLESDriverType::ZinkEGL);
+}
+
+PlatformParameters ES32_Zink()
+{
+    return PlatformParameters(EGL_OPENGL_ES_API, 3, 2, 0, GLESDriverType::ZinkEGL);
+}
+
 }  // namespace angle

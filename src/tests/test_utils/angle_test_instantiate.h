@@ -40,6 +40,7 @@ bool IsPixel2();
 bool IsPixel2XL();
 bool IsPixel4();
 bool IsPixel4XL();
+bool IsPixel6();
 bool IsNVIDIAShield();
 
 // GPU vendors.
@@ -55,6 +56,7 @@ bool IsSwiftshaderDevice();
 bool IsIntelUHD630Mobile();
 
 bool Is64Bit();
+bool HasMesa();
 
 bool IsPlatformAvailable(const PlatformParameters &param);
 

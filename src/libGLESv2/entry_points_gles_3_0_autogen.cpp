@@ -11,10 +11,10 @@
 #include "libGLESv2/entry_points_gles_3_0_autogen.h"
 
 #include "common/entry_points_enum_autogen.h"
+#include "common/gl_enum_utils.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/Context.inl.h"
 #include "libANGLE/capture/capture_gles_3_0_autogen.h"
-#include "libANGLE/capture/gl_enum_utils.h"
 #include "libANGLE/entry_points_utils.h"
 #include "libANGLE/validationES3.h"
 #include "libGLESv2/global_state.h"
@@ -35,7 +35,9 @@ void GL_APIENTRY GL_BeginQuery(GLenum target, GLuint id)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateBeginQuery(context, angle::EntryPoint::GLBeginQuery, targetPacked, idPacked));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLBeginQuery) &&
+              ValidateBeginQuery(context, angle::EntryPoint::GLBeginQuery, targetPacked,
+                                 idPacked)));
         if (isCallValid)
         {
             context->beginQuery(targetPacked, idPacked);
@@ -60,8 +62,10 @@ void GL_APIENTRY GL_BeginTransformFeedback(GLenum primitiveMode)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateBeginTransformFeedback(context, angle::EntryPoint::GLBeginTransformFeedback,
-                                            primitiveModePacked));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLBeginTransformFeedback) &&
+              ValidateBeginTransformFeedback(context, angle::EntryPoint::GLBeginTransformFeedback,
+                                             primitiveModePacked)));
         if (isCallValid)
         {
             context->beginTransformFeedback(primitiveModePacked);
@@ -168,8 +172,10 @@ void GL_APIENTRY GL_BindTransformFeedback(GLenum target, GLuint id)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateBindTransformFeedback(context, angle::EntryPoint::GLBindTransformFeedback,
-                                           target, idPacked));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLBindTransformFeedback) &&
+              ValidateBindTransformFeedback(context, angle::EntryPoint::GLBindTransformFeedback,
+                                            target, idPacked)));
         if (isCallValid)
         {
             context->bindTransformFeedback(target, idPacked);
@@ -230,8 +236,9 @@ void GL_APIENTRY GL_BlitFramebuffer(GLint srcX0,
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateBlitFramebuffer(context, angle::EntryPoint::GLBlitFramebuffer, srcX0, srcY0,
-                                     srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLBlitFramebuffer) &&
+              ValidateBlitFramebuffer(context, angle::EntryPoint::GLBlitFramebuffer, srcX0, srcY0,
+                                      srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter)));
         if (isCallValid)
         {
             context->blitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask,
@@ -357,19 +364,23 @@ GLenum GL_APIENTRY GL_ClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 tim
     GLenum returnValue;
     if (context)
     {
+        SyncID syncPacked = PackParam<SyncID>(sync);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateClientWaitSync(context, angle::EntryPoint::GLClientWaitSync,
-                                                   sync, flags, timeout));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLClientWaitSync) &&
+              ValidateClientWaitSync(context, angle::EntryPoint::GLClientWaitSync, syncPacked,
+                                     flags, timeout)));
         if (isCallValid)
         {
-            returnValue = context->clientWaitSync(sync, flags, timeout);
+            returnValue = context->clientWaitSync(syncPacked, flags, timeout);
         }
         else
         {
             returnValue = GetDefaultReturnValue<angle::EntryPoint::GLClientWaitSync, GLenum>();
         }
-        ANGLE_CAPTURE_GL(ClientWaitSync, isCallValid, context, sync, flags, timeout, returnValue);
+        ANGLE_CAPTURE_GL(ClientWaitSync, isCallValid, context, syncPacked, flags, timeout,
+                         returnValue);
     }
     else
     {
@@ -403,9 +414,11 @@ void GL_APIENTRY GL_CompressedTexImage3D(GLenum target,
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateCompressedTexImage3D(context, angle::EntryPoint::GLCompressedTexImage3D,
-                                          targetPacked, level, internalformat, width, height, depth,
-                                          border, imageSize, data));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLCompressedTexImage3D) &&
+              ValidateCompressedTexImage3D(context, angle::EntryPoint::GLCompressedTexImage3D,
+                                           targetPacked, level, internalformat, width, height,
+                                           depth, border, imageSize, data)));
         if (isCallValid)
         {
             context->compressedTexImage3D(targetPacked, level, internalformat, width, height, depth,
@@ -446,9 +459,11 @@ void GL_APIENTRY GL_CompressedTexSubImage3D(GLenum target,
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateCompressedTexSubImage3D(context, angle::EntryPoint::GLCompressedTexSubImage3D,
-                                             targetPacked, level, xoffset, yoffset, zoffset, width,
-                                             height, depth, format, imageSize, data));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLCompressedTexSubImage3D) &&
+              ValidateCompressedTexSubImage3D(context, angle::EntryPoint::GLCompressedTexSubImage3D,
+                                              targetPacked, level, xoffset, yoffset, zoffset, width,
+                                              height, depth, format, imageSize, data)));
         if (isCallValid)
         {
             context->compressedTexSubImage3D(targetPacked, level, xoffset, yoffset, zoffset, width,
@@ -483,10 +498,12 @@ void GL_APIENTRY GL_CopyBufferSubData(GLenum readTarget,
         BufferBinding readTargetPacked  = PackParam<BufferBinding>(readTarget);
         BufferBinding writeTargetPacked = PackParam<BufferBinding>(writeTarget);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateCopyBufferSubData(
-                                context, angle::EntryPoint::GLCopyBufferSubData, readTargetPacked,
-                                writeTargetPacked, readOffset, writeOffset, size));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLCopyBufferSubData) &&
+              ValidateCopyBufferSubData(context, angle::EntryPoint::GLCopyBufferSubData,
+                                        readTargetPacked, writeTargetPacked, readOffset,
+                                        writeOffset, size)));
         if (isCallValid)
         {
             context->copyBufferSubData(readTargetPacked, writeTargetPacked, readOffset, writeOffset,
@@ -522,10 +539,12 @@ void GL_APIENTRY GL_CopyTexSubImage3D(GLenum target,
     {
         TextureTarget targetPacked = PackParam<TextureTarget>(target);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateCopyTexSubImage3D(
-                                context, angle::EntryPoint::GLCopyTexSubImage3D, targetPacked,
-                                level, xoffset, yoffset, zoffset, x, y, width, height));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLCopyTexSubImage3D) &&
+              ValidateCopyTexSubImage3D(context, angle::EntryPoint::GLCopyTexSubImage3D,
+                                        targetPacked, level, xoffset, yoffset, zoffset, x, y, width,
+                                        height)));
         if (isCallValid)
         {
             context->copyTexSubImage3D(targetPacked, level, xoffset, yoffset, zoffset, x, y, width,
@@ -552,7 +571,8 @@ void GL_APIENTRY GL_DeleteQueries(GLsizei n, const GLuint *ids)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateDeleteQueries(context, angle::EntryPoint::GLDeleteQueries, n, idsPacked));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteQueries) &&
+              ValidateDeleteQueries(context, angle::EntryPoint::GLDeleteQueries, n, idsPacked)));
         if (isCallValid)
         {
             context->deleteQueries(n, idsPacked);
@@ -575,9 +595,11 @@ void GL_APIENTRY GL_DeleteSamplers(GLsizei count, const GLuint *samplers)
     {
         const SamplerID *samplersPacked = PackParam<const SamplerID *>(samplers);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateDeleteSamplers(context, angle::EntryPoint::GLDeleteSamplers,
-                                                   count, samplersPacked));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteSamplers) &&
+              ValidateDeleteSamplers(context, angle::EntryPoint::GLDeleteSamplers, count,
+                                     samplersPacked)));
         if (isCallValid)
         {
             context->deleteSamplers(count, samplersPacked);
@@ -598,14 +620,17 @@ void GL_APIENTRY GL_DeleteSync(GLsync sync)
 
     if (context)
     {
+        SyncID syncPacked = PackParam<SyncID>(sync);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateDeleteSync(context, angle::EntryPoint::GLDeleteSync, sync));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteSync) &&
+              ValidateDeleteSync(context, angle::EntryPoint::GLDeleteSync, syncPacked)));
         if (isCallValid)
         {
-            context->deleteSync(sync);
+            context->deleteSync(syncPacked);
         }
-        ANGLE_CAPTURE_GL(DeleteSync, isCallValid, context, sync);
+        ANGLE_CAPTURE_GL(DeleteSync, isCallValid, context, syncPacked);
     }
     else
     {
@@ -625,8 +650,10 @@ void GL_APIENTRY GL_DeleteTransformFeedbacks(GLsizei n, const GLuint *ids)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateDeleteTransformFeedbacks(
-                 context, angle::EntryPoint::GLDeleteTransformFeedbacks, n, idsPacked));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLDeleteTransformFeedbacks) &&
+              ValidateDeleteTransformFeedbacks(
+                  context, angle::EntryPoint::GLDeleteTransformFeedbacks, n, idsPacked)));
         if (isCallValid)
         {
             context->deleteTransformFeedbacks(n, idsPacked);
@@ -649,9 +676,11 @@ void GL_APIENTRY GL_DeleteVertexArrays(GLsizei n, const GLuint *arrays)
     {
         const VertexArrayID *arraysPacked = PackParam<const VertexArrayID *>(arrays);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateDeleteVertexArrays(
-                                context, angle::EntryPoint::GLDeleteVertexArrays, n, arraysPacked));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteVertexArrays) &&
+              ValidateDeleteVertexArrays(context, angle::EntryPoint::GLDeleteVertexArrays, n,
+                                         arraysPacked)));
         if (isCallValid)
         {
             context->deleteVertexArrays(n, arraysPacked);
@@ -706,7 +735,8 @@ void GL_APIENTRY GL_DrawBuffers(GLsizei n, const GLenum *bufs)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateDrawBuffers(context, angle::EntryPoint::GLDrawBuffers, n, bufs));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDrawBuffers) &&
+              ValidateDrawBuffers(context, angle::EntryPoint::GLDrawBuffers, n, bufs)));
         if (isCallValid)
         {
             context->drawBuffers(n, bufs);
@@ -800,8 +830,10 @@ void GL_APIENTRY GL_EndQuery(GLenum target)
     {
         QueryType targetPacked = PackParam<QueryType>(target);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateEndQuery(context, angle::EntryPoint::GLEndQuery, targetPacked));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLEndQuery) &&
+              ValidateEndQuery(context, angle::EntryPoint::GLEndQuery, targetPacked)));
         if (isCallValid)
         {
             context->endQuery(targetPacked);
@@ -824,7 +856,9 @@ void GL_APIENTRY GL_EndTransformFeedback()
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateEndTransformFeedback(context, angle::EntryPoint::GLEndTransformFeedback));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLEndTransformFeedback) &&
+              ValidateEndTransformFeedback(context, angle::EntryPoint::GLEndTransformFeedback)));
         if (isCallValid)
         {
             context->endTransformFeedback();
@@ -850,7 +884,8 @@ GLsync GL_APIENTRY GL_FenceSync(GLenum condition, GLbitfield flags)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateFenceSync(context, angle::EntryPoint::GLFenceSync, condition, flags));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLFenceSync) &&
+              ValidateFenceSync(context, angle::EntryPoint::GLFenceSync, condition, flags)));
         if (isCallValid)
         {
             returnValue = context->fenceSync(condition, flags);
@@ -883,8 +918,10 @@ void GL_APIENTRY GL_FlushMappedBufferRange(GLenum target, GLintptr offset, GLsiz
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateFlushMappedBufferRange(context, angle::EntryPoint::GLFlushMappedBufferRange,
-                                            targetPacked, offset, length));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLFlushMappedBufferRange) &&
+              ValidateFlushMappedBufferRange(context, angle::EntryPoint::GLFlushMappedBufferRange,
+                                             targetPacked, offset, length)));
         if (isCallValid)
         {
             context->flushMappedBufferRange(targetPacked, offset, length);
@@ -916,8 +953,10 @@ void GL_APIENTRY GL_FramebufferTextureLayer(GLenum target,
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateFramebufferTextureLayer(context, angle::EntryPoint::GLFramebufferTextureLayer,
-                                             target, attachment, texturePacked, level, layer));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLFramebufferTextureLayer) &&
+              ValidateFramebufferTextureLayer(context, angle::EntryPoint::GLFramebufferTextureLayer,
+                                              target, attachment, texturePacked, level, layer)));
         if (isCallValid)
         {
             context->framebufferTextureLayer(target, attachment, texturePacked, level, layer);
@@ -943,7 +982,8 @@ void GL_APIENTRY GL_GenQueries(GLsizei n, GLuint *ids)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateGenQueries(context, angle::EntryPoint::GLGenQueries, n, idsPacked));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLGenQueries) &&
+              ValidateGenQueries(context, angle::EntryPoint::GLGenQueries, n, idsPacked)));
         if (isCallValid)
         {
             context->genQueries(n, idsPacked);
@@ -968,7 +1008,9 @@ void GL_APIENTRY GL_GenSamplers(GLsizei count, GLuint *samplers)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateGenSamplers(context, angle::EntryPoint::GLGenSamplers, count, samplersPacked));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLGenSamplers) &&
+              ValidateGenSamplers(context, angle::EntryPoint::GLGenSamplers, count,
+                                  samplersPacked)));
         if (isCallValid)
         {
             context->genSamplers(count, samplersPacked);
@@ -991,9 +1033,12 @@ void GL_APIENTRY GL_GenTransformFeedbacks(GLsizei n, GLuint *ids)
     {
         TransformFeedbackID *idsPacked = PackParam<TransformFeedbackID *>(ids);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateGenTransformFeedbacks(
-                                context, angle::EntryPoint::GLGenTransformFeedbacks, n, idsPacked));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLGenTransformFeedbacks) &&
+              ValidateGenTransformFeedbacks(context, angle::EntryPoint::GLGenTransformFeedbacks, n,
+                                            idsPacked)));
         if (isCallValid)
         {
             context->genTransformFeedbacks(n, idsPacked);
@@ -1016,9 +1061,11 @@ void GL_APIENTRY GL_GenVertexArrays(GLsizei n, GLuint *arrays)
     {
         VertexArrayID *arraysPacked = PackParam<VertexArrayID *>(arrays);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateGenVertexArrays(context, angle::EntryPoint::GLGenVertexArrays,
-                                                    n, arraysPacked));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLGenVertexArrays) &&
+              ValidateGenVertexArrays(context, angle::EntryPoint::GLGenVertexArrays, n,
+                                      arraysPacked)));
         if (isCallValid)
         {
             context->genVertexArrays(n, arraysPacked);
@@ -1521,18 +1568,20 @@ GL_GetSynciv(GLsync sync, GLenum pname, GLsizei count, GLsizei *length, GLint *v
 
     if (context)
     {
+        SyncID syncPacked = PackParam<SyncID>(sync);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid =
-            (context->skipValidation() || ValidateGetSynciv(context, angle::EntryPoint::GLGetSynciv,
-                                                            sync, pname, count, length, values));
+        bool isCallValid = (context->skipValidation() ||
+                            ValidateGetSynciv(context, angle::EntryPoint::GLGetSynciv, syncPacked,
+                                              pname, count, length, values));
         if (isCallValid)
         {
-            context->getSynciv(sync, pname, count, length, values);
+            context->getSynciv(syncPacked, pname, count, length, values);
         }
-        ANGLE_CAPTURE_GL(GetSynciv, isCallValid, context, sync, pname, count, length, values);
+        ANGLE_CAPTURE_GL(GetSynciv, isCallValid, context, syncPacked, pname, count, length, values);
     }
     else
-    {}
+    {
+    }
 }
 
 void GL_APIENTRY GL_GetTransformFeedbackVarying(GLuint program,
@@ -1735,8 +1784,10 @@ void GL_APIENTRY GL_InvalidateFramebuffer(GLenum target,
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateInvalidateFramebuffer(context, angle::EntryPoint::GLInvalidateFramebuffer,
-                                           target, numAttachments, attachments));
+             (ValidatePixelLocalStorageInactive(context,
+                                                angle::EntryPoint::GLInvalidateFramebuffer) &&
+              ValidateInvalidateFramebuffer(context, angle::EntryPoint::GLInvalidateFramebuffer,
+                                            target, numAttachments, attachments)));
         if (isCallValid)
         {
             context->invalidateFramebuffer(target, numAttachments, attachments);
@@ -1769,9 +1820,11 @@ void GL_APIENTRY GL_InvalidateSubFramebuffer(GLenum target,
     {
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid = (context->skipValidation() ||
-                            ValidateInvalidateSubFramebuffer(
-                                context, angle::EntryPoint::GLInvalidateSubFramebuffer, target,
-                                numAttachments, attachments, x, y, width, height));
+                            (ValidatePixelLocalStorageInactive(
+                                 context, angle::EntryPoint::GLInvalidateSubFramebuffer) &&
+                             ValidateInvalidateSubFramebuffer(
+                                 context, angle::EntryPoint::GLInvalidateSubFramebuffer, target,
+                                 numAttachments, attachments, x, y, width, height)));
         if (isCallValid)
         {
             context->invalidateSubFramebuffer(target, numAttachments, attachments, x, y, width,
@@ -1856,18 +1909,19 @@ GLboolean GL_APIENTRY GL_IsSync(GLsync sync)
     GLboolean returnValue;
     if (context)
     {
+        SyncID syncPacked = PackParam<SyncID>(sync);
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid = (context->skipValidation() ||
-                            ValidateIsSync(context, angle::EntryPoint::GLIsSync, sync));
+                            ValidateIsSync(context, angle::EntryPoint::GLIsSync, syncPacked));
         if (isCallValid)
         {
-            returnValue = context->isSync(sync);
+            returnValue = context->isSync(syncPacked);
         }
         else
         {
             returnValue = GetDefaultReturnValue<angle::EntryPoint::GLIsSync, GLboolean>();
         }
-        ANGLE_CAPTURE_GL(IsSync, isCallValid, context, sync, returnValue);
+        ANGLE_CAPTURE_GL(IsSync, isCallValid, context, syncPacked, returnValue);
     }
     else
     {
@@ -1987,9 +2041,11 @@ void GL_APIENTRY GL_PauseTransformFeedback()
     if (context)
     {
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid =
-            (context->skipValidation() ||
-             ValidatePauseTransformFeedback(context, angle::EntryPoint::GLPauseTransformFeedback));
+        bool isCallValid = (context->skipValidation() ||
+                            (ValidatePixelLocalStorageInactive(
+                                 context, angle::EntryPoint::GLPauseTransformFeedback) &&
+                             ValidatePauseTransformFeedback(
+                                 context, angle::EntryPoint::GLPauseTransformFeedback)));
         if (isCallValid)
         {
             context->pauseTransformFeedback();
@@ -2017,9 +2073,11 @@ void GL_APIENTRY GL_ProgramBinary(GLuint program,
     {
         ShaderProgramID programPacked = PackParam<ShaderProgramID>(program);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateProgramBinary(context, angle::EntryPoint::GLProgramBinary,
-                                                  programPacked, binaryFormat, binary, length));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLProgramBinary) &&
+              ValidateProgramBinary(context, angle::EntryPoint::GLProgramBinary, programPacked,
+                                    binaryFormat, binary, length)));
         if (isCallValid)
         {
             context->programBinary(programPacked, binaryFormat, binary, length);
@@ -2045,8 +2103,9 @@ void GL_APIENTRY GL_ProgramParameteri(GLuint program, GLenum pname, GLint value)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateProgramParameteri(context, angle::EntryPoint::GLProgramParameteri,
-                                       programPacked, pname, value));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLProgramParameteri) &&
+              ValidateProgramParameteri(context, angle::EntryPoint::GLProgramParameteri,
+                                        programPacked, pname, value)));
         if (isCallValid)
         {
             context->programParameteri(programPacked, pname, value);
@@ -2068,8 +2127,10 @@ void GL_APIENTRY GL_ReadBuffer(GLenum src)
     if (context)
     {
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateReadBuffer(context, angle::EntryPoint::GLReadBuffer, src));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLReadBuffer) &&
+              ValidateReadBuffer(context, angle::EntryPoint::GLReadBuffer, src)));
         if (isCallValid)
         {
             context->readBuffer(src);
@@ -2098,9 +2159,11 @@ void GL_APIENTRY GL_RenderbufferStorageMultisample(GLenum target,
     {
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid = (context->skipValidation() ||
-                            ValidateRenderbufferStorageMultisample(
-                                context, angle::EntryPoint::GLRenderbufferStorageMultisample,
-                                target, samples, internalformat, width, height));
+                            (ValidatePixelLocalStorageInactive(
+                                 context, angle::EntryPoint::GLRenderbufferStorageMultisample) &&
+                             ValidateRenderbufferStorageMultisample(
+                                 context, angle::EntryPoint::GLRenderbufferStorageMultisample,
+                                 target, samples, internalformat, width, height)));
         if (isCallValid)
         {
             context->renderbufferStorageMultisample(target, samples, internalformat, width, height);
@@ -2123,8 +2186,10 @@ void GL_APIENTRY GL_ResumeTransformFeedback()
     {
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid = (context->skipValidation() ||
-                            ValidateResumeTransformFeedback(
-                                context, angle::EntryPoint::GLResumeTransformFeedback));
+                            (ValidatePixelLocalStorageInactive(
+                                 context, angle::EntryPoint::GLResumeTransformFeedback) &&
+                             ValidateResumeTransformFeedback(
+                                 context, angle::EntryPoint::GLResumeTransformFeedback)));
         if (isCallValid)
         {
             context->resumeTransformFeedback();
@@ -2266,10 +2331,12 @@ void GL_APIENTRY GL_TexImage3D(GLenum target,
     {
         TextureTarget targetPacked = PackParam<TextureTarget>(target);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateTexImage3D(context, angle::EntryPoint::GLTexImage3D,
-                                               targetPacked, level, internalformat, width, height,
-                                               depth, border, format, type, pixels));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLTexImage3D) &&
+              ValidateTexImage3D(context, angle::EntryPoint::GLTexImage3D, targetPacked, level,
+                                 internalformat, width, height, depth, border, format, type,
+                                 pixels)));
         if (isCallValid)
         {
             context->texImage3D(targetPacked, level, internalformat, width, height, depth, border,
@@ -2299,8 +2366,9 @@ GL_TexStorage2D(GLenum target, GLsizei levels, GLenum internalformat, GLsizei wi
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateTexStorage2D(context, angle::EntryPoint::GLTexStorage2D, targetPacked, levels,
-                                  internalformat, width, height));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLTexStorage2D) &&
+              ValidateTexStorage2D(context, angle::EntryPoint::GLTexStorage2D, targetPacked, levels,
+                                   internalformat, width, height)));
         if (isCallValid)
         {
             context->texStorage2D(targetPacked, levels, internalformat, width, height);
@@ -2334,8 +2402,9 @@ void GL_APIENTRY GL_TexStorage3D(GLenum target,
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateTexStorage3D(context, angle::EntryPoint::GLTexStorage3D, targetPacked, levels,
-                                  internalformat, width, height, depth));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLTexStorage3D) &&
+              ValidateTexStorage3D(context, angle::EntryPoint::GLTexStorage3D, targetPacked, levels,
+                                   internalformat, width, height, depth)));
         if (isCallValid)
         {
             context->texStorage3D(targetPacked, levels, internalformat, width, height, depth);
@@ -2373,10 +2442,12 @@ void GL_APIENTRY GL_TexSubImage3D(GLenum target,
     {
         TextureTarget targetPacked = PackParam<TextureTarget>(target);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid = (context->skipValidation() ||
-                            ValidateTexSubImage3D(context, angle::EntryPoint::GLTexSubImage3D,
-                                                  targetPacked, level, xoffset, yoffset, zoffset,
-                                                  width, height, depth, format, type, pixels));
+        bool isCallValid =
+            (context->skipValidation() ||
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLTexSubImage3D) &&
+              ValidateTexSubImage3D(context, angle::EntryPoint::GLTexSubImage3D, targetPacked,
+                                    level, xoffset, yoffset, zoffset, width, height, depth, format,
+                                    type, pixels)));
         if (isCallValid)
         {
             context->texSubImage3D(targetPacked, level, xoffset, yoffset, zoffset, width, height,
@@ -2407,9 +2478,11 @@ void GL_APIENTRY GL_TransformFeedbackVaryings(GLuint program,
         ShaderProgramID programPacked = PackParam<ShaderProgramID>(program);
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid = (context->skipValidation() ||
-                            ValidateTransformFeedbackVaryings(
-                                context, angle::EntryPoint::GLTransformFeedbackVaryings,
-                                programPacked, count, varyings, bufferMode));
+                            (ValidatePixelLocalStorageInactive(
+                                 context, angle::EntryPoint::GLTransformFeedbackVaryings) &&
+                             ValidateTransformFeedbackVaryings(
+                                 context, angle::EntryPoint::GLTransformFeedbackVaryings,
+                                 programPacked, count, varyings, bufferMode)));
         if (isCallValid)
         {
             context->transformFeedbackVaryings(programPacked, count, varyings, bufferMode);
@@ -3038,15 +3111,18 @@ void GL_APIENTRY GL_WaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
 
     if (context)
     {
+        SyncID syncPacked = PackParam<SyncID>(sync);
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             ValidateWaitSync(context, angle::EntryPoint::GLWaitSync, sync, flags, timeout));
+             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLWaitSync) &&
+              ValidateWaitSync(context, angle::EntryPoint::GLWaitSync, syncPacked, flags,
+                               timeout)));
         if (isCallValid)
         {
-            context->waitSync(sync, flags, timeout);
+            context->waitSync(syncPacked, flags, timeout);
         }
-        ANGLE_CAPTURE_GL(WaitSync, isCallValid, context, sync, flags, timeout);
+        ANGLE_CAPTURE_GL(WaitSync, isCallValid, context, syncPacked, flags, timeout);
     }
     else
     {

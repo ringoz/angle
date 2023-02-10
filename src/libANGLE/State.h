@@ -213,6 +213,11 @@ class State : angle::NonCopyable
 
     // Stencil state maniupulation
     bool isStencilTestEnabled() const { return mDepthStencil.stencilTest; }
+    bool isStencilWriteEnabled() const
+    {
+        return mDepthStencil.stencilTest &&
+               !(mDepthStencil.isStencilNoOp() && mDepthStencil.isStencilBackNoOp());
+    }
     void setStencilTest(bool enabled);
     void setStencilParams(GLenum stencilFunc, GLint stencilRef, GLuint stencilMask);
     void setStencilBackParams(GLenum stencilBackFunc, GLint stencilBackRef, GLuint stencilBackMask);
@@ -230,7 +235,7 @@ class State : angle::NonCopyable
     // Depth bias/polygon offset state manipulation
     bool isPolygonOffsetFillEnabled() const { return mRasterizer.polygonOffsetFill; }
     void setPolygonOffsetFill(bool enabled);
-    void setPolygonOffsetParams(GLfloat factor, GLfloat units);
+    void setPolygonOffsetParams(GLfloat factor, GLfloat units, GLfloat clamp);
 
     // Multisample coverage state manipulation
     bool isSampleAlphaToCoverageEnabled() const { return mSampleAlphaToCoverage; }
@@ -616,8 +621,8 @@ class State : angle::NonCopyable
     GLuint getPatchVertices() const { return mPatchVertices; }
 
     // GL_ANGLE_shader_pixel_local_storage
-    void setPixelLocalStorageActive(bool active);
-    bool getPixelLocalStorageActive() const { return mPixelLocalStorageActive; }
+    void setPixelLocalStorageActivePlanes(GLsizei n);
+    GLsizei getPixelLocalStorageActivePlanes() const { return mPixelLocalStorageActivePlanes; }
 
     // State query functions
     void getBooleanv(GLenum pname, GLboolean *params) const;
@@ -1188,14 +1193,14 @@ class State : angle::NonCopyable
     // GL_KHR_parallel_shader_compile
     GLuint mMaxShaderCompilerThreads;
 
-    // GL_APPLE_clip_distance/GL_EXT_clip_cull_distance
+    // GL_APPLE_clip_distance / GL_EXT_clip_cull_distance / GL_ANGLE_clip_cull_distance
     ClipDistanceEnableBits mClipDistancesEnabled;
 
     // GL_EXT_tessellation_shader
     GLuint mPatchVertices;
 
     // GL_ANGLE_shader_pixel_local_storage
-    bool mPixelLocalStorageActive;
+    GLsizei mPixelLocalStorageActivePlanes;
 
     // GLES1 emulation: state specific to GLES1
     GLES1State mGLES1State;

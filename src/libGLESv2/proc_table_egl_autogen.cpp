@@ -154,6 +154,7 @@ const ProcEntry g_procTable[] = {
     {"eglWaitNative", P(EGL_WaitNative)},
     {"eglWaitSync", P(EGL_WaitSync)},
     {"eglWaitSyncKHR", P(EGL_WaitSyncKHR)},
+    {"eglWaitUntilWorkScheduledANGLE", P(EGL_WaitUntilWorkScheduledANGLE)},
     DESKTOP_ONLY("glAccum", GL_Accum)
     {"glAcquireTexturesANGLE", P(GL_AcquireTexturesANGLE)},
     {"glActiveShaderProgram", P(GL_ActiveShaderProgram)},
@@ -512,6 +513,9 @@ const ProcEntry g_procTable[] = {
     {"glFramebufferMemorylessPixelLocalStorageANGLE", P(GL_FramebufferMemorylessPixelLocalStorageANGLE)},
     {"glFramebufferParameteri", P(GL_FramebufferParameteri)},
     {"glFramebufferParameteriMESA", P(GL_FramebufferParameteriMESA)},
+    {"glFramebufferPixelLocalClearValuefvANGLE", P(GL_FramebufferPixelLocalClearValuefvANGLE)},
+    {"glFramebufferPixelLocalClearValueivANGLE", P(GL_FramebufferPixelLocalClearValueivANGLE)},
+    {"glFramebufferPixelLocalClearValueuivANGLE", P(GL_FramebufferPixelLocalClearValueuivANGLE)},
     {"glFramebufferRenderbuffer", P(GL_FramebufferRenderbuffer)},
     {"glFramebufferRenderbufferOES", P(GL_FramebufferRenderbufferOES)},
     {"glFramebufferTexture", P(GL_FramebufferTexture)},
@@ -602,6 +606,8 @@ const ProcEntry g_procTable[] = {
     {"glGetFramebufferParameteriv", P(GL_GetFramebufferParameteriv)},
     {"glGetFramebufferParameterivMESA", P(GL_GetFramebufferParameterivMESA)},
     {"glGetFramebufferParameterivRobustANGLE", P(GL_GetFramebufferParameterivRobustANGLE)},
+    {"glGetFramebufferPixelLocalStorageParameterfvANGLE", P(GL_GetFramebufferPixelLocalStorageParameterfvANGLE)},
+    {"glGetFramebufferPixelLocalStorageParameterivANGLE", P(GL_GetFramebufferPixelLocalStorageParameterivANGLE)},
     {"glGetGraphicsResetStatus", P(GL_GetGraphicsResetStatus)},
     {"glGetGraphicsResetStatusEXT", P(GL_GetGraphicsResetStatusEXT)},
     {"glGetInteger64i_v", P(GL_GetInteger64i_v)},
@@ -1047,6 +1053,7 @@ const ProcEntry g_procTable[] = {
     DESKTOP_ONLY("glPolygonMode", GL_PolygonMode)
     {"glPolygonOffset", P(GL_PolygonOffset)},
     DESKTOP_ONLY("glPolygonOffsetClamp", GL_PolygonOffsetClamp)
+    {"glPolygonOffsetClampEXT", P(GL_PolygonOffsetClampEXT)},
     {"glPolygonOffsetx", P(GL_PolygonOffsetx)},
     DESKTOP_ONLY("glPolygonStipple", GL_PolygonStipple)
     DESKTOP_ONLY("glPopAttrib", GL_PopAttrib)

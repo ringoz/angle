@@ -134,6 +134,8 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
     virtual egl::Error handleGPUSwitch();
     virtual egl::Error forceGPUSwitch(EGLint gpuIDHigh, EGLint gpuIDLow);
 
+    virtual egl::Error waitUntilWorkScheduled();
+
     virtual bool isX11() const;
     virtual bool isWayland() const;
     virtual bool isGBM() const;
@@ -145,7 +147,6 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
                                             EGLuint64KHR *modifiers,
                                             EGLBoolean *external_only,
                                             EGLint *num_modifiers);
-    GLuint getNextSurfaceID() override;
 
   protected:
     const egl::DisplayState &mState;
@@ -161,7 +162,6 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
     mutable egl::Caps mCaps;
 
     egl::BlobCache *mBlobCache;
-    rx::AtomicSerialFactory mNextSurfaceID;
 };
 
 }  // namespace rx

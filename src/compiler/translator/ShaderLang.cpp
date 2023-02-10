@@ -13,7 +13,6 @@
 
 #include "compiler/translator/Compiler.h"
 #include "compiler/translator/InitializeDll.h"
-#include "compiler/translator/glslang_wrapper.h"
 #include "compiler/translator/length_limits.h"
 #ifdef ANGLE_ENABLE_HLSL
 #    include "compiler/translator/TranslatorHLSL.h"
@@ -28,17 +27,6 @@ namespace
 {
 
 bool isInitialized = false;
-
-// glslang can only be initialized/finalized once per process. Otherwise, the following EGL commands
-// will call GlslangFinalize() without ever being able to GlslangInitialize() again, leading to
-// crashes since GlslangFinalize() cleans up glslang for the entire process.
-//   dpy1 = eglGetPlatformDisplay()   |
-//   eglInitialize(dpy1)              | GlslangInitialize()
-//   dpy2 = eglGetPlatformDisplay()   |
-//   eglInitialize(dpy2)              | GlslangInitialize()
-//   eglTerminate(dpy2)               | GlslangFinalize()
-//   eglInitialize(dpy1)              | Display::isInitialized() == true, no GlslangInitialize()
-int initializeGlslangRefCount = 0;
 
 //
 // This is the platform independent interface between an OGL driver
@@ -234,6 +222,7 @@ void InitBuiltInResources(ShBuiltInResources *resources)
     resources->EXT_texture_buffer                             = 0;
     resources->OES_sample_variables                           = 0;
     resources->EXT_clip_cull_distance                         = 0;
+    resources->ANGLE_clip_cull_distance                       = 0;
     resources->KHR_blend_equation_advanced                    = 0;
 
     resources->MaxClipDistances                = 8;
@@ -743,6 +732,37 @@ const std::set<std::string> *GetUsedImage2DFunctionNames(const ShHandle handle)
 #endif  // ANGLE_ENABLE_HLSL
 }
 
+uint8_t GetClipDistanceArraySize(const ShHandle handle)
+{
+    ASSERT(handle);
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
+    ASSERT(compiler);
+
+    return compiler->getClipDistanceArraySize();
+}
+
+uint8_t GetCullDistanceArraySize(const ShHandle handle)
+{
+    ASSERT(handle);
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
+    ASSERT(compiler);
+
+    return compiler->getCullDistanceArraySize();
+}
+
+bool HasClipDistanceInVertexShader(const ShHandle handle)
+{
+    ASSERT(handle);
+
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
+    ASSERT(compiler);
+
+    return compiler->getShaderType() == GL_VERTEX_SHADER && compiler->hasClipDistance();
+}
+
 bool HasDiscardInFragmentShader(const ShHandle handle)
 {
     ASSERT(handle);
@@ -951,26 +971,6 @@ uint32_t GetAdvancedBlendEquations(const ShHandle handle)
     ASSERT(compiler);
 
     return compiler->getAdvancedBlendEquations().bits();
-}
-
-void InitializeGlslang()
-{
-    if (initializeGlslangRefCount == 0)
-    {
-        GlslangInitialize();
-    }
-    ++initializeGlslangRefCount;
-    ASSERT(initializeGlslangRefCount < std::numeric_limits<int>::max());
-}
-
-void FinalizeGlslang()
-{
-    --initializeGlslangRefCount;
-    ASSERT(initializeGlslangRefCount >= 0);
-    if (initializeGlslangRefCount == 0)
-    {
-        GlslangFinalize();
-    }
 }
 
 // Can't prefix with just _ because then we might introduce a double underscore, which is not safe

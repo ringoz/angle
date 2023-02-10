@@ -5126,11 +5126,219 @@ TEST_P(FramebufferTest_ES3, BlitWithDifferentPreRotations)
     ASSERT_EGL_SUCCESS();
 }
 
+// Tests draw to surfaces with different pre-rotation values.
+TEST_P(FramebufferTest_ES3, DrawWithDifferentPreRotations)
+{
+    EGLWindow *window = getEGLWindow();
+    ASSERT(window);
+    EGLConfig config   = window->getConfig();
+    EGLContext context = window->getContext();
+    EGLDisplay dpy     = window->getDisplay();
+    EGLint surfaceType = 0;
+
+    // Skip if pbuffer surface is not supported
+    eglGetConfigAttrib(dpy, config, EGL_SURFACE_TYPE, &surfaceType);
+    ANGLE_SKIP_TEST_IF((surfaceType & EGL_PBUFFER_BIT) == 0);
+
+    const EGLint surfaceWidth        = static_cast<EGLint>(getWindowWidth());
+    const EGLint surfaceHeight       = static_cast<EGLint>(getWindowHeight());
+    const EGLint pBufferAttributes[] = {
+        EGL_WIDTH, surfaceWidth, EGL_HEIGHT, surfaceHeight, EGL_NONE,
+    };
+
+    // Create Pbuffer surface
+    EGLSurface pbufferSurface = eglCreatePbufferSurface(dpy, config, pBufferAttributes);
+    ASSERT_NE(pbufferSurface, EGL_NO_SURFACE);
+    ASSERT_EGL_SUCCESS();
+
+    EGLSurface windowSurface = window->getSurface();
+    ASSERT_NE(windowSurface, EGL_NO_SURFACE);
+
+    constexpr char kCheckered2FS[] = R"(precision highp float;
+varying vec4 v_position;
+
+void main()
+{
+    bool isLeft = v_position.x < 0.0;
+    bool isTop = v_position.y < 0.0;
+    if (isLeft)
+    {
+        if (isTop)
+        {
+            gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
+        }
+        else
+        {
+            gl_FragColor = vec4(0.0, 1.0, 1.0, 1.0);
+        }
+    }
+    else
+    {
+        if (isTop)
+        {
+            gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+        }
+        else
+        {
+            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        }
+    }
+})";
+
+    ANGLE_GL_PROGRAM(checkerProgram, essl1_shaders::vs::Passthrough(),
+                     essl1_shaders::fs::Checkered());
+    ANGLE_GL_PROGRAM(checkerProgram2, essl1_shaders::vs::Passthrough(), kCheckered2FS);
+
+    // The test does the following:
+    //
+    // 1. draw checkered to window (rotated)
+    // 2. draw checkered to pbuffer (not rotated)
+    // 3. verify rendering to window, draw checkered2, verify again
+    // 4. verify rendering to pbuffer, draw checkered2, verify again
+    //
+    // Step 2 ensures that the correct state is used after a change to the bound surface (from
+    // rotated to not). Step 3 ensures the same from not rotated to rotated.  Step 4 is a redundant
+    // check.
+
+    // Step 1
+    EXPECT_EGL_TRUE(eglMakeCurrent(dpy, windowSurface, windowSurface, context));
+    ASSERT_EGL_SUCCESS();
+
+    drawQuad(checkerProgram, essl1_shaders::PositionAttrib(), 0);
+
+    // Step 2
+    EXPECT_EGL_TRUE(eglMakeCurrent(dpy, pbufferSurface, windowSurface, context));
+    ASSERT_EGL_SUCCESS();
+
+    drawQuad(checkerProgram, essl1_shaders::PositionAttrib(), 0);
+
+    // Step 3
+    EXPECT_EGL_TRUE(eglMakeCurrent(dpy, windowSurface, windowSurface, context));
+    ASSERT_EGL_SUCCESS();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+    EXPECT_PIXEL_COLOR_EQ(0, surfaceHeight - 1, GLColor::green);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, 0, GLColor::blue);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, surfaceHeight - 1, GLColor::yellow);
+
+    drawQuad(checkerProgram2, essl1_shaders::PositionAttrib(), 0);
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::yellow);
+    EXPECT_PIXEL_COLOR_EQ(0, surfaceHeight - 1, GLColor::cyan);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, 0, GLColor::magenta);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, surfaceHeight - 1, GLColor::white);
+
+    // Step 4
+    EXPECT_EGL_TRUE(eglMakeCurrent(dpy, pbufferSurface, pbufferSurface, context));
+    ASSERT_EGL_SUCCESS();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+    EXPECT_PIXEL_COLOR_EQ(0, surfaceHeight - 1, GLColor::green);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, 0, GLColor::blue);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, surfaceHeight - 1, GLColor::yellow);
+
+    drawQuad(checkerProgram2, essl1_shaders::PositionAttrib(), 0);
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::yellow);
+    EXPECT_PIXEL_COLOR_EQ(0, surfaceHeight - 1, GLColor::cyan);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, 0, GLColor::magenta);
+    EXPECT_PIXEL_COLOR_EQ(surfaceWidth - 1, surfaceHeight - 1, GLColor::white);
+
+    EXPECT_EGL_TRUE(eglMakeCurrent(dpy, windowSurface, windowSurface, context));
+    ASSERT_EGL_SUCCESS();
+
+    EXPECT_EGL_TRUE(eglDestroySurface(dpy, pbufferSurface));
+    ASSERT_EGL_SUCCESS();
+}
+
+class FramebufferExtensionsTest : public FramebufferTest
+{
+  protected:
+    FramebufferExtensionsTest() { setExtensionsEnabled(false); }
+
+    void checkParameter(GLenum expectedComponentType)
+    {
+        GLint componentType = 0;
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                              GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE_EXT,
+                                              &componentType);
+        EXPECT_EQ(componentType, static_cast<GLint>(expectedComponentType));
+        if (expectedComponentType)
+        {
+            EXPECT_GL_NO_ERROR();
+        }
+        else
+        {
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+        }
+    }
+
+    void checkTexture(GLenum format, GLenum type, GLenum expectedComponentType)
+    {
+        GLTexture texture;
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, 8, 8, 0, format, type, nullptr);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+        ASSERT_GL_NO_ERROR();
+        checkParameter(expectedComponentType);
+    }
+
+    void checkRenderbuffer(GLenum format, GLenum expectedComponentType)
+    {
+        GLRenderbuffer renderbuffer;
+        glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, format, 8, 8);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                                  renderbuffer);
+        ASSERT_GL_NO_ERROR();
+        checkParameter(expectedComponentType);
+    }
+
+    void test(const char *extensionName, GLenum format, bool supportsRenderbuffer)
+    {
+        GLFramebuffer fbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        checkTexture(GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        checkRenderbuffer(GL_RGB565, 0);
+
+        ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled(extensionName));
+
+        checkTexture(GL_RGBA, GL_UNSIGNED_BYTE, GL_UNSIGNED_NORMALIZED_EXT);
+        checkRenderbuffer(GL_RGB565, GL_UNSIGNED_NORMALIZED_EXT);
+
+        if (supportsRenderbuffer)
+            checkRenderbuffer(format, GL_FLOAT);
+    }
+};
+
+// Tests that GL_EXT_color_buffer_half_float enables component type state queries on
+// framebuffer attachments.
+TEST_P(FramebufferExtensionsTest, ColorBufferHalfFloat)
+{
+    ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_OES_texture_half_float"));
+    test("GL_EXT_color_buffer_half_float", GL_RGBA16F_EXT, true);
+}
+
+// Tests that GL_CHROMIUM_color_buffer_float_rgb enables component type state queries on
+// framebuffer attachments.
+TEST_P(FramebufferExtensionsTest, ColorBufferFloatRgb)
+{
+    test("GL_CHROMIUM_color_buffer_float_rgb", GL_RGB32F_EXT, false);
+}
+
+// Tests that GL_CHROMIUM_color_buffer_float_rgba enables component type state queries on
+// framebuffer attachments.
+TEST_P(FramebufferExtensionsTest, ColorBufferFloatRgba)
+{
+    test("GL_CHROMIUM_color_buffer_float_rgba", GL_RGBA32F_EXT, true);
+}
+
 ANGLE_INSTANTIATE_TEST_ES2_AND(AddMockTextureNoRenderTargetTest,
                                ES2_D3D9().enable(Feature::AddMockTextureNoRenderTarget),
                                ES2_D3D11().enable(Feature::AddMockTextureNoRenderTarget));
 
 ANGLE_INSTANTIATE_TEST_ES2(FramebufferTest);
+ANGLE_INSTANTIATE_TEST_ES2(FramebufferExtensionsTest);
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(FramebufferFormatsTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(FramebufferTest_ES3);

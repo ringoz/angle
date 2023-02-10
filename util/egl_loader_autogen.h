@@ -90,6 +90,7 @@
 #define eglSwapBuffersWithFrameTokenANGLE l_eglSwapBuffersWithFrameTokenANGLE
 #define eglGetMscRateANGLE l_eglGetMscRateANGLE
 #define eglExportVkImageANGLE l_eglExportVkImageANGLE
+#define eglWaitUntilWorkScheduledANGLE l_eglWaitUntilWorkScheduledANGLE
 #define eglGetSyncValuesCHROMIUM l_eglGetSyncValuesCHROMIUM
 #define eglQueryDeviceAttribEXT l_eglQueryDeviceAttribEXT
 #define eglQueryDeviceStringEXT l_eglQueryDeviceStringEXT
@@ -125,6 +126,10 @@
 #define eglWaitSyncKHR l_eglWaitSyncKHR
 #define eglPostSubBufferNV l_eglPostSubBufferNV
 #define eglStreamConsumerGLTextureExternalAttribsNV l_eglStreamConsumerGLTextureExternalAttribsNV
+
+#if defined(__cplusplus)
+extern "C" {
+#endif  // defined(__cplusplus)
 ANGLE_UTIL_EXPORT extern PFNEGLCHOOSECONFIGPROC l_eglChooseConfig;
 ANGLE_UTIL_EXPORT extern PFNEGLCOPYBUFFERSPROC l_eglCopyBuffers;
 ANGLE_UTIL_EXPORT extern PFNEGLCREATECONTEXTPROC l_eglCreateContext;
@@ -204,6 +209,7 @@ ANGLE_UTIL_EXPORT extern PFNEGLSWAPBUFFERSWITHFRAMETOKENANGLEPROC
     l_eglSwapBuffersWithFrameTokenANGLE;
 ANGLE_UTIL_EXPORT extern PFNEGLGETMSCRATEANGLEPROC l_eglGetMscRateANGLE;
 ANGLE_UTIL_EXPORT extern PFNEGLEXPORTVKIMAGEANGLEPROC l_eglExportVkImageANGLE;
+ANGLE_UTIL_EXPORT extern PFNEGLWAITUNTILWORKSCHEDULEDANGLEPROC l_eglWaitUntilWorkScheduledANGLE;
 ANGLE_UTIL_EXPORT extern PFNEGLGETSYNCVALUESCHROMIUMPROC l_eglGetSyncValuesCHROMIUM;
 ANGLE_UTIL_EXPORT extern PFNEGLQUERYDEVICEATTRIBEXTPROC l_eglQueryDeviceAttribEXT;
 ANGLE_UTIL_EXPORT extern PFNEGLQUERYDEVICESTRINGEXTPROC l_eglQueryDeviceStringEXT;
@@ -244,8 +250,12 @@ ANGLE_UTIL_EXPORT extern PFNEGLPOSTSUBBUFFERNVPROC l_eglPostSubBufferNV;
 ANGLE_UTIL_EXPORT extern PFNEGLSTREAMCONSUMERGLTEXTUREEXTERNALATTRIBSNVPROC
     l_eglStreamConsumerGLTextureExternalAttribsNV;
 
-using GenericProc = void (*)();
-using LoadProc    = GenericProc(KHRONOS_APIENTRY *)(const char *);
+typedef void (*GenericProc)(void);
+typedef GenericProc(KHRONOS_APIENTRY *LoadProc)(const char *);
 ANGLE_UTIL_EXPORT void LoadUtilEGL(LoadProc loadProc);
+
+#if defined(__cplusplus)
+}  // extern "C"
+#endif  // defined(__cplusplus)
 
 #endif  // UTIL_EGL_LOADER_AUTOGEN_H_

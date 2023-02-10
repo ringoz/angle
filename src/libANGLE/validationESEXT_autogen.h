@@ -117,6 +117,8 @@ bool ValidateMultiDrawElementsInstancedBaseVertexBaseInstanceANGLE(const Context
                                                                    const GLuint *baseInstances,
                                                                    GLsizei drawcount);
 
+// GL_ANGLE_clip_cull_distance
+
 // GL_ANGLE_copy_texture_3d
 bool ValidateCopyTexture3DANGLE(const Context *context,
                                 angle::EntryPoint entryPoint,
@@ -332,7 +334,7 @@ bool ValidateMultiDrawElementsInstancedANGLE(const Context *context,
 // GL_ANGLE_provoking_vertex
 bool ValidateProvokingVertexANGLE(const Context *context,
                                   angle::EntryPoint entryPoint,
-                                  ProvokingVertexConvention modePacked);
+                                  ProvokingVertexConvention provokeModePacked);
 
 // GL_ANGLE_request_extension
 bool ValidateRequestExtensionANGLE(const Context *context,
@@ -861,13 +863,37 @@ bool ValidateFramebufferTexturePixelLocalStorageANGLE(const Context *context,
                                                       TextureID backingtexturePacked,
                                                       GLint level,
                                                       GLint layer);
+bool ValidateFramebufferPixelLocalClearValuefvANGLE(const Context *context,
+                                                    angle::EntryPoint entryPoint,
+                                                    GLint plane,
+                                                    const GLfloat *value);
+bool ValidateFramebufferPixelLocalClearValueivANGLE(const Context *context,
+                                                    angle::EntryPoint entryPoint,
+                                                    GLint plane,
+                                                    const GLint *value);
+bool ValidateFramebufferPixelLocalClearValueuivANGLE(const Context *context,
+                                                     angle::EntryPoint entryPoint,
+                                                     GLint plane,
+                                                     const GLuint *value);
 bool ValidateBeginPixelLocalStorageANGLE(const Context *context,
                                          angle::EntryPoint entryPoint,
-                                         GLsizei planes,
-                                         const GLenum *loadops,
-                                         const void *cleardata);
-bool ValidateEndPixelLocalStorageANGLE(const Context *context, angle::EntryPoint entryPoint);
+                                         GLsizei n,
+                                         const GLenum *loadops);
+bool ValidateEndPixelLocalStorageANGLE(const Context *context,
+                                       angle::EntryPoint entryPoint,
+                                       GLsizei n,
+                                       const GLenum *storeops);
 bool ValidatePixelLocalStorageBarrierANGLE(const Context *context, angle::EntryPoint entryPoint);
+bool ValidateGetFramebufferPixelLocalStorageParameterfvANGLE(const Context *context,
+                                                             angle::EntryPoint entryPoint,
+                                                             GLint plane,
+                                                             GLenum pname,
+                                                             const GLfloat *params);
+bool ValidateGetFramebufferPixelLocalStorageParameterivANGLE(const Context *context,
+                                                             angle::EntryPoint entryPoint,
+                                                             GLint plane,
+                                                             GLenum pname,
+                                                             const GLint *params);
 
 // GL_ANGLE_texture_compression_dxt3
 
@@ -933,6 +959,8 @@ bool ValidateReleaseTexturesANGLE(const Context *context,
 
 // GL_ARB_sync
 
+// GL_ARM_shader_framebuffer_fetch
+
 // GL_CHROMIUM_bind_uniform_location
 bool ValidateBindUniformLocationCHROMIUM(const Context *context,
                                          angle::EntryPoint entryPoint,
@@ -993,12 +1021,12 @@ bool ValidateLoseContextCHROMIUM(const Context *context,
 bool ValidateEGLImageTargetTexStorageEXT(const Context *context,
                                          angle::EntryPoint entryPoint,
                                          GLenum target,
-                                         GLeglImageOES image,
+                                         egl::ImageID imagePacked,
                                          const GLint *attrib_list);
 bool ValidateEGLImageTargetTextureStorageEXT(const Context *context,
                                              angle::EntryPoint entryPoint,
                                              GLuint texture,
-                                             GLeglImageOES image,
+                                             egl::ImageID imagePacked,
                                              const GLint *attrib_list);
 
 // GL_EXT_YUV_target
@@ -1439,6 +1467,13 @@ bool ValidateRenderbufferStorageMultisampleEXT(const Context *context,
 // GL_EXT_multisampled_render_to_texture2
 
 // GL_EXT_occlusion_query_boolean
+
+// GL_EXT_polygon_offset_clamp
+bool ValidatePolygonOffsetClampEXT(const Context *context,
+                                   angle::EntryPoint entryPoint,
+                                   GLfloat factor,
+                                   GLfloat units,
+                                   GLfloat clamp);
 
 // GL_EXT_primitive_bounding_box
 bool ValidatePrimitiveBoundingBoxEXT(const Context *context,
@@ -2082,11 +2117,11 @@ bool ValidateBlitFramebufferNV(const Context *context,
 bool ValidateEGLImageTargetRenderbufferStorageOES(const Context *context,
                                                   angle::EntryPoint entryPoint,
                                                   GLenum target,
-                                                  GLeglImageOES image);
+                                                  egl::ImageID imagePacked);
 bool ValidateEGLImageTargetTexture2DOES(const Context *context,
                                         angle::EntryPoint entryPoint,
                                         TextureType targetPacked,
-                                        GLeglImageOES image);
+                                        egl::ImageID imagePacked);
 
 // GL_OES_EGL_image_external
 

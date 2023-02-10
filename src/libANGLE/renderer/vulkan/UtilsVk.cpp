@@ -11,7 +11,6 @@
 
 #include "common/spirv/spirv_instruction_builder_autogen.h"
 
-#include "libANGLE/renderer/glslang_wrapper_utils.h"
 #include "libANGLE/renderer/vulkan/ContextVk.h"
 #include "libANGLE/renderer/vulkan/FramebufferVk.h"
 #include "libANGLE/renderer/vulkan/RenderTargetVk.h"
@@ -1005,7 +1004,7 @@ angle::Result GetUnresolveFrag(
     gl::DrawBuffersArray<UnresolveColorAttachmentType> &colorAttachmentTypes,
     bool unresolveDepth,
     bool unresolveStencil,
-    vk::RefCounted<vk::ShaderAndSerial> *shader)
+    vk::RefCounted<vk::ShaderModule> *shader)
 {
     if (shader->get().valid())
     {
@@ -1019,8 +1018,7 @@ angle::Result GetUnresolveFrag(
     ASSERT(spirv::Validate(shaderCode));
 
     // Create shader lazily. Access will need to be locked for multi-threading.
-    return vk::InitShaderAndSerial(context, &shader->get(), shaderCode.data(),
-                                   shaderCode.size() * 4);
+    return vk::InitShaderModule(context, &shader->get(), shaderCode.data(), shaderCode.size() * 4);
 }
 
 gl::DrawBufferMask MakeColorBufferMask(uint32_t colorAttachmentIndexGL)
@@ -1061,17 +1059,15 @@ void UpdateDepthStencilAccess(ContextVk *contextVk,
     {
         // Explicitly mark a depth write because we are modifying the depth buffer.
         renderPassCommands->onDepthAccess(vk::ResourceAccess::Write);
+        // Because we may have changed the depth access mode, update read only depth mode.
+        framebuffer->updateRenderPassDepthReadOnlyMode(contextVk, renderPassCommands);
     }
     if (stencilWrite)
     {
         // Explicitly mark a stencil write because we are modifying the stencil buffer.
         renderPassCommands->onStencilAccess(vk::ResourceAccess::Write);
-    }
-    if (depthWrite || stencilWrite)
-    {
-        // Because we may have changed the depth stencil access mode, update read only depth mode
-        // now.
-        framebuffer->updateRenderPassReadOnlyDepthMode(contextVk, renderPassCommands);
+        // Because we may have changed the stencil access mode, update read only stencil mode.
+        framebuffer->updateRenderPassStencilReadOnlyMode(contextVk, renderPassCommands);
     }
 }
 
@@ -1156,9 +1152,10 @@ UtilsVk::UtilsVk() = default;
 
 UtilsVk::~UtilsVk() = default;
 
-void UtilsVk::destroy(RendererVk *renderer)
+void UtilsVk::destroy(ContextVk *contextVk)
 {
-    VkDevice device = renderer->getDevice();
+    RendererVk *renderer = contextVk->getRenderer();
+    VkDevice device      = renderer->getDevice();
 
     for (Function f : angle::AllEnums<Function>())
     {
@@ -1170,59 +1167,94 @@ void UtilsVk::destroy(RendererVk *renderer)
         mDescriptorPools[f].destroy(renderer);
     }
 
-    for (vk::ShaderProgramHelper &program : mConvertIndexPrograms)
+    for (ComputeShaderProgramAndPipelines &programAndPipelines : mConvertIndex)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        for (vk::PipelineHelper &pipeline : programAndPipelines.pipelines)
+        {
+            pipeline.destroy(device);
+        }
     }
-    for (vk::ShaderProgramHelper &program : mConvertIndirectLineLoopPrograms)
+    for (ComputeShaderProgramAndPipelines &programAndPipelines : mConvertIndirectLineLoop)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        for (vk::PipelineHelper &pipeline : programAndPipelines.pipelines)
+        {
+            pipeline.destroy(device);
+        }
     }
-    for (vk::ShaderProgramHelper &program : mConvertIndexIndirectLineLoopPrograms)
+    for (ComputeShaderProgramAndPipelines &programAndPipelines : mConvertIndexIndirectLineLoop)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        for (vk::PipelineHelper &pipeline : programAndPipelines.pipelines)
+        {
+            pipeline.destroy(device);
+        }
     }
-    for (vk::ShaderProgramHelper &program : mConvertVertexPrograms)
+    for (ComputeShaderProgramAndPipelines &programAndPipelines : mConvertVertex)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        for (vk::PipelineHelper &pipeline : programAndPipelines.pipelines)
+        {
+            pipeline.destroy(device);
+        }
     }
-    mImageClearProgramVSOnly.destroy(renderer);
-    for (vk::ShaderProgramHelper &program : mImageClearPrograms)
+    mImageClearVSOnly.program.destroy(renderer);
+    mImageClearVSOnly.pipelines.destroy(contextVk);
+    for (GraphicsShaderProgramAndPipelines &programAndPipelines : mImageClear)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        programAndPipelines.pipelines.destroy(contextVk);
     }
-    for (vk::ShaderProgramHelper &program : mImageCopyPrograms)
+    for (GraphicsShaderProgramAndPipelines &programAndPipelines : mImageCopy)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        programAndPipelines.pipelines.destroy(contextVk);
     }
-    for (vk::ShaderProgramHelper &program : mBlitResolvePrograms)
+    for (GraphicsShaderProgramAndPipelines &programAndPipelines : mBlitResolve)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        programAndPipelines.pipelines.destroy(contextVk);
     }
-    for (vk::ShaderProgramHelper &program : mBlitResolveStencilNoExportPrograms)
+    for (ComputeShaderProgramAndPipelines &programAndPipelines : mBlitResolveStencilNoExport)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        for (vk::PipelineHelper &pipeline : programAndPipelines.pipelines)
+        {
+            pipeline.destroy(device);
+        }
     }
-    mExportStencilProgram.destroy(renderer);
-    mOverlayDrawProgram.destroy(renderer);
-    for (vk::ShaderProgramHelper &program : mGenerateMipmapPrograms)
+    mExportStencil.program.destroy(renderer);
+    mExportStencil.pipelines.destroy(contextVk);
+    mOverlayDraw.program.destroy(renderer);
+    mOverlayDraw.pipelines.destroy(contextVk);
+    for (ComputeShaderProgramAndPipelines &programAndPipelines : mGenerateMipmap)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        for (vk::PipelineHelper &pipeline : programAndPipelines.pipelines)
+        {
+            pipeline.destroy(device);
+        }
     }
-    for (vk::ShaderProgramHelper &program : mEtcToBcPrograms)
+    for (ComputeShaderProgramAndPipelines &programAndPipelines : mEtcToBc)
     {
-        program.destroy(renderer);
+        programAndPipelines.program.destroy(renderer);
+        for (vk::PipelineHelper &pipeline : programAndPipelines.pipelines)
+        {
+            pipeline.destroy(device);
+        }
     }
-    for (auto &programIter : mUnresolvePrograms)
+    for (auto &programIter : mUnresolve)
     {
-        vk::ShaderProgramHelper &program = programIter.second;
-        program.destroy(renderer);
+        GraphicsShaderProgramAndPipelines &programAndPipelines = programIter.second;
+        programAndPipelines.program.destroy(renderer);
+        programAndPipelines.pipelines.destroy(contextVk);
     }
-    mUnresolvePrograms.clear();
+    mUnresolve.clear();
 
     for (auto &shaderIter : mUnresolveFragShaders)
     {
-        vk::RefCounted<vk::ShaderAndSerial> &shader = shaderIter.second;
+        vk::RefCounted<vk::ShaderModule> &shader = shaderIter.second;
         shader.get().destroy(device);
     }
     mUnresolveFragShaders.clear();
@@ -1571,8 +1603,8 @@ angle::Result UtilsVk::ensureSamplersInitialized(ContextVk *contextVk)
 angle::Result UtilsVk::setupComputeProgram(
     ContextVk *contextVk,
     Function function,
-    vk::RefCounted<vk::ShaderAndSerial> *csShader,
-    vk::ShaderProgramHelper *program,
+    vk::RefCounted<vk::ShaderModule> *csShader,
+    ComputeShaderProgramAndPipelines *programAndPipelines,
     const VkDescriptorSet descriptorSet,
     const void *pushConstants,
     size_t pushConstantsSize,
@@ -1584,14 +1616,17 @@ angle::Result UtilsVk::setupComputeProgram(
 
     const vk::BindingPointer<vk::PipelineLayout> &pipelineLayout = mPipelineLayouts[function];
 
-    program->setShader(gl::ShaderType::Compute, csShader);
+    if (!programAndPipelines->program.valid(gl::ShaderType::Compute))
+    {
+        programAndPipelines->program.setShader(gl::ShaderType::Compute, csShader);
+    }
 
     vk::PipelineHelper *pipeline;
-    PipelineCacheAccess pipelineCache;
+    vk::PipelineCacheAccess pipelineCache;
     ANGLE_TRY(renderer->getPipelineCache(&pipelineCache));
-    ANGLE_TRY(program->getComputePipeline(contextVk, &pipelineCache, pipelineLayout.get(),
-                                          contextVk->getComputePipelineFlags(),
-                                          PipelineSource::Utils, &pipeline));
+    ANGLE_TRY(programAndPipelines->program.getOrCreateComputePipeline(
+        contextVk, &programAndPipelines->pipelines, &pipelineCache, pipelineLayout.get(),
+        contextVk->getComputePipelineFlags(), PipelineSource::Utils, &pipeline));
     commandBufferHelper->retainResource(pipeline);
 
     vk::OutsideRenderPassCommandBuffer *commandBuffer = &commandBufferHelper->getCommandBuffer();
@@ -1618,9 +1653,9 @@ angle::Result UtilsVk::setupComputeProgram(
 
 angle::Result UtilsVk::setupGraphicsProgram(ContextVk *contextVk,
                                             Function function,
-                                            vk::RefCounted<vk::ShaderAndSerial> *vsShader,
-                                            vk::RefCounted<vk::ShaderAndSerial> *fsShader,
-                                            vk::ShaderProgramHelper *program,
+                                            vk::RefCounted<vk::ShaderModule> *vsShader,
+                                            vk::RefCounted<vk::ShaderModule> *fsShader,
+                                            GraphicsShaderProgramAndPipelines *programAndPipelines,
                                             const vk::GraphicsPipelineDesc *pipelineDesc,
                                             const VkDescriptorSet descriptorSet,
                                             const void *pushConstants,
@@ -1633,21 +1668,34 @@ angle::Result UtilsVk::setupGraphicsProgram(ContextVk *contextVk,
 
     const vk::BindingPointer<vk::PipelineLayout> &pipelineLayout = mPipelineLayouts[function];
 
-    program->setShader(gl::ShaderType::Vertex, vsShader);
-    if (fsShader)
+    if (!programAndPipelines->program.valid(gl::ShaderType::Vertex))
     {
-        program->setShader(gl::ShaderType::Fragment, fsShader);
+        programAndPipelines->program.setShader(gl::ShaderType::Vertex, vsShader);
+        if (fsShader)
+        {
+            programAndPipelines->program.setShader(gl::ShaderType::Fragment, fsShader);
+        }
     }
 
     // This value is not used but is passed to getGraphicsPipeline to avoid a nullptr check.
+    vk::PipelineCacheAccess pipelineCache;
+    ANGLE_TRY(renderer->getPipelineCache(&pipelineCache));
+
+    // Pull in a compatible RenderPass.
+    const vk::RenderPass *compatibleRenderPass = nullptr;
+    ANGLE_TRY(contextVk->getRenderPassCache().getCompatibleRenderPass(
+        contextVk, pipelineDesc->getRenderPassDesc(), &compatibleRenderPass));
+
     const vk::GraphicsPipelineDesc *descPtr;
     vk::PipelineHelper *helper;
-    PipelineCacheAccess pipelineCache;
-    ANGLE_TRY(renderer->getPipelineCache(&pipelineCache));
-    ANGLE_TRY(program->getGraphicsPipeline(
-        contextVk, &contextVk->getRenderPassCache(), &pipelineCache, pipelineLayout.get(),
-        PipelineSource::Utils, *pipelineDesc, gl::AttributesMask(), gl::ComponentTypeMask(),
-        gl::DrawBufferMask(), &descPtr, &helper));
+
+    if (!programAndPipelines->pipelines.getPipeline(*pipelineDesc, &descPtr, &helper))
+    {
+        ANGLE_TRY(programAndPipelines->program.createGraphicsPipeline(
+            contextVk, &programAndPipelines->pipelines, &pipelineCache, *compatibleRenderPass,
+            pipelineLayout.get(), PipelineSource::Utils, *pipelineDesc, {}, &descPtr, &helper));
+    }
+
     contextVk->getStartedRenderPassCommands().retainResource(helper);
     commandBuffer->bindGraphicsPipeline(helper->getPipeline());
 
@@ -1716,11 +1764,11 @@ angle::Result UtilsVk::convertIndexBuffer(ContextVk *contextVk,
         flags |= vk::InternalShader::ConvertIndex_comp::kIsPrimitiveRestartEnabled;
     }
 
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(contextVk->getShaderLibrary().getConvertIndex_comp(contextVk, flags, &shader));
 
     ANGLE_TRY(setupComputeProgram(contextVk, Function::ConvertIndexBuffer, shader,
-                                  &mConvertIndexPrograms[flags], descriptorSet, &shaderParams,
+                                  &mConvertIndex[flags], descriptorSet, &shaderParams,
                                   sizeof(ConvertIndexShaderParams), commandBufferHelper));
 
     constexpr uint32_t kInvocationsPerGroup = 64;
@@ -1786,11 +1834,11 @@ angle::Result UtilsVk::convertIndexIndirectBuffer(ContextVk *contextVk,
         flags |= vk::InternalShader::ConvertIndex_comp::kIsPrimitiveRestartEnabled;
     }
 
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(contextVk->getShaderLibrary().getConvertIndex_comp(contextVk, flags, &shader));
 
     ANGLE_TRY(setupComputeProgram(contextVk, Function::ConvertIndexIndirectBuffer, shader,
-                                  &mConvertIndexPrograms[flags], descriptorSet, &shaderParams,
+                                  &mConvertIndex[flags], descriptorSet, &shaderParams,
                                   sizeof(ConvertIndexIndirectShaderParams), commandBufferHelper));
 
     constexpr uint32_t kInvocationsPerGroup = 64;
@@ -1856,12 +1904,12 @@ angle::Result UtilsVk::convertLineLoopIndexIndirectBuffer(
 
     uint32_t flags = GetConvertIndexIndirectLineLoopFlag(params.indicesBitsWidth);
 
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(contextVk->getShaderLibrary().getConvertIndexIndirectLineLoop_comp(contextVk, flags,
                                                                                  &shader));
 
     ANGLE_TRY(setupComputeProgram(contextVk, Function::ConvertIndexIndirectLineLoopBuffer, shader,
-                                  &mConvertIndexIndirectLineLoopPrograms[flags], descriptorSet,
+                                  &mConvertIndexIndirectLineLoop[flags], descriptorSet,
                                   &shaderParams, sizeof(ConvertIndexIndirectLineLoopShaderParams),
                                   commandBufferHelper));
 
@@ -1918,13 +1966,13 @@ angle::Result UtilsVk::convertLineLoopArrayIndirectBuffer(
 
     uint32_t flags = 0;
 
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(
         contextVk->getShaderLibrary().getConvertIndirectLineLoop_comp(contextVk, flags, &shader));
 
     ANGLE_TRY(setupComputeProgram(contextVk, Function::ConvertIndirectLineLoopBuffer, shader,
-                                  &mConvertIndirectLineLoopPrograms[flags], descriptorSet,
-                                  &shaderParams, sizeof(ConvertIndirectLineLoopShaderParams),
+                                  &mConvertIndirectLineLoop[flags], descriptorSet, &shaderParams,
+                                  sizeof(ConvertIndirectLineLoopShaderParams),
                                   commandBufferHelper));
 
     commandBuffer->dispatch(1, 1, 1);
@@ -2076,11 +2124,11 @@ angle::Result UtilsVk::convertVertexBufferImpl(
 
     vkUpdateDescriptorSets(contextVk->getDevice(), 1, &writeInfo, 0, nullptr);
 
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(contextVk->getShaderLibrary().getConvertVertex_comp(contextVk, flags, &shader));
 
     ANGLE_TRY(setupComputeProgram(contextVk, Function::ConvertVertexBuffer, shader,
-                                  &mConvertVertexPrograms[flags], descriptorSet, &shaderParams,
+                                  &mConvertVertex[flags], descriptorSet, &shaderParams,
                                   sizeof(shaderParams), commandBufferHelper));
 
     commandBuffer->dispatch(UnsignedCeilDivide(shaderParams.outputCount, 64), 1, 1);
@@ -2095,7 +2143,7 @@ angle::Result UtilsVk::startRenderPass(ContextVk *contextVk,
                                        const gl::Rectangle &renderArea,
                                        vk::RenderPassCommandBuffer **commandBufferOut)
 {
-    vk::RenderPass *compatibleRenderPass = nullptr;
+    const vk::RenderPass *compatibleRenderPass = nullptr;
     ANGLE_TRY(contextVk->getCompatibleRenderPass(renderPassDesc, &compatibleRenderPass));
 
     VkFramebufferCreateInfo framebufferInfo = {};
@@ -2118,15 +2166,12 @@ angle::Result UtilsVk::startRenderPass(ContextVk *contextVk,
     vk::PackedClearValuesArray clearValues;
     clearValues.store(vk::kAttachmentIndexZero, VK_IMAGE_ASPECT_COLOR_BIT, {});
 
-    renderPassAttachmentOps.initWithLoadStore(vk::kAttachmentIndexZero,
-                                              vk::ImageLayout::ColorAttachment,
-                                              vk::ImageLayout::ColorAttachment);
+    renderPassAttachmentOps.initWithLoadStore(vk::kAttachmentIndexZero, vk::ImageLayout::ColorWrite,
+                                              vk::ImageLayout::ColorWrite);
 
-    vk::RenderPassSerial renderPassSerial;
-    ANGLE_TRY(contextVk->beginNewRenderPass(framebuffer, renderArea, renderPassDesc,
-                                            renderPassAttachmentOps, vk::PackedAttachmentCount(1),
-                                            vk::kAttachmentIndexInvalid, clearValues,
-                                            commandBufferOut, &renderPassSerial));
+    ANGLE_TRY(contextVk->beginNewRenderPass(
+        framebuffer, renderArea, renderPassDesc, renderPassAttachmentOps,
+        vk::PackedAttachmentCount(1), vk::kAttachmentIndexInvalid, clearValues, commandBufferOut));
 
     contextVk->addGarbage(&framebuffer.getFramebuffer());
 
@@ -2139,14 +2184,11 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
 {
     ANGLE_TRY(ensureImageClearResourcesInitialized(contextVk));
 
-    const gl::Rectangle &scissoredRenderArea         = params.clearArea;
-    vk::MaybeImagelessFramebuffer currentFramebuffer = {};
+    const gl::Rectangle &scissoredRenderArea = params.clearArea;
     vk::RenderPassCommandBuffer *commandBuffer;
 
     // Start a new render pass if not already started
-    ANGLE_TRY(framebuffer->getFramebuffer(contextVk, &currentFramebuffer, nullptr, nullptr,
-                                          SwapchainResolveMode::Disabled));
-    if (contextVk->hasStartedRenderPassWithSerial(framebuffer->getLastRenderPassSerial()))
+    if (contextVk->hasStartedRenderPassWithQueueSerial(framebuffer->getLastRenderPassQueueSerial()))
     {
         vk::RenderPassCommandBufferHelper *renderPassCommands =
             &contextVk->getStartedRenderPassCommands();
@@ -2168,7 +2210,7 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
     shaderParams.clearDepth = params.depthStencilClearValue.depth;
 
     vk::GraphicsPipelineDesc pipelineDesc;
-    pipelineDesc.initDefaults(contextVk);
+    pipelineDesc.initDefaults(contextVk, vk::GraphicsPipelineSubset::Complete);
     pipelineDesc.setColorWriteMasks(0, gl::DrawBufferMask(), gl::DrawBufferMask());
     pipelineDesc.setSingleColorWriteMask(params.colorAttachmentIndexGL, params.colorMaskFlags);
     pipelineDesc.setRasterizationSamples(framebuffer->getSamples());
@@ -2202,10 +2244,10 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
         SetStencilStateForWrite(&pipelineDesc);
     }
 
-    vk::ShaderLibrary &shaderLibrary                    = contextVk->getShaderLibrary();
-    vk::RefCounted<vk::ShaderAndSerial> *vertexShader   = nullptr;
-    vk::RefCounted<vk::ShaderAndSerial> *fragmentShader = nullptr;
-    vk::ShaderProgramHelper *imageClearProgram          = &mImageClearProgramVSOnly;
+    vk::ShaderLibrary &shaderLibrary                 = contextVk->getShaderLibrary();
+    vk::RefCounted<vk::ShaderModule> *vertexShader   = nullptr;
+    vk::RefCounted<vk::ShaderModule> *fragmentShader = nullptr;
+    GraphicsShaderProgramAndPipelines *imageClearProgramAndPipelines = &mImageClearVSOnly;
 
     ANGLE_TRY(shaderLibrary.getFullScreenTri_vert(contextVk, 0, &vertexShader));
     if (params.clearColor)
@@ -2214,7 +2256,7 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
             GetImageClearFlags(*params.colorFormat, params.colorAttachmentIndexGL,
                                params.clearDepth && !supportsDepthClamp);
         ANGLE_TRY(shaderLibrary.getImageClear_frag(contextVk, flags, &fragmentShader));
-        imageClearProgram = &mImageClearPrograms[flags];
+        imageClearProgramAndPipelines = &mImageClear[flags];
     }
 
     // Make sure transform feedback is paused.  Needs to be done before binding the pipeline as
@@ -2224,8 +2266,8 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
     contextVk->pauseTransformFeedbackIfActiveUnpaused();
 
     ANGLE_TRY(setupGraphicsProgram(contextVk, Function::ImageClear, vertexShader, fragmentShader,
-                                   imageClearProgram, &pipelineDesc, VK_NULL_HANDLE, &shaderParams,
-                                   sizeof(shaderParams), commandBuffer));
+                                   imageClearProgramAndPipelines, &pipelineDesc, VK_NULL_HANDLE,
+                                   &shaderParams, sizeof(shaderParams), commandBuffer));
 
     // Set dynamic state
     VkViewport viewport;
@@ -2266,9 +2308,9 @@ angle::Result UtilsVk::clearFramebuffer(ContextVk *contextVk,
         }
     }
 
+    ASSERT(contextVk->hasActiveRenderPass());
     // Make sure this draw call doesn't count towards occlusion query results.
     contextVk->pauseRenderPassQueriesIfActive();
-
     commandBuffer->draw(3, 0);
     ANGLE_TRY(contextVk->resumeRenderPassQueriesIfActive());
 
@@ -2334,7 +2376,7 @@ angle::Result UtilsVk::clearImage(ContextVk *contextVk,
     renderPassDesc.packColorAttachment(0, dstActualFormat.id);
 
     vk::GraphicsPipelineDesc pipelineDesc;
-    pipelineDesc.initDefaults(contextVk);
+    pipelineDesc.initDefaults(contextVk, vk::GraphicsPipelineSubset::Complete);
     pipelineDesc.setSingleColorWriteMask(0, params.colorMaskFlags);
     pipelineDesc.setRasterizationSamples(dst->getSamples());
     pipelineDesc.setRenderPassDesc(renderPassDesc);
@@ -2346,19 +2388,18 @@ angle::Result UtilsVk::clearImage(ContextVk *contextVk,
     UpdateColorAccess(contextVk, MakeColorBufferMask(0), MakeColorBufferMask(0));
 
     contextVk->onImageRenderPassWrite(dst->toGLLevel(params.dstMip), params.dstLayer, 1,
-                                      VK_IMAGE_ASPECT_COLOR_BIT, vk::ImageLayout::ColorAttachment,
-                                      dst);
+                                      VK_IMAGE_ASPECT_COLOR_BIT, vk::ImageLayout::ColorWrite, dst);
 
     const uint32_t flags = GetImageClearFlags(dstActualFormat, 0, false);
 
-    vk::ShaderLibrary &shaderLibrary                    = contextVk->getShaderLibrary();
-    vk::RefCounted<vk::ShaderAndSerial> *vertexShader   = nullptr;
-    vk::RefCounted<vk::ShaderAndSerial> *fragmentShader = nullptr;
+    vk::ShaderLibrary &shaderLibrary                 = contextVk->getShaderLibrary();
+    vk::RefCounted<vk::ShaderModule> *vertexShader   = nullptr;
+    vk::RefCounted<vk::ShaderModule> *fragmentShader = nullptr;
     ANGLE_TRY(shaderLibrary.getFullScreenTri_vert(contextVk, 0, &vertexShader));
     ANGLE_TRY(shaderLibrary.getImageClear_frag(contextVk, flags, &fragmentShader));
 
     ANGLE_TRY(setupGraphicsProgram(contextVk, Function::ImageClear, vertexShader, fragmentShader,
-                                   &mImageClearPrograms[flags], &pipelineDesc, VK_NULL_HANDLE,
+                                   &mImageClear[flags], &pipelineDesc, VK_NULL_HANDLE,
                                    &shaderParams, sizeof(shaderParams), commandBuffer));
 
     // Set dynamic state
@@ -2394,7 +2435,7 @@ angle::Result UtilsVk::colorBlitResolve(ContextVk *contextVk,
     //
     // Note that depth/stencil views for blit are not derived from a ResourceVk object and are
     // retained differently.
-    ASSERT(!contextVk->hasStartedRenderPass());
+    ASSERT(!contextVk->hasActiveRenderPass());
 
     return blitResolveImpl(contextVk, framebuffer, src, srcView, nullptr, nullptr, params);
 }
@@ -2525,7 +2566,7 @@ angle::Result UtilsVk::blitResolveImpl(ContextVk *contextVk,
     flags |= isResolve ? BlitResolve_frag::kIsResolve : 0;
 
     vk::GraphicsPipelineDesc pipelineDesc;
-    pipelineDesc.initDefaults(contextVk);
+    pipelineDesc.initDefaults(contextVk, vk::GraphicsPipelineSubset::Complete);
     if (blitColor)
     {
         constexpr VkColorComponentFlags kAllColorComponents =
@@ -2574,17 +2615,17 @@ angle::Result UtilsVk::blitResolveImpl(ContextVk *contextVk,
     if (blitColor)
     {
         imageInfos[0].imageView   = srcColorView->getHandle();
-        imageInfos[0].imageLayout = src->getCurrentLayout();
+        imageInfos[0].imageLayout = src->getCurrentLayout(contextVk);
     }
     if (blitDepth)
     {
         imageInfos[0].imageView   = srcDepthView->getHandle();
-        imageInfos[0].imageLayout = src->getCurrentLayout();
+        imageInfos[0].imageLayout = src->getCurrentLayout(contextVk);
     }
     if (blitStencil)
     {
         imageInfos[1].imageView   = srcStencilView->getHandle();
-        imageInfos[1].imageLayout = src->getCurrentLayout();
+        imageInfos[1].imageLayout = src->getCurrentLayout(contextVk);
     }
 
     VkDescriptorImageInfo samplerInfo = {};
@@ -2621,14 +2662,14 @@ angle::Result UtilsVk::blitResolveImpl(ContextVk *contextVk,
                            nullptr);
     vkUpdateDescriptorSets(contextVk->getDevice(), 1, &writeInfos[2], 0, nullptr);
 
-    vk::ShaderLibrary &shaderLibrary                    = contextVk->getShaderLibrary();
-    vk::RefCounted<vk::ShaderAndSerial> *vertexShader   = nullptr;
-    vk::RefCounted<vk::ShaderAndSerial> *fragmentShader = nullptr;
+    vk::ShaderLibrary &shaderLibrary                 = contextVk->getShaderLibrary();
+    vk::RefCounted<vk::ShaderModule> *vertexShader   = nullptr;
+    vk::RefCounted<vk::ShaderModule> *fragmentShader = nullptr;
     ANGLE_TRY(shaderLibrary.getFullScreenTri_vert(contextVk, 0, &vertexShader));
     ANGLE_TRY(shaderLibrary.getBlitResolve_frag(contextVk, flags, &fragmentShader));
 
     ANGLE_TRY(setupGraphicsProgram(contextVk, Function::BlitResolve, vertexShader, fragmentShader,
-                                   &mBlitResolvePrograms[flags], &pipelineDesc, descriptorSet,
+                                   &mBlitResolve[flags], &pipelineDesc, descriptorSet,
                                    &shaderParams, sizeof(shaderParams), commandBuffer));
 
     // Set dynamic state
@@ -2687,15 +2728,6 @@ angle::Result UtilsVk::stencilBlitResolveNoShaderExport(ContextVk *contextVk,
 
     uint32_t bufferRowLengthInUints = UnsignedCeilDivide(params.blitArea.width, sizeof(uint32_t));
     VkDeviceSize bufferSize = bufferRowLengthInUints * sizeof(uint32_t) * params.blitArea.height;
-
-    VkBufferCreateInfo blitBufferInfo = {};
-    blitBufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    blitBufferInfo.flags              = 0;
-    blitBufferInfo.size               = bufferSize;
-    blitBufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    blitBufferInfo.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
-    blitBufferInfo.queueFamilyIndexCount = 0;
-    blitBufferInfo.pQueueFamilyIndices   = nullptr;
 
     ANGLE_TRY(blitBuffer.get().initSuballocation(
         contextVk, contextVk->getRenderer()->getDeviceLocalMemoryTypeIndex(),
@@ -2785,7 +2817,7 @@ angle::Result UtilsVk::stencilBlitResolveNoShaderExport(ContextVk *contextVk,
     // Blit/resolve stencil into the buffer.
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageView             = srcStencilView->getHandle();
-    imageInfo.imageLayout           = src->getCurrentLayout();
+    imageInfo.imageLayout           = src->getCurrentLayout(contextVk);
 
     VkDescriptorBufferInfo bufferInfo = {};
     bufferInfo.buffer                 = blitBuffer.get().getBuffer().getHandle();
@@ -2819,13 +2851,13 @@ angle::Result UtilsVk::stencilBlitResolveNoShaderExport(ContextVk *contextVk,
 
     vkUpdateDescriptorSets(contextVk->getDevice(), 3, writeInfos, 0, nullptr);
 
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(contextVk->getShaderLibrary().getBlitResolveStencilNoExport_comp(contextVk, flags,
                                                                                &shader));
 
     ANGLE_TRY(setupComputeProgram(contextVk, Function::BlitResolveStencilNoExport, shader,
-                                  &mBlitResolveStencilNoExportPrograms[flags], descriptorSet,
-                                  &shaderParams, sizeof(shaderParams), commandBufferHelper));
+                                  &mBlitResolveStencilNoExport[flags], descriptorSet, &shaderParams,
+                                  sizeof(shaderParams), commandBufferHelper));
     commandBuffer->dispatch(UnsignedCeilDivide(bufferRowLengthInUints, 8),
                             UnsignedCeilDivide(params.blitArea.height, 8), 1);
 
@@ -2857,7 +2889,7 @@ angle::Result UtilsVk::stencilBlitResolveNoShaderExport(ContextVk *contextVk,
 
     commandBuffer->copyBufferToImage(blitBuffer.get().getBuffer().getHandle(),
                                      depthStencilImage->getImage(),
-                                     depthStencilImage->getCurrentLayout(), 1, &region);
+                                     depthStencilImage->getCurrentLayout(contextVk), 1, &region);
 
     return angle::Result::Continue;
 }
@@ -2873,7 +2905,7 @@ angle::Result UtilsVk::copyImage(ContextVk *contextVk,
     // open.  Otherwise, this function closes the render pass, which may incur a vkQueueSubmit and
     // then the views are used in a new command buffer without having been retained for it.
     // http://crbug.com/1272266#c22
-    ASSERT(!contextVk->hasStartedRenderPass());
+    ASSERT(!contextVk->hasActiveRenderPass());
 
     ANGLE_TRY(ensureImageCopyResourcesInitialized(contextVk));
 
@@ -2972,7 +3004,7 @@ angle::Result UtilsVk::copyImage(ContextVk *contextVk,
     ASSERT(src->getSamples() == 1);
 
     vk::GraphicsPipelineDesc pipelineDesc;
-    pipelineDesc.initDefaults(contextVk);
+    pipelineDesc.initDefaults(contextVk, vk::GraphicsPipelineSubset::Complete);
     pipelineDesc.setRenderPassDesc(renderPassDesc);
     pipelineDesc.setRasterizationSamples(dst->getSamples());
 
@@ -3003,11 +3035,11 @@ angle::Result UtilsVk::copyImage(ContextVk *contextVk,
     contextVk->onImageRenderPassRead(VK_IMAGE_ASPECT_COLOR_BIT,
                                      vk::ImageLayout::FragmentShaderReadOnly, src);
     contextVk->onImageRenderPassWrite(params.dstMip, params.dstLayer, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-                                      vk::ImageLayout::ColorAttachment, dst);
+                                      vk::ImageLayout::ColorWrite, dst);
 
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageView             = srcView->getHandle();
-    imageInfo.imageLayout           = src->getCurrentLayout();
+    imageInfo.imageLayout           = src->getCurrentLayout(contextVk);
 
     VkWriteDescriptorSet writeInfo = {};
     writeInfo.sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -3019,15 +3051,15 @@ angle::Result UtilsVk::copyImage(ContextVk *contextVk,
 
     vkUpdateDescriptorSets(contextVk->getDevice(), 1, &writeInfo, 0, nullptr);
 
-    vk::ShaderLibrary &shaderLibrary                    = contextVk->getShaderLibrary();
-    vk::RefCounted<vk::ShaderAndSerial> *vertexShader   = nullptr;
-    vk::RefCounted<vk::ShaderAndSerial> *fragmentShader = nullptr;
+    vk::ShaderLibrary &shaderLibrary                 = contextVk->getShaderLibrary();
+    vk::RefCounted<vk::ShaderModule> *vertexShader   = nullptr;
+    vk::RefCounted<vk::ShaderModule> *fragmentShader = nullptr;
     ANGLE_TRY(shaderLibrary.getFullScreenTri_vert(contextVk, 0, &vertexShader));
     ANGLE_TRY(shaderLibrary.getImageCopy_frag(contextVk, flags, &fragmentShader));
 
     ANGLE_TRY(setupGraphicsProgram(contextVk, Function::ImageCopy, vertexShader, fragmentShader,
-                                   &mImageCopyPrograms[flags], &pipelineDesc, descriptorSet,
-                                   &shaderParams, sizeof(shaderParams), commandBuffer));
+                                   &mImageCopy[flags], &pipelineDesc, descriptorSet, &shaderParams,
+                                   sizeof(shaderParams), commandBuffer));
 
     // Set dynamic state
     VkViewport viewport;
@@ -3144,7 +3176,7 @@ angle::Result UtilsVk::copyImageBits(ContextVk *contextVk,
     srcRegion.imageExtent.height              = params.copyExtents[1];
     srcRegion.imageExtent.depth               = isSrc3D ? params.copyExtents[2] : 1;
 
-    commandBuffer->copyImageToBuffer(src->getImage(), src->getCurrentLayout(),
+    commandBuffer->copyImageToBuffer(src->getImage(), src->getCurrentLayout(contextVk),
                                      srcBuffer.get().getBuffer().getHandle(), 1, &srcRegion);
 
     // Add a barrier prior to dispatch call.
@@ -3270,7 +3302,7 @@ angle::Result UtilsVk::copyImageBits(ContextVk *contextVk,
     dstRegion.imageExtent.depth               = isDst3D ? params.copyExtents[2] : 1;
 
     commandBuffer->copyBufferToImage(dstBuffer.get().getBuffer().getHandle(), dst->getImage(),
-                                     dst->getCurrentLayout(), 1, &dstRegion);
+                                     dst->getCurrentLayout(contextVk), 1, &dstRegion);
 
     return angle::Result::Continue;
 }
@@ -3346,9 +3378,9 @@ angle::Result UtilsVk::transCodeEtcToBc(ContextVk *contextVk,
 
     vk::OutsideRenderPassCommandBufferHelper *commandBufferHelper;
     ANGLE_TRY(contextVk->getOutsideRenderPassCommandBufferHelper({}, &commandBufferHelper));
-    const angle::Format &format                 = dstImage->getIntendedFormat();
-    uint32_t flags                              = GetEtcToBcFlags(format);
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    const angle::Format &format              = dstImage->getIntendedFormat();
+    uint32_t flags                           = GetEtcToBcFlags(format);
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(contextVk->getShaderLibrary().getEtcToBc_comp(contextVk, flags, &shader));
 
     vk::OutsideRenderPassCommandBuffer *commandBuffer;
@@ -3403,7 +3435,7 @@ angle::Result UtilsVk::transCodeEtcToBc(ContextVk *contextVk,
         vkUpdateDescriptorSets(contextVk->getDevice(), 2, writeDescriptorSet, 0, nullptr);
 
         ANGLE_TRY(setupComputeProgram(contextVk, Function::TransCodeEtcToBc, shader,
-                                      &mEtcToBcPrograms[flags], descriptorSet, &shaderParams,
+                                      &mEtcToBc[flags], descriptorSet, &shaderParams,
                                       sizeof(shaderParams), commandBufferHelper));
 
         // Work group size is 8 x 8 x 1
@@ -3455,12 +3487,12 @@ angle::Result UtilsVk::generateMipmap(ContextVk *contextVk,
     for (uint32_t level = 0; level < kGenerateMipmapMaxLevels; ++level)
     {
         destImageInfos[level].imageView   = destLevelViews[level]->getHandle();
-        destImageInfos[level].imageLayout = dst->getCurrentLayout();
+        destImageInfos[level].imageLayout = dst->getCurrentLayout(contextVk);
     }
 
     VkDescriptorImageInfo srcImageInfo = {};
     srcImageInfo.imageView             = srcLevelZeroView->getHandle();
-    srcImageInfo.imageLayout           = src->getCurrentLayout();
+    srcImageInfo.imageLayout           = src->getCurrentLayout(contextVk);
     srcImageInfo.sampler               = sampler.getHandle();
 
     VkWriteDescriptorSet writeInfos[2] = {};
@@ -3480,7 +3512,7 @@ angle::Result UtilsVk::generateMipmap(ContextVk *contextVk,
 
     vkUpdateDescriptorSets(contextVk->getDevice(), 2, writeInfos, 0, nullptr);
 
-    vk::RefCounted<vk::ShaderAndSerial> *shader = nullptr;
+    vk::RefCounted<vk::ShaderModule> *shader = nullptr;
     ANGLE_TRY(contextVk->getShaderLibrary().getGenerateMipmap_comp(contextVk, flags, &shader));
 
     // Note: onImageRead/onImageWrite is expected to be called by the caller.  This avoids inserting
@@ -3489,7 +3521,7 @@ angle::Result UtilsVk::generateMipmap(ContextVk *contextVk,
     commandBuffer = &commandBufferHelper->getCommandBuffer();
 
     ANGLE_TRY(setupComputeProgram(contextVk, Function::GenerateMipmap, shader,
-                                  &mGenerateMipmapPrograms[flags], descriptorSet, &shaderParams,
+                                  &mGenerateMipmap[flags], descriptorSet, &shaderParams,
                                   sizeof(shaderParams), commandBufferHelper));
 
     commandBuffer->dispatch(workGroupX, workGroupY, 1);
@@ -3567,7 +3599,7 @@ angle::Result UtilsVk::unresolve(ContextVk *contextVk,
     }
 
     vk::GraphicsPipelineDesc pipelineDesc;
-    pipelineDesc.initDefaults(contextVk);
+    pipelineDesc.initDefaults(contextVk, vk::GraphicsPipelineSubset::Complete);
     pipelineDesc.setRasterizationSamples(framebuffer->getSamples());
     pipelineDesc.setRenderPassDesc(framebuffer->getRenderPassDesc());
 
@@ -3577,8 +3609,8 @@ angle::Result UtilsVk::unresolve(ContextVk *contextVk,
     vk::RenderPassCommandBuffer *commandBuffer =
         &contextVk->getStartedRenderPassCommands().getCommandBuffer();
 
-    vk::ShaderLibrary &shaderLibrary                  = contextVk->getShaderLibrary();
-    vk::RefCounted<vk::ShaderAndSerial> *vertexShader = nullptr;
+    vk::ShaderLibrary &shaderLibrary               = contextVk->getShaderLibrary();
+    vk::RefCounted<vk::ShaderModule> *vertexShader = nullptr;
     ANGLE_TRY(shaderLibrary.getFullScreenTri_vert(contextVk, 0, &vertexShader));
 
     // Set dynamic state
@@ -3670,13 +3702,13 @@ angle::Result UtilsVk::unresolve(ContextVk *contextVk,
         uint32_t flags = GetUnresolveFlags(colorAttachmentCount, colorSrc, params.unresolveDepth,
                                            unresolveStencilWithShaderExport, &colorAttachmentTypes);
 
-        vk::RefCounted<vk::ShaderAndSerial> *fragmentShader = &mUnresolveFragShaders[flags];
+        vk::RefCounted<vk::ShaderModule> *fragmentShader = &mUnresolveFragShaders[flags];
         ANGLE_TRY(GetUnresolveFrag(contextVk, colorAttachmentCount, colorAttachmentTypes,
                                    params.unresolveDepth, params.unresolveStencil, fragmentShader));
 
         ANGLE_TRY(setupGraphicsProgram(contextVk, function, vertexShader, fragmentShader,
-                                       &mUnresolvePrograms[flags], &pipelineDesc, descriptorSet,
-                                       nullptr, 0, commandBuffer));
+                                       &mUnresolve[flags], &pipelineDesc, descriptorSet, nullptr, 0,
+                                       commandBuffer));
 
         if (params.unresolveDepth && hasExtendedDynamicState)
         {
@@ -3723,7 +3755,7 @@ angle::Result UtilsVk::unresolve(ContextVk *contextVk,
             SetStencilStateForWrite(&pipelineDesc);
         }
 
-        vk::RefCounted<vk::ShaderAndSerial> *exportStencilShader = nullptr;
+        vk::RefCounted<vk::ShaderModule> *exportStencilShader = nullptr;
         ANGLE_TRY(shaderLibrary.getExportStencil_frag(contextVk, 0, &exportStencilShader));
 
         // A new descriptor set is needed to match the layout of the ExportStencil program.
@@ -3746,7 +3778,7 @@ angle::Result UtilsVk::unresolve(ContextVk *contextVk,
         vkUpdateDescriptorSets(contextVk->getDevice(), 1, &stencilWriteInfo, 0, nullptr);
 
         ANGLE_TRY(setupGraphicsProgram(contextVk, Function::ExportStencil, vertexShader,
-                                       exportStencilShader, &mExportStencilProgram, &pipelineDesc,
+                                       exportStencilShader, &mExportStencil, &pipelineDesc,
                                        exportStencilDescriptorSet, nullptr, 0, commandBuffer));
 
         if (hasExtendedDynamicState)
@@ -3820,7 +3852,7 @@ angle::Result UtilsVk::drawOverlay(ContextVk *contextVk,
     renderPassDesc.packColorAttachment(0, dst->getActualFormatID());
 
     vk::GraphicsPipelineDesc pipelineDesc;
-    pipelineDesc.initDefaults(contextVk);
+    pipelineDesc.initDefaults(contextVk, vk::GraphicsPipelineSubset::Complete);
     pipelineDesc.setRenderPassDesc(renderPassDesc);
     pipelineDesc.setTopology(gl::PrimitiveMode::TriangleStrip);
     pipelineDesc.setSingleBlend(0, true, VK_BLEND_OP_ADD, VK_BLEND_FACTOR_SRC_ALPHA,
@@ -3847,16 +3879,16 @@ angle::Result UtilsVk::drawOverlay(ContextVk *contextVk,
 
     UpdateColorAccess(contextVk, MakeColorBufferMask(0), MakeColorBufferMask(0));
 
-    commandBufferHelper->retainReadOnlyResource(textWidgetsBuffer);
-    commandBufferHelper->retainReadOnlyResource(graphWidgetsBuffer);
+    commandBufferHelper->retainResource(textWidgetsBuffer);
+    commandBufferHelper->retainResource(graphWidgetsBuffer);
     contextVk->onImageRenderPassRead(VK_IMAGE_ASPECT_COLOR_BIT,
                                      vk::ImageLayout::FragmentShaderReadOnly, font);
     contextVk->onImageRenderPassWrite(gl::LevelIndex(0), 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-                                      vk::ImageLayout::ColorAttachment, dst);
+                                      vk::ImageLayout::ColorWrite, dst);
 
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageView             = fontView->getHandle();
-    imageInfo.imageLayout           = font->getCurrentLayout();
+    imageInfo.imageLayout           = font->getCurrentLayout(contextVk);
 
     VkDescriptorBufferInfo bufferInfos[2] = {};
     bufferInfos[0].buffer                 = textWidgetsBuffer->getBuffer().getHandle();
@@ -3888,14 +3920,14 @@ angle::Result UtilsVk::drawOverlay(ContextVk *contextVk,
 
     vkUpdateDescriptorSets(contextVk->getDevice(), 3, writeInfos, 0, nullptr);
 
-    vk::ShaderLibrary &shaderLibrary                    = contextVk->getShaderLibrary();
-    vk::RefCounted<vk::ShaderAndSerial> *vertexShader   = nullptr;
-    vk::RefCounted<vk::ShaderAndSerial> *fragmentShader = nullptr;
+    vk::ShaderLibrary &shaderLibrary                 = contextVk->getShaderLibrary();
+    vk::RefCounted<vk::ShaderModule> *vertexShader   = nullptr;
+    vk::RefCounted<vk::ShaderModule> *fragmentShader = nullptr;
     ANGLE_TRY(shaderLibrary.getOverlayDraw_vert(contextVk, 0, &vertexShader));
     ANGLE_TRY(shaderLibrary.getOverlayDraw_frag(contextVk, 0, &fragmentShader));
 
     ANGLE_TRY(setupGraphicsProgram(contextVk, Function::OverlayDraw, vertexShader, fragmentShader,
-                                   &mOverlayDrawProgram, &pipelineDesc, descriptorSet, nullptr, 0,
+                                   &mOverlayDraw, &pipelineDesc, descriptorSet, nullptr, 0,
                                    commandBuffer));
 
     // Set dynamic state

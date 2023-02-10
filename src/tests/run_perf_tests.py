@@ -8,17 +8,19 @@
 #   Runs ANGLE perf tests using some statistical averaging.
 
 import argparse
-import fnmatch
+import contextlib
 import glob
 import importlib
 import io
 import json
 import logging
+import tempfile
 import time
 import os
 import pathlib
 import re
 import subprocess
+import shutil
 import sys
 
 SCRIPT_DIR = str(pathlib.Path(__file__).resolve().parent)
@@ -26,6 +28,7 @@ PY_UTILS = str(pathlib.Path(SCRIPT_DIR) / 'py_utils')
 if PY_UTILS not in sys.path:
     os.stat(PY_UTILS) and sys.path.insert(0, PY_UTILS)
 import android_helper
+import angle_metrics
 import angle_path_util
 import angle_test_util
 
@@ -37,15 +40,15 @@ from tracing.value import histogram
 from tracing.value import histogram_set
 from tracing.value import merge_histograms
 
-ANGLE_PERFTESTS = 'angle_perftests'
+DEFAULT_TEST_SUITE = 'angle_perftests'
 DEFAULT_LOG = 'info'
-DEFAULT_SAMPLES = 4
-DEFAULT_TRIALS = 3
+DEFAULT_SAMPLES = 10
+DEFAULT_TRIALS = 4
 DEFAULT_MAX_ERRORS = 3
 
 # These parameters condition the test warmup to stabilize the scores across runs.
-DEFAULT_WARMUP_TRIALS = 1
-DEFAULT_TRIAL_TIME = 4
+DEFAULT_WARMUP_TRIALS = 2
+DEFAULT_TRIAL_TIME = 3
 
 # Test expectations
 FAIL = 'FAIL'
@@ -56,8 +59,13 @@ EXIT_FAILURE = 1
 EXIT_SUCCESS = 0
 
 
-def _filter_tests(tests, pattern):
-    return [test for test in tests if fnmatch.fnmatch(test, pattern)]
+@contextlib.contextmanager
+def temporary_dir(prefix=''):
+    path = tempfile.mkdtemp(prefix=prefix)
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path)
 
 
 def _shard_tests(tests, shard_count, shard_index):
@@ -79,13 +87,6 @@ def _get_results_from_output(output, result):
         return None
 
     return [float(value) for value in m]
-
-
-def _get_tests_from_output(output):
-    out_lines = output.split('\n')
-    start = out_lines.index('Tests list:')
-    end = out_lines.index('End tests list.')
-    return out_lines[start + 1:end]
 
 
 def _truncated_list(data, n):
@@ -121,7 +122,7 @@ def _coefficient_of_variation(data):
     return stddev / c
 
 
-def _save_extra_output_files(args, results, histograms):
+def _save_extra_output_files(args, results, histograms, metrics):
     isolated_out_dir = os.path.dirname(args.isolated_script_test_output)
     if not os.path.isdir(isolated_out_dir):
         return
@@ -134,6 +135,13 @@ def _save_extra_output_files(args, results, histograms):
     logging.info('Saving perf histograms to %s.' % perf_output_path)
     with open(perf_output_path, 'w') as out_file:
         out_file.write(json.dumps(histograms.AsDicts(), indent=2))
+
+    angle_metrics_path = os.path.join(benchmark_path, 'angle_metrics.json')
+    with open(angle_metrics_path, 'w') as f:
+        f.write(json.dumps(metrics, indent=2))
+
+    # Calling here to catch errors earlier (fail shard instead of merge script)
+    assert angle_metrics.ConvertToSkiaPerf([angle_metrics_path])
 
 
 class Results:
@@ -202,6 +210,14 @@ def _read_histogram(histogram_file_path):
         return histogram
 
 
+def _read_metrics(metrics_file_path):
+    try:
+        with open(metrics_file_path) as f:
+            return [json.loads(l) for l in f]
+    except FileNotFoundError:
+        return []
+
+
 def _merge_into_one_histogram(test_histogram_set):
     with common.temporary_file() as merge_histogram_path:
         logging.info('Writing merged histograms to %s.' % merge_histogram_path)
@@ -229,17 +245,10 @@ def _wall_times_stats(wall_times):
 
 
 def _run_test_suite(args, cmd_args, env):
-    android_test_runner_args = [
-        '--extract-test-list-from-filter',
-        '--enable-device-cache',
-        '--skip-clear-data',
-        '--use-existing-test-data',
-    ]
     return angle_test_util.RunTestSuite(
         args.test_suite,
         cmd_args,
         env,
-        runner_args=android_test_runner_args,
         use_xvfb=args.xvfb,
         show_test_stdout=args.show_test_stdout)
 
@@ -285,8 +294,10 @@ def _run_perf(args, common_args, env, steps_per_trial=None):
     if args.perf_counters:
         run_args += ['--perf-counters', args.perf_counters]
 
-    with common.temporary_file() as histogram_file_path:
+    with temporary_dir() as render_output_dir:
+        histogram_file_path = os.path.join(render_output_dir, 'histogram')
         run_args += ['--isolated-script-test-perf-output=%s' % histogram_file_path]
+        run_args += ['--render-test-output-dir=%s' % render_output_dir]
 
         exit_code, output, json_results = _run_test_suite(args, run_args, env)
         if exit_code != EXIT_SUCCESS:
@@ -294,10 +305,11 @@ def _run_perf(args, common_args, env, steps_per_trial=None):
         if SKIP in json_results['num_failures_by_type']:
             return SKIP, None, None
 
-        sample_wall_times = _get_results_from_output(output, 'wall_time')
-        if sample_wall_times:
+        sample_metrics = _read_metrics(os.path.join(render_output_dir, 'angle_metrics'))
+
+        if sample_metrics:
             sample_histogram = _read_histogram(histogram_file_path)
-            return PASS, sample_wall_times, sample_histogram
+            return PASS, sample_metrics, sample_histogram
 
     return FAIL, None, None
 
@@ -323,6 +335,7 @@ def _run_tests(tests, args, extra_flags, env):
     result_suffix = '_shard%d' % (args.shard_index if args.shard_index != None else None)
     results = Results(result_suffix)
     histograms = histogram_set.HistogramSet()
+    metrics = []
     total_errors = 0
     prepared_traces = set()
 
@@ -376,7 +389,7 @@ def _run_tests(tests, args, extra_flags, env):
         test_histogram_set = histogram_set.HistogramSet()
         for sample in range(args.samples_per_test):
             try:
-                test_status, sample_wall_times, sample_histogram = _run_perf(
+                test_status, sample_metrics, sample_histogram = _run_perf(
                     args, common_args, env, steps_per_trial)
             except RuntimeError as e:
                 logging.error(e)
@@ -388,10 +401,14 @@ def _run_tests(tests, args, extra_flags, env):
                 results.result_skip(test)
                 break
 
-            if not sample_wall_times:
+            if not sample_metrics:
                 logging.error('Test %s failed to produce a sample output' % test)
                 results.result_fail(test)
                 break
+
+            sample_wall_times = [
+                float(m['value']) for m in sample_metrics if m['metric'] == '.wall_time'
+            ]
 
             logging.info('Test %d/%d Sample %d/%d wall_times: %s' %
                          (test_index + 1, len(tests), sample + 1, args.samples_per_test,
@@ -405,6 +422,7 @@ def _run_tests(tests, args, extra_flags, env):
 
             wall_times += sample_wall_times
             test_histogram_set.Merge(sample_histogram)
+            metrics.append(sample_metrics)
 
         if not results.has_result(test):
             assert len(wall_times) == (args.samples_per_test * args.trials_per_sample)
@@ -414,12 +432,15 @@ def _run_tests(tests, args, extra_flags, env):
             histograms.Merge(_merge_into_one_histogram(test_histogram_set))
             results.result_pass(test)
 
-    return results, histograms
+    return results, histograms, metrics
 
 
 def _find_test_suite_directory(test_suite):
     if os.path.exists(angle_test_util.ExecutablePathInCurrentDir(test_suite)):
         return '.'
+
+    if angle_test_util.IsWindows():
+        test_suite += '.exe'
 
     # Find most recent binary in search paths.
     newest_binary = None
@@ -445,14 +466,60 @@ def _split_shard_samples(tests, samples_per_test, shard_count, shard_index):
     return [test for (test, sample) in shard_test_samples]
 
 
+def _should_lock_gpu_clocks():
+    if not angle_test_util.IsWindows():
+        return False
+
+    try:
+        gpu_info = subprocess.check_output(
+            ['nvidia-smi', '--query-gpu=gpu_name', '--format=csv,noheader']).decode()
+    except FileNotFoundError:
+        # expected in some cases, e.g. non-nvidia bots
+        return False
+
+    logging.info('nvidia-smi --query-gpu=gpu_name output: %s' % gpu_info)
+
+    return gpu_info.strip() == 'GeForce GTX 1660'
+
+
+def _log_nvidia_gpu_temperature():
+    t = subprocess.check_output(
+        ['nvidia-smi', '--query-gpu=temperature.gpu', '--format=csv,noheader']).decode().strip()
+    logging.info('Current GPU temperature: %s ' % t)
+
+
+@contextlib.contextmanager
+def _maybe_lock_gpu_clocks():
+    if not _should_lock_gpu_clocks():
+        yield
+        return
+
+    # Lock to 1410Mhz (`nvidia-smi --query-supported-clocks=gr --format=csv`)
+    lgc_out = subprocess.check_output(['nvidia-smi', '--lock-gpu-clocks=1410,1410']).decode()
+    logging.info('Lock GPU clocks output: %s' % lgc_out)
+    _log_nvidia_gpu_temperature()
+    try:
+        yield
+    finally:
+        rgc_out = subprocess.check_output(['nvidia-smi', '--reset-gpu-clocks']).decode()
+        logging.info('Reset GPU clocks output: %s' % rgc_out)
+        _log_nvidia_gpu_temperature()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--isolated-script-test-output', type=str)
     parser.add_argument('--isolated-script-test-perf-output', type=str)
     parser.add_argument(
         '-f', '--filter', '--isolated-script-test-filter', type=str, help='Test filter.')
-    parser.add_argument(
-        '--test-suite', '--suite', help='Test suite to run.', default=ANGLE_PERFTESTS)
+    suite_group = parser.add_mutually_exclusive_group()
+    suite_group.add_argument(
+        '--test-suite', '--suite', help='Test suite to run.', default=DEFAULT_TEST_SUITE)
+    suite_group.add_argument(
+        '-T',
+        '--trace-tests',
+        help='Run with the angle_trace_tests test suite.',
+        action='store_true')
     parser.add_argument('--xvfb', help='Use xvfb.', action='store_true')
     parser.add_argument(
         '--shard-count',
@@ -519,6 +586,9 @@ def main():
 
     args, extra_flags = parser.parse_known_args()
 
+    if args.trace_tests:
+        args.test_suite = angle_test_util.ANGLE_TRACE_TEST_SUITE
+
     angle_test_util.SetupLogging(args.log.upper())
 
     start_time = time.time()
@@ -545,16 +615,14 @@ def main():
     angle_test_util.Initialize(args.test_suite)
 
     # Get test list
-    if angle_test_util.IsAndroid():
-        tests = android_helper.ListTests(args.test_suite)
-    else:
-        exit_code, output, _ = _run_test_suite(args, ['--list-tests', '--verbose'], env)
-        if exit_code != EXIT_SUCCESS:
-            logging.fatal('Could not find test list from test output:\n%s' % output)
-        tests = _get_tests_from_output(output)
+    exit_code, output, _ = _run_test_suite(args, ['--list-tests', '--verbose'] + extra_flags, env)
+    if exit_code != EXIT_SUCCESS:
+        logging.fatal('Could not find test list from test output:\n%s' % output)
+        sys.exit(EXIT_FAILURE)
+    tests = angle_test_util.GetTestsFromOutput(output)
 
     if args.filter:
-        tests = _filter_tests(tests, args.filter)
+        tests = angle_test_util.FilterTests(tests, args.filter)
 
     # Get tests for this shard (if using sharding args)
     if args.split_shard_samples and args.shard_count >= args.samples_per_test:
@@ -569,13 +637,14 @@ def main():
         logging.error('No tests to run.')
         return EXIT_FAILURE
 
-    if angle_test_util.IsAndroid() and args.test_suite == ANGLE_PERFTESTS:
+    if angle_test_util.IsAndroid() and args.test_suite == android_helper.ANGLE_TRACE_TEST_SUITE:
         android_helper.RunSmokeTest()
 
     logging.info('Running %d test%s' % (len(tests), 's' if len(tests) > 1 else ' '))
 
     try:
-        results, histograms = _run_tests(tests, args, extra_flags, env)
+        with _maybe_lock_gpu_clocks():
+            results, histograms, metrics = _run_tests(tests, args, extra_flags, env)
     except _MaxErrorsException:
         logging.error('Error count exceeded max errors (%d). Aborting.' % args.max_errors)
         return EXIT_FAILURE
@@ -587,7 +656,7 @@ def main():
         results.save_to_output_file(args.test_suite, args.isolated_script_test_output)
 
         # Uses special output files to match the merge script.
-        _save_extra_output_files(args, results, histograms)
+        _save_extra_output_files(args, results, histograms, metrics)
 
     if args.isolated_script_test_perf_output:
         with open(args.isolated_script_test_perf_output, 'w') as out_file:

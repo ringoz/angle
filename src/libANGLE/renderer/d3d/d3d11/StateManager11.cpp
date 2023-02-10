@@ -604,6 +604,18 @@ void ShaderConstants11::onClipControlChange(bool lowerLeft, bool zeroToOne)
     mShaderConstantsDirty.set(gl::ShaderType::Vertex);
 }
 
+bool ShaderConstants11::onClipDistancesEnabledChange(const uint32_t value)
+{
+    ASSERT(value == (value & 0xFF));
+    const bool clipDistancesEnabledDirty = (mVertex.clipDistancesEnabled != value);
+    if (clipDistancesEnabledDirty)
+    {
+        mVertex.clipDistancesEnabled = value;
+        mShaderConstantsDirty.set(gl::ShaderType::Vertex);
+    }
+    return clipDistancesEnabledDirty;
+}
+
 angle::Result ShaderConstants11::updateBuffer(const gl::Context *context,
                                               Renderer11 *renderer,
                                               gl::ShaderType shaderType,
@@ -743,6 +755,7 @@ StateManager11::StateManager11(Renderer11 *renderer)
     mCurRasterState.polygonOffsetFill   = false;
     mCurRasterState.polygonOffsetFactor = 0.0f;
     mCurRasterState.polygonOffsetUnits  = 0.0f;
+    mCurRasterState.polygonOffsetClamp  = 0.0f;
     mCurRasterState.pointDrawMode       = false;
     mCurRasterState.multiSample         = false;
     mCurRasterState.dither              = false;
@@ -1097,7 +1110,8 @@ void StateManager11::syncState(const gl::Context *context,
             {
                 const gl::RasterizerState &rasterState = state.getRasterizerState();
                 if (rasterState.polygonOffsetFactor != mCurRasterState.polygonOffsetFactor ||
-                    rasterState.polygonOffsetUnits != mCurRasterState.polygonOffsetUnits)
+                    rasterState.polygonOffsetUnits != mCurRasterState.polygonOffsetUnits ||
+                    rasterState.polygonOffsetClamp != mCurRasterState.polygonOffsetClamp)
                 {
                     mInternalDirtyBits.set(DIRTY_BIT_RASTERIZER_STATE);
                 }
@@ -1230,6 +1244,13 @@ void StateManager11::syncState(const gl::Context *context,
                         case gl::State::EXTENDED_DIRTY_BIT_CLIP_CONTROL:
                             checkPresentPath(context);
                             break;
+                        case gl::State::EXTENDED_DIRTY_BIT_CLIP_DISTANCES:
+                            if (mShaderConstants.onClipDistancesEnabledChange(
+                                    state.getEnabledClipDistances().bits()))
+                            {
+                                mInternalDirtyBits.set(DIRTY_BIT_DRIVER_UNIFORMS);
+                            }
+                            break;
                     }
                 }
                 break;
@@ -1266,7 +1287,7 @@ angle::Result StateManager11::syncBlendState(const gl::Context *context,
 {
     const d3d11::BlendState *dxBlendState = nullptr;
     const d3d11::BlendStateKey &key       = RenderStateCache::GetBlendStateKey(
-              context, mFramebuffer11, blendStateExt, sampleAlphaToCoverage);
+        context, mFramebuffer11, blendStateExt, sampleAlphaToCoverage);
 
     ANGLE_TRY(mRenderer->getBlendState(context, key, &dxBlendState));
 

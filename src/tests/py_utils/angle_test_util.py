@@ -4,6 +4,7 @@
 
 import contextlib
 import datetime
+import fnmatch
 import json
 import importlib
 import io
@@ -21,6 +22,9 @@ import angle_path_util
 angle_path_util.AddDepsDirToPath('testing/scripts')
 import common
 import xvfb
+
+
+ANGLE_TRACE_TEST_SUITE = 'angle_trace_tests'
 
 
 def Initialize(suite_name):
@@ -148,17 +152,16 @@ def run_command_with_output(argv, stdoutfile, env=None, cwd=None, log=True):
 def RunTestSuite(test_suite,
                  cmd_args,
                  env,
-                 runner_args=None,
                  show_test_stdout=True,
                  use_xvfb=False):
     if android_helper.IsAndroid():
         result, output, json_results = android_helper.RunTests(
             test_suite, cmd_args, log_output=show_test_stdout)
-        return result, output.decode(), json_results
+        return result, output, json_results
 
     cmd = ExecutablePathInCurrentDir(test_suite) if os.path.exists(
         os.path.basename(test_suite)) else test_suite
-    runner_cmd = [cmd] + cmd_args + (runner_args or [])
+    runner_cmd = [cmd] + cmd_args
 
     logging.debug(' '.join(runner_cmd))
     with contextlib.ExitStack() as stack:
@@ -186,3 +189,17 @@ def RunTestSuite(test_suite,
             json_results = json.loads(data) if data else None  # --list-tests => empty file
 
     return exit_code, output, json_results
+
+
+def GetTestsFromOutput(output):
+    out_lines = output.split('\n')
+    start = out_lines.index('Tests list:')
+    end = out_lines.index('End tests list.')
+    return out_lines[start + 1:end]
+
+
+def FilterTests(tests, test_filter):
+    matches = set()
+    for single_filter in test_filter.split(':'):
+        matches.update(fnmatch.filter(tests, single_filter))
+    return sorted(matches)

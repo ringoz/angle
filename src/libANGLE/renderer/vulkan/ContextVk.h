@@ -37,6 +37,7 @@ class SyncHelper;
 class ProgramExecutableVk;
 class RendererVk;
 class WindowSurfaceVk;
+class OffscreenSurfaceVk;
 class ShareGroupVk;
 
 static constexpr uint32_t kMaxGpuEventNameLen = 32;
@@ -268,7 +269,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     // isYFlipEnabledForDrawFBO indicates the rendered image is upside-down.
     ANGLE_INLINE bool isYFlipEnabledForDrawFBO() const
     {
-        return mState.getClipSpaceOrigin() == gl::ClipSpaceOrigin::UpperLeft
+        return mState.getClipOrigin() == gl::ClipOrigin::UpperLeft
                    ? !isViewportFlipEnabledForDrawFBO()
                    : isViewportFlipEnabledForDrawFBO();
     }
@@ -286,6 +287,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     // Context switching
     angle::Result onMakeCurrent(const gl::Context *context) override;
     angle::Result onUnMakeCurrent(const gl::Context *context) override;
+    angle::Result onSurfaceUnMakeCurrent(WindowSurfaceVk *surface);
+    angle::Result onSurfaceUnMakeCurrent(OffscreenSurfaceVk *surface);
 
     // Native capabilities, unmodified by gl::Context.
     gl::Caps getNativeCaps() const override;
@@ -363,9 +366,13 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     angle::Result releaseTextures(const gl::Context *context,
                                   gl::TextureBarrierVector *textureBarriers) override;
 
+    // Sets effective Context Priority. Changed by ShareGroupVk.
+    void setPriority(egl::ContextPriority newPriority) { mContextPriority = newPriority; }
+
     VkDevice getDevice() const;
+    // Effective Context Priority
     egl::ContextPriority getPriority() const { return mContextPriority; }
-    bool hasProtectedContent() const { return mState.hasProtectedContent(); }
+    vk::ProtectionType getProtectionType() const { return mProtectionType; }
 
     ANGLE_INLINE const angle::FeaturesVk &getFeatures() const { return mRenderer->getFeatures(); }
 
@@ -519,28 +526,30 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
                      uint32_t layerCount,
                      vk::ImageHelper *image,
                      vk::ImageHelper *resolveImage,
+                     UniqueSerial imageSiblingSerial,
                      vk::PackedAttachmentIndex packedAttachmentIndex)
     {
         ASSERT(mRenderPassCommands->started());
         mRenderPassCommands->colorImagesDraw(level, layerStart, layerCount, image, resolveImage,
-                                             packedAttachmentIndex);
+                                             imageSiblingSerial, packedAttachmentIndex);
     }
     void onDepthStencilDraw(gl::LevelIndex level,
                             uint32_t layerStart,
                             uint32_t layerCount,
                             vk::ImageHelper *image,
-                            vk::ImageHelper *resolveImage)
+                            vk::ImageHelper *resolveImage,
+                            UniqueSerial imageSiblingSerial)
     {
         ASSERT(mRenderPassCommands->started());
         mRenderPassCommands->depthStencilImagesDraw(level, layerStart, layerCount, image,
-                                                    resolveImage);
+                                                    resolveImage, imageSiblingSerial);
     }
 
-    void finalizeImageLayout(const vk::ImageHelper *image)
+    void finalizeImageLayout(const vk::ImageHelper *image, UniqueSerial imageSiblingSerial)
     {
         if (mRenderPassCommands->started())
         {
-            mRenderPassCommands->finalizeImageLayout(this, image);
+            mRenderPassCommands->finalizeImageLayout(this, image, imageSiblingSerial);
         }
     }
 
@@ -631,7 +640,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     uint32_t getCurrentSubpassIndex() const;
     uint32_t getCurrentViewCount() const;
 
-    egl::ContextPriority getContextPriority() const override { return mContextPriority; }
+    // Initial Context Priority. Used for EGL_CONTEXT_PRIORITY_LEVEL_IMG attribute.
+    egl::ContextPriority getContextPriority() const override { return mInitialContextPriority; }
     angle::Result startRenderPass(gl::Rectangle renderArea,
                                   vk::RenderPassCommandBuffer **commandBufferOut,
                                   bool *renderPassDescChangedOut);
@@ -686,7 +696,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     // Keeping track of the buffer copy size. Used to determine when to submit the outside command
     // buffer.
-    angle::Result onCopyUpdate(VkDeviceSize size);
+    angle::Result onCopyUpdate(VkDeviceSize size, bool *commandBufferWasFlushedOut);
 
     // Implementation of MultisampleTextureInitializer
     angle::Result initializeMultisampleTextureToBlack(const gl::Context *context,
@@ -706,9 +716,11 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     void flushDescriptorSetUpdates();
 
-    vk::BufferPool *getDefaultBufferPool(VkDeviceSize size, uint32_t memoryTypeIndex)
+    vk::BufferPool *getDefaultBufferPool(VkDeviceSize size,
+                                         uint32_t memoryTypeIndex,
+                                         BufferUsageType usageType)
     {
-        return mShareGroupVk->getDefaultBufferPool(mRenderer, size, memoryTypeIndex);
+        return mShareGroupVk->getDefaultBufferPool(mRenderer, size, memoryTypeIndex, usageType);
     }
 
     angle::Result allocateStreamedVertexBuffer(size_t attribIndex,
@@ -777,6 +789,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     {
         return hasUnsubmittedUse(resource.getResourceUse());
     }
+
+    const QueueSerial &getLastSubmittedQueueSerial() const { return mLastSubmittedQueueSerial; }
 
   private:
     // Dirty bits.
@@ -1453,6 +1467,13 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     // We use a single pool for recording commands. We also keep a free list for pool recycling.
     vk::SecondaryCommandPools mCommandPools;
 
+    // Per context queue serial
+    SerialIndex mCurrentQueueSerialIndex;
+    QueueSerial mLastFlushedQueueSerial;
+    QueueSerial mLastSubmittedQueueSerial;
+    // All submitted queue serials over the life time of this context.
+    vk::ResourceUse mSubmittedResourceUse;
+
     // The garbage list for single context use objects. The list will be GPU tracked by next
     // submission queueSerial. Note: Resource based shared object should always be added to
     // renderer's mSharedGarbage.
@@ -1526,9 +1547,12 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     // buffer for the outside render pass.
     VkDeviceSize mTotalBufferToImageCopySize;
 
-    // Semaphores that must be waited on in the next submission.
+    // Semaphores that must be flushed before the current commands. Flushed semaphores will be
+    // waited on in the next submission.
     std::vector<VkSemaphore> mWaitSemaphores;
     std::vector<VkPipelineStageFlags> mWaitSemaphoreStageMasks;
+    // Whether this context has wait semaphores (flushed and unflushed) that must be submitted.
+    bool mHasWaitSemaphoresPendingSubmission;
 
     // Hold information from the last gpu clock sync for future gpu-to-cpu timestamp conversions.
     GpuClockSyncInfo mGpuClockSync;
@@ -1543,7 +1567,9 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     gl::State::DirtyBits mPipelineDirtyBitsMask;
 
+    egl::ContextPriority mInitialContextPriority;
     egl::ContextPriority mContextPriority;
+    vk::ProtectionType mProtectionType;
 
     ShareGroupVk *mShareGroupVk;
 
@@ -1623,8 +1649,7 @@ ANGLE_INLINE angle::Result ContextVk::onVertexAttributeChange(size_t attribIndex
 
 ANGLE_INLINE bool ContextVk::hasUnsubmittedUse(const vk::ResourceUse &use) const
 {
-    return mCurrentQueueSerialIndex != kInvalidQueueSerialIndex &&
-           use > QueueSerial(mCurrentQueueSerialIndex, mLastSubmittedSerial);
+    return mCurrentQueueSerialIndex != kInvalidQueueSerialIndex && use > mLastSubmittedQueueSerial;
 }
 
 ANGLE_INLINE bool UseLineRaster(const ContextVk *contextVk, gl::PrimitiveMode mode)

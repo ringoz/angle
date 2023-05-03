@@ -16,6 +16,7 @@
 #include "common/debug.h"
 #include "image_util/loadimage.h"
 #include "libANGLE/Display.h"
+#include "libANGLE/Query.h"
 #include "libANGLE/TransformFeedback.h"
 #include "libANGLE/renderer/OverlayImpl.h"
 #include "libANGLE/renderer/metal/BufferMtl.h"
@@ -1361,7 +1362,6 @@ angle::Result ContextMtl::syncState(const gl::Context *context,
                 break;
             case gl::State::DIRTY_BIT_EXTENDED:
                 updateExtendedState(glState);
-                // Nothing to do until EXT_clip_control is implemented.
                 break;
             case gl::State::DIRTY_BIT_SAMPLE_SHADING:
                 // Nothing to do until OES_sample_shading is implemented.
@@ -1380,20 +1380,39 @@ angle::Result ContextMtl::syncState(const gl::Context *context,
 
 void ContextMtl::updateExtendedState(const gl::State &glState)
 {
-    // Handling clip distance enabled flags, mipmap generation hint & shader derivative
-    // hint.
-    invalidateDriverUniforms();
+    gl::State::ExtendedDirtyBits extendedDirtyBits = glState.getAndResetExtendedDirtyBits();
+    for (size_t extendedDirtyBit : extendedDirtyBits)
+    {
+        switch (extendedDirtyBit)
+        {
+            case gl::State::EXTENDED_DIRTY_BIT_CLIP_CONTROL:
+                updateFrontFace(glState);
+                invalidateDriverUniforms();
+                break;
+            case gl::State::EXTENDED_DIRTY_BIT_CLIP_DISTANCES:
+                invalidateDriverUniforms();
+                break;
+            case gl::State::EXTENDED_DIRTY_BIT_DEPTH_CLAMP_ENABLED:
+                mDirtyBits.set(DIRTY_BIT_DEPTH_CLIP_MODE);
+                break;
+            default:
+                break;
+        }
+    }
 }
 
 // Disjoint timer queries
 GLint ContextMtl::getGPUDisjoint()
 {
-    UNIMPLEMENTED();
+    // Implementation currently is not affected by this.
     return 0;
 }
+
 GLint64 ContextMtl::getTimestamp()
 {
-    UNIMPLEMENTED();
+    // Timestamps are currently unsupported. An implementation
+    // strategy is written up in anglebug.com/7828 if they're needed
+    // in the future.
     return 0;
 }
 
@@ -1401,6 +1420,11 @@ GLint64 ContextMtl::getTimestamp()
 angle::Result ContextMtl::onMakeCurrent(const gl::Context *context)
 {
     invalidateState(context);
+    gl::Query *query = mState.getActiveQuery(gl::QueryType::TimeElapsed);
+    if (query)
+    {
+        GetImplAs<QueryMtl>(query)->onContextMakeCurrent(context);
+    }
     return angle::Result::Continue;
 }
 angle::Result ContextMtl::onUnMakeCurrent(const gl::Context *context)
@@ -1411,6 +1435,11 @@ angle::Result ContextMtl::onUnMakeCurrent(const gl::Context *context)
     // to be flushed. This is a temporary fix and we should probably refactor
     // this later. See TODO(anglebug.com/7138)
     flushCommandBuffer(mtl::WaitUntilScheduled);
+    gl::Query *query = mState.getActiveQuery(gl::QueryType::TimeElapsed);
+    if (query)
+    {
+        GetImplAs<QueryMtl>(query)->onContextUnMakeCurrent(context);
+    }
     return angle::Result::Continue;
 }
 
@@ -1754,11 +1783,6 @@ void ContextMtl::endRenderEncoding(mtl::RenderCommandEncoder *encoder)
         disableActiveOcclusionQueryInRenderPass();
     }
 
-    if (mBlitEncoder.valid())
-    {
-        mBlitEncoder.endEncoding();
-    }
-
     encoder->endEncoding();
 
     // Resolve visibility results
@@ -1851,16 +1875,6 @@ bool ContextMtl::hasStartedRenderPass(const mtl::RenderPassDesc &desc)
 {
     return mRenderEncoder.valid() &&
            mRenderEncoder.renderPassDesc().equalIgnoreLoadStoreOptions(desc);
-}
-
-bool ContextMtl::isCurrentRenderEncoderSerial(uint64_t serial)
-{
-    if (!mRenderEncoder.valid())
-    {
-        return false;
-    }
-
-    return serial == mRenderEncoder.getSerial();
 }
 
 // Get current render encoder
@@ -1964,11 +1978,6 @@ mtl::RenderCommandEncoder *ContextMtl::getRenderTargetCommandEncoder(
 
 mtl::BlitCommandEncoder *ContextMtl::getBlitCommandEncoder()
 {
-    if (mRenderEncoder.valid() || mComputeEncoder.valid())
-    {
-        endEncoding(true);
-    }
-
     if (mBlitEncoder.valid())
     {
         return &mBlitEncoder;
@@ -1995,11 +2004,6 @@ mtl::BlitCommandEncoder *ContextMtl::getBlitCommandEncoderWithoutEndingRenderEnc
 
 mtl::ComputeCommandEncoder *ContextMtl::getComputeCommandEncoder()
 {
-    if (mRenderEncoder.valid() || mBlitEncoder.valid())
-    {
-        endEncoding(true);
-    }
-
     if (mComputeEncoder.valid())
     {
         return &mComputeEncoder;
@@ -2161,8 +2165,9 @@ void ContextMtl::updateCullMode(const gl::State &glState)
 void ContextMtl::updateFrontFace(const gl::State &glState)
 {
     FramebufferMtl *framebufferMtl = mtl::GetImpl(glState.getDrawFramebuffer());
-    mWinding =
-        mtl::GetFontfaceWinding(glState.getRasterizerState().frontFace, !framebufferMtl->flipY());
+    const bool upperLeftOrigin     = mState.getClipOrigin() == gl::ClipOrigin::UpperLeft;
+    mWinding = mtl::GetFrontfaceWinding(glState.getRasterizerState().frontFace,
+                                        framebufferMtl->flipY() == upperLeftOrigin);
     mDirtyBits.set(DIRTY_BIT_WINDING);
 }
 
@@ -2547,6 +2552,10 @@ angle::Result ContextMtl::setupDrawImpl(const gl::Context *context,
             case DIRTY_BIT_DEPTH_BIAS:
                 ANGLE_TRY(handleDirtyDepthBias(context));
                 break;
+            case DIRTY_BIT_DEPTH_CLIP_MODE:
+                mRenderEncoder.setDepthClipMode(
+                    mState.isDepthClampEnabled() ? MTLDepthClipModeClamp : MTLDepthClipModeClip);
+                break;
             case DIRTY_BIT_STENCIL_REF:
                 mRenderEncoder.setStencilRefVals(mStencilRefFront, mStencilRefBack);
                 break;
@@ -2725,14 +2734,20 @@ angle::Result ContextMtl::handleDirtyDriverUniforms(const gl::Context *context,
 
     const float flipX      = 1.0;
     const float flipY      = mDrawFramebuffer->flipY() ? -1.0f : 1.0f;
-    mDriverUniforms.flipXY = gl::PackSnorm4x8(flipX, flipY, flipX, -flipY);
+    mDriverUniforms.flipXY = gl::PackSnorm4x8(
+        flipX, flipY, flipX, mState.getClipOrigin() == gl::ClipOrigin::LowerLeft ? -flipY : flipY);
 
     // gl_ClipDistance
     const uint32_t enabledClipDistances = mState.getEnabledClipDistances().bits();
     ASSERT((enabledClipDistances & ~sh::vk::kDriverUniformsMiscEnabledClipPlanesMask) == 0);
 
-    mDriverUniforms.misc = enabledClipDistances
-                           << sh::vk::kDriverUniformsMiscEnabledClipPlanesOffset;
+    // GL_CLIP_DEPTH_MODE_EXT
+    const uint32_t transformDepth = !mState.isClipDepthModeZeroToOne();
+    ASSERT((transformDepth & ~sh::vk::kDriverUniformsMiscTransformDepthMask) == 0);
+
+    mDriverUniforms.misc =
+        (enabledClipDistances << sh::vk::kDriverUniformsMiscEnabledClipPlanesOffset) |
+        (transformDepth << sh::vk::kDriverUniformsMiscTransformDepthOffset);
 
     // Sample coverage mask
     const uint32_t sampleBitCount = mDrawFramebuffer->getSamples();
@@ -2915,8 +2930,7 @@ angle::Result ContextMtl::copyTextureSliceLevelToWorkBuffer(
     // Expand the buffer if it is not big enough.
     if (!mWorkBuffer || mWorkBuffer->size() < sizeInBytes)
     {
-        ANGLE_TRY(mtl::Buffer::MakeBufferWithSharedMemOpt(this, true, sizeInBytes, nullptr,
-                                                          &mWorkBuffer));
+        ANGLE_TRY(mtl::Buffer::MakeBuffer(this, sizeInBytes, nullptr, &mWorkBuffer));
     }
 
     gl::Rectangle region(0, 0, width, height);

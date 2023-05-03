@@ -402,6 +402,12 @@ Texture::Texture(ContextMtl *context,
         {
             ASSERT(allowFormatView);
         }
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+        if (desc.pixelFormat == MTLPixelFormatDepth24Unorm_Stencil8)
+        {
+            ASSERT(allowFormatView);
+        }
+#endif
 
         if (allowFormatView)
         {
@@ -482,7 +488,7 @@ Texture::Texture(Texture *original, MTLTextureType type, NSRange mipmapLevelRang
     }
 }
 
-Texture::Texture(Texture *original, const TextureSwizzleChannels &swizzle)
+Texture::Texture(Texture *original, MTLPixelFormat format, const TextureSwizzleChannels &swizzle)
     : Resource(original),
       mColorWritableMask(original->mColorWritableMask)  // Share color write mask property
 {
@@ -490,7 +496,7 @@ Texture::Texture(Texture *original, const TextureSwizzleChannels &swizzle)
     ANGLE_MTL_OBJC_SCOPE
     {
         auto view = [original->get()
-            newTextureViewWithPixelFormat:original->pixelFormat()
+            newTextureViewWithPixelFormat:format
                               textureType:original->textureType()
                                    levels:NSMakeRange(0, original->mipmapLevels())
                                    slices:NSMakeRange(0, original->cubeFacesOrArrayLength())
@@ -709,10 +715,10 @@ TextureRef Texture::createViewWithCompatibleFormat(MTLPixelFormat format)
     return TextureRef(new Texture(this, format));
 }
 
-TextureRef Texture::createSwizzleView(const TextureSwizzleChannels &swizzle)
+TextureRef Texture::createSwizzleView(MTLPixelFormat format, const TextureSwizzleChannels &swizzle)
 {
 #if ANGLE_MTL_SWIZZLE_AVAILABLE
-    return TextureRef(new Texture(this, swizzle));
+    return TextureRef(new Texture(this, format, swizzle));
 #else
     WARN() << "Texture swizzle is not supported on pre iOS 13.0 and macOS 15.0";
     UNIMPLEMENTED();
@@ -1091,9 +1097,8 @@ void Buffer::flush(ContextMtl *context, size_t offsetWritten, size_t sizeWritten
     {
         if (get().storageMode == MTLStorageModeManaged)
         {
-            size_t bufferSize  = size();
-            size_t startOffset = std::min(offsetWritten, bufferSize);
-            size_t endOffset   = std::min(offsetWritten + sizeWritten, bufferSize);
+            size_t startOffset = std::min(offsetWritten, size());
+            size_t endOffset   = std::min(offsetWritten + sizeWritten, size());
             size_t clampedSize = endOffset - startOffset;
             if (clampedSize > 0)
             {

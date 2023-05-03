@@ -112,10 +112,6 @@
 #    include <stddef.h>
 #endif
 
-// The MemoryBarrier function name collides with a macro under Windows
-// We will undef the macro so that the function name does not get replaced
-#undef MemoryBarrier
-
 // Macro for hinting that an expression is likely to be true/false.
 #if !defined(ANGLE_LIKELY) || !defined(ANGLE_UNLIKELY)
 #    if defined(__GNUC__) || defined(__clang__)
@@ -199,7 +195,7 @@
 #    define ANGLE_WITH_SANITIZER 1
 #endif  // defined(ANGLE_WITH_ASAN) || defined(ANGLE_WITH_TSAN) || defined(ANGLE_WITH_UBSAN)
 
-#include <cstdint>
+#include <stdint.h>
 #if INTPTR_MAX == INT64_MAX
 #    define ANGLE_IS_64_BIT_CPU 1
 #else

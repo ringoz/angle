@@ -26,7 +26,7 @@
 
 // Version number for shader translation API.
 // It is incremented every time the API changes.
-#define ANGLE_SH_VERSION 319
+#define ANGLE_SH_VERSION 321
 
 enum ShShaderSpec
 {
@@ -453,6 +453,7 @@ struct ShBuiltInResources
     int NV_EGL_stream_consumer_external;
     int ARB_texture_rectangle;
     int EXT_blend_func_extended;
+    int EXT_conservative_depth;
     int EXT_draw_buffers;
     int EXT_frag_depth;
     int EXT_shader_texture_lod;
@@ -684,7 +685,8 @@ using ShHandle = void *;
 
 namespace sh
 {
-using BinaryBlob = std::vector<uint32_t>;
+using BinaryBlob       = std::vector<uint32_t>;
+using ShaderBinaryBlob = std::vector<uint8_t>;
 
 //
 // Driver must call this first, once, before doing any other compiler operations.
@@ -773,6 +775,15 @@ const std::string &GetObjectCode(const ShHandle handle);
 // Parameters:
 // handle: Specifies the compiler
 const BinaryBlob &GetObjectBinaryBlob(const ShHandle handle);
+
+// Returns a full binary for a compiled shader, to be loaded with glShaderBinary during runtime.
+// Parameters:
+// handle: Specifies the compiler
+bool GetShaderBinary(const ShHandle handle,
+                     const char *const shaderStrings[],
+                     size_t numStrings,
+                     const ShCompileOptions &compileOptions,
+                     ShaderBinaryBlob *const binaryOut);
 
 // Returns a (original_name, hash) map containing all the user defined names in the shader,
 // including variable names, function names, struct names, and struct field names.
